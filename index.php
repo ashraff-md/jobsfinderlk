@@ -130,8 +130,7 @@
                 <div class="col-md-6 col-sm-6 col-12">
                   <input type="text" class="form-control" id="keyword" placeholder="Keyword">
                 </div>
-
-
+                
                 <?php
                 // Establish a connection to your database
                 $servername = "localhost";

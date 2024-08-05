@@ -23,8 +23,9 @@
 
   <style>
     body {
-        background-color: #2C3333;
+      background-color: #2C3333;
     }
+
     .hero {
       background-image: url('assets/images/bg.jpg');
       background-position: center center;
@@ -34,7 +35,7 @@
       padding-bottom: 2rem;
     }
 
-    .Blur{
+    .Blur {
       backdrop-filter: blur(4px);
       background-color: #0c15389b;
       border-radius: 10px;
@@ -65,12 +66,12 @@
       /* For desktop: */
 
       .hero {
-      background-image: url('assets/images/bg.jpg');
-      background-position: center center;
-      background-repeat: no-repeat;
-      background-size: cover;
-      background-color: rgb(228, 228, 228);
-    }
+        background-image: url('assets/images/bg.jpg');
+        background-position: center center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        background-color: rgb(228, 228, 228);
+      }
 
       #search {
         max-width: 760px;
@@ -129,65 +130,85 @@
                 <div class="col-md-6 col-sm-6 col-12">
                   <input type="text" class="form-control" id="keyword" placeholder="Keyword">
                 </div>
+
+
+                <?php
+                // Establish a connection to your database
+                $servername = "localhost";
+                $username = "root";
+                $password = "";
+                $dbname = "jobsfinder";
+
+                $conn = new mysqli($servername, $username, $password, $dbname);
+
+                // Check connection
+                if ($conn->connect_error) {
+                  die("Connection failed: " . $conn->connect_error);
+                }
+
+                // Function to generate dropdown options
+                function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId, $defaultText)
+                {
+                  $sql = "SELECT * FROM $tableName";
+                  $result = $conn->query($sql);
+
+                  if ($result->num_rows > 0) {
+                    echo "<select class='form-select' aria-label='$selectId' id='$selectId'>";
+                    echo "<option selected>$defaultText</option>";
+                    while ($row = $result->fetch_assoc()) {
+                      echo "<option value='" . $row[$idField] . "'>" . $row[$nameField] . "</option>";
+                    }
+                    echo "</select>";
+                  } else {
+                    echo "No options found.";
+                  }
+                }
+                ?>
+
+                <!-- Locations dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <select class="form-select" aria-label="Location" id="location">
-                    <option selected>Location</option>
-                    <option value="1">Colombo</option>
-                    <option value="2">Gampaha</option>
-                    <option value="3">Kalutara</option>
-                    <option value="4">Kandy</option>
-                    <option value="5">Matale</option>
-                    <option value="6">Nuwara Eliya</option>
-                    <option value="7">Ratnapura</option>
-                    <option value="8">Galle</option>
-                    <option value="9">Matara</option>
-                    <option value="10">Hambantota</option>
-                    <option value="11">Monaragala</option>
-                    <option value="12">Badulla</option>
-                    <option value="13">Polonnaruwa</option>
-                  </select>
+                  <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location", "Location"); ?>
                 </div>
+
+                <!-- Categories dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <select class="form-select" aria-label="Category" id="category">
-                    <option selected>Category</option>
-                    <option value="1">Category 1</option>
-                    <option value="2">Category 2</option>
-                    <option value="3">Category 3</option>
-                  </select>
+                  <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category", "Category"); ?>
                 </div>
+
+                <!-- Qualifications dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <select class="form-select" aria-label="Qualification" id="qualification">
-                    <option selected>Qualification</option>
-                    <option value="1">O/L</option>
-                    <option value="2">A/L</option>
-                    <option value="3">Diploma</option>
-                    <option value="4">Degree</option>
-                  </select>
+                  <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification", "Qualification"); ?>
                 </div>
+
+                <!-- Experience dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <select class="form-select" aria-label="Experience" id="experience">
-                    <option selected>Experience</option>
-                    <option value="1">0-3 years</option>
-                    <option value="2">3-6 years</option>
-                    <option value="3">6-10 years</option>
-                    <option value="4">10+ years</option>
-                  </select>
+                  <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience", "Experience"); ?>
                 </div>
+                
                 <div class="col-md-6 col-sm-6 col-12">
                   <input type="number" class="form-control" id="age" placeholder="Age">
                 </div>
-                <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-4">
-                  <button type="submit" class="btn btn-light">Search</button>
-                </div>
-                <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-1">
-                  <a href="#">Explore all ads</a>
-                </div>
+
               </div>
-            </form>
+
+
+              <?php
+              // Close the database connection
+              $conn->close();
+              ?>
+
+              <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-4">
+                <button type="submit" class="btn btn-light">Search</button>
+              </div>
+              <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-1">
+                <a href="#">Explore all ads</a>
+              </div>
           </div>
+          </form>
         </div>
       </div>
     </div>
+  </div>
   </div>
 
   <br><br><br>

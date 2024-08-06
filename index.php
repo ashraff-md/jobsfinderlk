@@ -141,14 +141,19 @@
                 }
 
                 // Function to generate dropdown options
-                function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId, $defaultText)
+                function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId)
                 {
                   $sql = "SELECT * FROM $tableName";
                   $result = $conn->query($sql);
 
                   if ($result->num_rows > 0) {
+                    // Fetch the first row to set as the default option
+                    $firstRow = $result->fetch_assoc();
+
                     echo "<select class='form-select' aria-label='$selectId' id='$selectId'>";
-                    echo "<option selected>$defaultText</option>";
+                    echo "<option selected value='" . $firstRow[$idField] . "'>" . $firstRow[$nameField] . "</option>";
+
+                    // Fetch the rest of the rows
                     while ($row = $result->fetch_assoc()) {
                       echo "<option value='" . $row[$idField] . "'>" . $row[$nameField] . "</option>";
                     }
@@ -161,22 +166,22 @@
 
                 <!-- Locations dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location", "Location"); ?>
+                  <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location"); ?>
                 </div>
 
                 <!-- Categories dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category", "Category"); ?>
+                  <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category"); ?>
                 </div>
 
                 <!-- Qualifications dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification", "Qualification"); ?>
+                  <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification"); ?>
                 </div>
 
                 <!-- Experience dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience", "Experience"); ?>
+                  <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience"); ?>
                 </div>
 
                 <div class="col-md-6 col-sm-6 col-12">
@@ -184,11 +189,11 @@
                 </div>
               </div>
 
-
               <?php
               // Close the database connection
               $conn->close();
               ?>
+
 
               <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-4">
                 <button type="submit" class="btn btn-light">Search</button>

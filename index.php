@@ -182,7 +182,6 @@
                 <div class="col-md-6 col-sm-6 col-12">
                   <input type="number" class="form-control" id="age" placeholder="Age">
                 </div>
-
               </div>
 
 

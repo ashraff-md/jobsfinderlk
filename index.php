@@ -130,15 +130,10 @@
                 <div class="col-md-6 col-sm-6 col-12">
                   <input type="text" class="form-control" id="keyword" placeholder="Keyword">
                 </div>
-                
+
                 <?php
                 // Establish a connection to your database
-                $servername = "localhost";
-                $username = "root";
-                $password = "";
-                $dbname = "jobsfinder";
-
-                $conn = new mysqli($servername, $username, $password, $dbname);
+                include_once 'db_config.php';
 
                 // Check connection
                 if ($conn->connect_error) {
@@ -183,7 +178,7 @@
                 <div class="col-md-6 col-sm-6 col-12">
                   <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience", "Experience"); ?>
                 </div>
-                
+
                 <div class="col-md-6 col-sm-6 col-12">
                   <input type="number" class="form-control" id="age" placeholder="Age">
                 </div>
@@ -213,7 +208,7 @@
   <br><br><br>
   <!-- Cards -->
   <?php
-  require_once 'db_config.php';
+  include_once 'db_config.php';
   $query = "SELECT company_logo, job_title, company_name, location, job_category, deadline FROM sponsoredad";
   $result = mysqli_query($conn, $query);
   ?>

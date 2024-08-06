@@ -34,8 +34,8 @@
     }
 
     .adForm {
-        background-color: rgb(240, 240, 240);
-      }
+      background-color: rgb(240, 240, 240);
+    }
 
 
     @media only screen and (max-width: 768px) {
@@ -98,7 +98,7 @@
   <!-- Form -->
   <div class="container adForm pe-5 ps-5 pt-5 pb-5">
     <h1 class="text-center">Post Your Vacancy</h1>
-    <form action="postad.php" method="POST" enctype="multipart/form-data">
+    <form action="db_postad.php" method="POST" enctype="multipart/form-data">
       <div class="row">
         <div class="col mb-3">
           <label for="job-title" class="form-label ps-1">Job Title</label>
@@ -115,83 +115,79 @@
           <input type="file" class="form-control" id="company-logo" name="company-logo" required>
         </div>
       </div>
+      <?php
+      // Establish a connection to your database
+      include_once 'db_config.php';
+
+      // Check connection
+      if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+      }
+
+      // Function to generate dropdown options
+      function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId)
+      {
+        $sql = "SELECT * FROM $tableName";
+        $result = $conn->query($sql);
+
+        if ($result->num_rows > 0) {
+          // Fetch the first row to set as the default option
+          $firstRow = $result->fetch_assoc();
+
+          echo "<select class='form-select' aria-label='$selectId' id='$selectId'>";
+          echo "<option selected value='" . $firstRow[$idField] . "'>" . $firstRow[$nameField] . "</option>";
+
+          // Fetch the rest of the rows
+          while ($row = $result->fetch_assoc()) {
+            echo "<option value='" . $row[$idField] . "'>" . $row[$nameField] . "</option>";
+          }
+          echo "</select>";
+        } else {
+          echo "No options found.";
+        }
+      }
+      ?>
+
       <div class="row">
+        <!-- Categories dropdown -->
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="job-category" class="form-label ps-1">Job Category</label>
-          <select id="job-category" name="job-category" class="form-select" required>
-            <option value="">Select</option>
-            <option value="IT">IT</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Sales">Sales</option>
-            <option value="Finance">Finance</option>
-            <option value="HR">HR</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Other">Other</option>
-          </select>
+          <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category"); ?>
         </div>
+
+        <!-- Categories dropdown -->
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="job-type" class="form-label ps-1">Job Type</label>
-          <select id="job-type" name="job-type" class="form-select" required>
-            <option value="">Select</option>
-            <option value="Full Time">Full Time</option>
-            <option value="Part Time">Part Time</option>
-            <option value="Internship">Internship</option>
-            <option value="Contract">Contract</option>
-            <option value="Other">Other</option>
-          </select>
+          <?php generateDropdownOptions($conn, "employment_types", "id", "employment_type", "category"); ?>
         </div>
       </div>
+
       <div class="col mb-3">
         <label for="location" class="form-label ps-1">Location</label>
-        <select id="location" name="location" class="form-select" required>
-          <option value="">Select</option>
-          <option value="Work from Home">Work from Home</option>
-          <option value="25 Districts">25 Districts</option>
-        </select>
+        <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location"); ?>
       </div>
+
       <div class="row">
         <div class="col mb-3">
           <label for="job-description" class="form-label ps-1">Job Description</label>
-          <textarea class="form-control" id="job-description" name="job-description" maxlength="5000" required style="height: 6rem;"></textarea>
+          <textarea class="form-control" id="job-description" name="job_description" maxlength="5000" required style="height: 6rem;"></textarea>
         </div>
 
       </div>
       <div class="row">
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="qualification" class="form-label ps-1">Qualification</label>
-          <select id="qualification" name="qualification" class="form-select" required>
-            <option value="">Select</option>
-            <option value="OL">OL</option>
-            <option value="AL">AL</option>
-            <option value="Diploma">Diploma</option>
-            <option value="HND">HND</option>
-            <option value="Bachelor's">Bachelor's</option>
-            <option value="Master's">Master's</option>
-            <option value="Other">Other</option>
-          </select>
+          <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "category"); ?>
         </div>
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="experience" class="form-label ps-1">Experience</label>
-          <select id="experience" name="experience" class="form-select" required>
-            <option value="">Select</option>
-            <option value="None">None</option>
-            <option value="1-2 Years">1-2 Years</option>
-            <option value="2-5 Years">2-5 Years</option>
-            <option value="5-10 Years">5-10 Years</option>
-            <option value="10+ Years">10+ Years</option>
-          </select>
+          <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "category"); ?>
         </div>
       </div>
       <div class="row">
         <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="age-category" class="form-label ps-1">Age Category</label>
-          <select id="age-category" name="age-category" class="form-select" required>
-            <option value="">Select</option>
-            <option value="Under 25">Under 25</option>
-            <option value="25-45">25-45</option>
-            <option value="45-60">45-60</option>
-            <option value="60+">60+</option>
-          </select>
+          <label for="experience" class="form-label ps-1">Work Arrangements</label>
+          <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "category"); ?>
         </div>
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="application-deadline" class="form-label ps-1">Application Deadline</label>
@@ -201,7 +197,17 @@
       <div class="row">
         <div class="col mb-3">
           <label for="salary-range" class="form-label ps-1">Salary Range (Optional)</label>
-          <input type="number" class="form-control" id="salary-range" name="salary-range">
+          <input type="text" class="form-control" id="salary" name="salary">
+        </div>
+      </div>
+      <div class="row">
+        <div class="col mb-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="is_sponsored" name="is_sponsored">
+            <label class="form-check-label" for="checkbox">
+              Sponsored
+            </label>
+          </div>
         </div>
       </div>
       <button type="submit" class="btn btn-primary">Submit</button>

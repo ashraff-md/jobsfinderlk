@@ -33,4 +33,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Close statement and connection
     $stmt->close();
     $conn->close();
+    // Redirect to login.php
+
+    header("Location: ..\login.php");
+    exit();
 }

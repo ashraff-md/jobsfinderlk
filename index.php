@@ -136,7 +136,7 @@
 
                 <?php
                 // Establish a connection to your database
-                include_once 'db_config.php';
+                include_once 'db/db_config.php';
 
                 // Check connection
                 if ($conn->connect_error) {

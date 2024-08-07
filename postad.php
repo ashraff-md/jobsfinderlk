@@ -117,7 +117,7 @@
         </div>
       </div>
       <?php
-      include_once 'db_config.php';
+      include_once 'db/db_config.php';
       if ($conn->connect_error) {
         die("Connection failed: " . $conn->connect_error);
       }

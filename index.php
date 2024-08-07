@@ -109,6 +109,9 @@
               <li class="nav-item">
                 <a class="nav-link text-white me-3" href="#">Subscribe</a>
               </li>
+              <li class="nav-item">
+                <a class="nav-link text-white me-3" href="login.php">Login</a>
+              </li>
             </ul>
           </div>
         </div>

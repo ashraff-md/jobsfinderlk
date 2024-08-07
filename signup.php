@@ -96,10 +96,14 @@
 
     <!-- Sign Up -->
     <div class="container signup pt-4 pb-4 ps-4 pe-4">
-        <form action="signup.php" method="POST">
+        <form action="db/db_signup.php" method="POST" onsubmit="return validatePasswords()">
             <div class="mb-3">
-                <label for="name" class="form-label">Company Name</label>
+                <label for="name" class="form-label">Name</label>
                 <input type="text" class="form-control" id="name" name="name" aria-describedby="nameHelp">
+            </div>
+            <div class="mb-3">
+                <label for="name" class="form-label">Phone Number</label>
+                <input type="text" class="form-control" id="phone_number" name="phone_number" aria-describedby="nameHelp">
             </div>
             <div class="mb-3">
                 <label for="email" class="form-label">Email address</label>
@@ -118,7 +122,19 @@
     </div>
 
 
+    <script>
+        function validatePasswords() {
+            var password = document.getElementById('password').value;
+            var confirmPassword = document.getElementById('confirm_password').value;
 
+            if (password !== confirmPassword) {
+                alert("Passwords do not match.");
+                return false;
+            }
+
+            return true;
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>

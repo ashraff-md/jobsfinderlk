@@ -99,6 +99,7 @@
   <div class="container adForm pe-5 ps-5 pt-5 pb-5">
     <h1 class="text-center">Post Your Vacancy</h1>
     <form action="db_postad.php" method="POST" enctype="multipart/form-data">
+      
       <div class="row">
         <div class="col mb-3">
           <label for="job-title" class="form-label ps-1">Job Title</label>
@@ -196,6 +197,7 @@
       <button type="submit" class="btn btn-primary">Submit</button>
     </form>
   </div>
+
   </div><br>
 
 

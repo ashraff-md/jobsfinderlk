@@ -102,42 +102,32 @@
       <div class="row">
         <div class="col mb-3">
           <label for="job-title" class="form-label ps-1">Job Title</label>
-          <input type="text" class="form-control" id="job-title" name="job-title" maxlength="50" required>
+          <input type="text" class="form-control" id="job_title" name="job_title" maxlength="50" required>
         </div>
       </div>
       <div class="row">
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="company-name" class="form-label ps-1">Company Name</label>
-          <input type="text" class="form-control" id="company-name" name="company-name" maxlength="50" required>
+          <input type="text" class="form-control" id="company_name" name="company_name" maxlength="50" required>
         </div>
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="company-logo" class="form-label ps-1">Company Logo</label>
-          <input type="file" class="form-control" id="company-logo" name="company-logo" required>
+          <input type="file" class="form-control" id="company_logo" name="company_logo" required>
         </div>
       </div>
       <?php
-      // Establish a connection to your database
       include_once 'db_config.php';
-
-      // Check connection
       if ($conn->connect_error) {
         die("Connection failed: " . $conn->connect_error);
       }
 
-      // Function to generate dropdown options
-      function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId)
+      function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId, $selectName)
       {
         $sql = "SELECT * FROM $tableName";
         $result = $conn->query($sql);
 
         if ($result->num_rows > 0) {
-          // Fetch the first row to set as the default option
-          $firstRow = $result->fetch_assoc();
-
-          echo "<select class='form-select' aria-label='$selectId' id='$selectId'>";
-          echo "<option selected value='" . $firstRow[$idField] . "'>" . $firstRow[$nameField] . "</option>";
-
-          // Fetch the rest of the rows
+          echo "<select class='form-select' id='$selectId' name='$selectName'>";
           while ($row = $result->fetch_assoc()) {
             echo "<option value='" . $row[$idField] . "'>" . $row[$nameField] . "</option>";
           }
@@ -147,51 +137,44 @@
         }
       }
       ?>
-
       <div class="row">
-        <!-- Categories dropdown -->
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="job-category" class="form-label ps-1">Job Category</label>
-          <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category"); ?>
+          <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "job_category_id", "job_category_id"); ?>
         </div>
-
-        <!-- Categories dropdown -->
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="job-type" class="form-label ps-1">Job Type</label>
-          <?php generateDropdownOptions($conn, "employment_types", "id", "employment_type", "category"); ?>
+          <?php generateDropdownOptions($conn, "employment_types", "id", "employment_type", "employment_type_id", "employment_type_id"); ?>
         </div>
       </div>
-
       <div class="col mb-3">
         <label for="location" class="form-label ps-1">Location</label>
-        <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location"); ?>
+        <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location_id", "location_id"); ?>
       </div>
-
       <div class="row">
         <div class="col mb-3">
           <label for="job-description" class="form-label ps-1">Job Description</label>
-          <textarea class="form-control" id="job-description" name="job_description" maxlength="5000" required style="height: 6rem;"></textarea>
+          <textarea class="form-control" id="job_description" name="job_description" maxlength="5000" required style="height: 6rem;"></textarea>
         </div>
-
       </div>
       <div class="row">
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="qualification" class="form-label ps-1">Qualification</label>
-          <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "category"); ?>
+          <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification_id", "qualification_id"); ?>
         </div>
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="experience" class="form-label ps-1">Experience</label>
-          <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "category"); ?>
+          <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience_level_id", "experience_level_id"); ?>
         </div>
       </div>
       <div class="row">
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="experience" class="form-label ps-1">Work Arrangements</label>
-          <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "category"); ?>
+          <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "work_arrangement_id", "work_arrangement_id"); ?>
         </div>
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="application-deadline" class="form-label ps-1">Application Deadline</label>
-          <input type="date" class="form-control" id="application-deadline" name="application-deadline" required>
+          <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
         </div>
       </div>
       <div class="row">
@@ -203,8 +186,8 @@
       <div class="row">
         <div class="col mb-3">
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" value="" id="is_sponsored" name="is_sponsored">
-            <label class="form-check-label" for="checkbox">
+            <input class="form-check-input" type="checkbox" value="1" id="is_sponsored" name="is_sponsored">
+            <label class="form-check-label" for="is_sponsored">
               Sponsored
             </label>
           </div>
@@ -212,6 +195,7 @@
       </div>
       <button type="submit" class="btn btn-primary">Submit</button>
     </form>
+  </div>
   </div><br>
 
 

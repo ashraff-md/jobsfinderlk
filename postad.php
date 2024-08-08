@@ -95,7 +95,7 @@ if (!isset($_SESSION['userloggedin'])) {
               <a class="nav-link text-white me-4" href="dashboard.php">Dashboard</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
+              <a class="nav-link text-white me-4" href="db/db_logout.php">Logout</a>
             </li>
           </ul>
         </div>
@@ -107,107 +107,121 @@ if (!isset($_SESSION['userloggedin'])) {
   <div class="container adForm pe-5 ps-5 pt-5 pb-5">
     <h1 class="text-center">Post Your Vacancy</h1>
     <form action="db/db_postad.php" method="POST" enctype="multipart/form-data">
-
-      <input class="form-control" type="text" id="recruiter" name="recruiter" placeholder="<?php echo $_SESSION['userloggedin'];?>" aria-label="Disabled input example" disabled>
-
-
       <div class="row">
         <div class="col mb-3">
-          <label for="job-title" class="form-label ps-1">Job Title</label>
-          <input type="text" class="form-control" id="job_title" name="job_title" maxlength="50" required>
+          <label for="recruiter" class="form-label ps-1">Username</label>
+          <input class="form-control" type="text" id="recruiter" name="recruiter" placeholder="<?php echo $_SESSION['userloggedin']; ?>" aria-label="Disabled input example" disabled>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="company-name" class="form-label ps-1">Company Name</label>
-          <input type="text" class="form-control" id="company_name" name="company_name" maxlength="50" required>
-        </div>
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="company-logo" class="form-label ps-1">Company Logo</label>
-          <input type="file" class="form-control" id="company_logo" name="company_logo" required>
-        </div>
-      </div>
-
-      <?php
-      include_once 'db/db_config.php';
-      if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
-      }
-
-      function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId, $selectName)
-      {
-        $sql = "SELECT * FROM $tableName";
-        $result = $conn->query($sql);
-
-        if ($result->num_rows > 0) {
-          echo "<select class='form-select' id='$selectId' name='$selectName'>";
-          while ($row = $result->fetch_assoc()) {
-            echo "<option value='" . $row[$idField] . "'>" . $row[$nameField] . "</option>";
-          }
-          echo "</select>";
-        } else {
-          echo "No options found.";
-        }
-      }
-      ?>
-
-      <div class="row">
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="job-category" class="form-label ps-1">Job Category</label>
-          <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "job_category_id", "job_category_id"); ?>
-        </div>
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="job-type" class="form-label ps-1">Job Type</label>
-          <?php generateDropdownOptions($conn, "employment_types", "id", "employment_type", "employment_type_id", "employment_type_id"); ?>
-        </div>
-      </div>
-      <div class="col mb-3">
-        <label for="location" class="form-label ps-1">Location</label>
-        <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location_id", "location_id"); ?>
-      </div>
-      <div class="row">
-        <div class="col mb-3">
-          <label for="job-description" class="form-label ps-1">Job Description</label>
-          <textarea class="form-control" id="job_description" name="job_description" maxlength="5000" required style="height: 6rem;"></textarea>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="qualification" class="form-label ps-1">Qualification</label>
-          <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification_id", "qualification_id"); ?>
-        </div>
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="experience" class="form-label ps-1">Experience</label>
-          <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience_level_id", "experience_level_id"); ?>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="experience" class="form-label ps-1">Work Arrangements</label>
-          <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "work_arrangement_id", "work_arrangement_id"); ?>
-        </div>
-        <div class="col-md-6 col-sm-6 col-12 mb-3">
-          <label for="application-deadline" class="form-label ps-1">Application Deadline</label>
-          <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col mb-3">
-          <label for="salary-range" class="form-label ps-1">Salary Range (Optional)</label>
-          <input type="text" class="form-control" id="salary" name="salary">
-        </div>
-      </div>
-      <div class="row">
-        <div class="col mb-3">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" value="1" id="is_sponsored" name="is_sponsored">
-            <label class="form-check-label" for="is_sponsored">
-              Sponsored
-            </label>
+        <div class="row">
+          <div class="col mb-3">
+            <label for="job-title" class="form-label ps-1">Job Title</label>
+            <input type="text" class="form-control" id="job_title" name="job_title" maxlength="50" required>
           </div>
         </div>
-      </div>
-      <button type="submit" class="btn btn-primary">Submit</button>
+        <div class="row">
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="company-name" class="form-label ps-1">Company Name</label>
+            <input type="text" class="form-control" id="company_name" name="company_name" maxlength="50" required>
+          </div>
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="company-logo" class="form-label ps-1">Company Logo</label>
+            <input type="file" class="form-control" id="company_logo" name="company_logo" required>
+          </div>
+        </div>
+
+        <?php
+        include_once 'db/db_config.php';
+        if ($conn->connect_error) {
+          die("Connection failed: " . $conn->connect_error);
+        }
+
+        function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId, $selectName)
+        {
+          $sql = "SELECT * FROM $tableName";
+          $result = $conn->query($sql);
+
+          if ($result->num_rows > 0) {
+            echo "<select class='form-select' id='$selectId' name='$selectName'>";
+            while ($row = $result->fetch_assoc()) {
+              echo "<option value='" . $row[$idField] . "'>" . $row[$nameField] . "</option>";
+            }
+            echo "</select>";
+          } else {
+            echo "No options found.";
+          }
+        }
+        ?>
+
+        <div class="row">
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="job-category" class="form-label ps-1">Job Category</label>
+            <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "job_category_id", "job_category_id"); ?>
+          </div>
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="job-type" class="form-label ps-1">Job Type</label>
+            <?php generateDropdownOptions($conn, "employment_types", "id", "employment_type", "employment_type_id", "employment_type_id"); ?>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="location" class="form-label ps-1">Location</label>
+            <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location_id", "location_id"); ?>
+          </div>
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="experience" class="form-label ps-1">Work Arrangements</label>
+            <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "work_arrangement_id", "work_arrangement_id"); ?>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col mb-3">
+            <label for="job-description" class="form-label ps-1">Job Description</label>
+            <textarea class="form-control" id="job_description" name="job_description" maxlength="5000" required style="height: 6rem;"></textarea>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="salary-range" class="form-label ps-1"> Send your aplication to:</label>
+            <input type="text" class="form-control" id="applyto" name="applyto" placeholder="e-mail or phone number" required>
+          </div>
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="application-deadline" class="form-label ps-1">Application Deadline</label>
+            <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="qualification" class="form-label ps-1">Qualification</label>
+            <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification_id", "qualification_id"); ?>
+          </div>
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="experience" class="form-label ps-1">Experience</label>
+            <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience_level_id", "experience_level_id"); ?>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="experience" class="form-label ps-1">Work Arrangements</label>
+            <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "work_arrangement_id", "work_arrangement_id"); ?>
+          </div>
+          <div class="col-md-6 col-sm-6 col-12 mb-3">
+            <label for="salary-range" class="form-label ps-1">Salary Range (Optional)</label>
+            <input type="text" class="form-control" id="salary" name="salary">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="1" id="is_sponsored" name="is_sponsored">
+              <label class="form-check-label" for="is_sponsored">
+                Sponsored
+              </label>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
   </div>
 

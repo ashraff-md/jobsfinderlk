@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['userloggedin'])) {
-  header('Location: login.php');
+  header('Location: ../login.php');
   exit();
 }
 include_once 'db_config.php';
@@ -20,6 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $qualification_id = (int)$_POST['qualification_id'] ?? 0;
     $experience_level_id = (int)$_POST['experience_level_id'] ?? 0;
     $work_arrangement_id = (int)$_POST['work_arrangement_id'] ?? 0;
+    $applyto = $_POST['applyto'] ?? '';
     $application_deadline = $_POST['application_deadline'] ?? '';
     $salary = $_POST['salary'] ?? '';
     $recruiter_id	= (int)$_SESSION['userid'];
@@ -34,14 +35,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $targetFile)) {
-        $sql = "INSERT INTO job_ads (job_title, company_name, company_logo, job_category_id, employment_type_id, location_id, job_description, qualification_id, experience_id, work_arrangement_id, application_deadline, salary, recruiter_id, is_sponsored)
+        $sql = "INSERT INTO job_ads (job_title, company_name, company_logo, job_category_id, employment_type_id, location_id, job_description, qualification_id, experience_id, work_arrangement_id, applyto, application_deadline, salary, recruiter_id, is_sponsored)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssiiisssissii", $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $application_deadline, $salary, $recruiter_id, $isSponsored);
+        $stmt->bind_param("sssiiisssisssii", $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $applyto, $application_deadline, $salary, $recruiter_id, $isSponsored);
 
         if ($stmt->execute()) {
-            echo "New vacancy posted successfully";
+            header('Location: ../dashboard.php');
         } else {
             echo "Error: " . $stmt->error;
         }

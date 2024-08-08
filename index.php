@@ -212,8 +212,9 @@
   <br><br><br>
   <!-- Cards -->
   <?php
-  include_once 'db_config.php';
-  $query = "SELECT company_logo, job_title, company_name, location, job_category, deadline FROM sponsoredad";
+  include_once 'db/db_config.php';
+
+  $query = "SELECT company_logo, job_title, company_name, location_id, job_category_id, deadline FROM job_ads WHERE is_sponsored = 1";
   $result = mysqli_query($conn, $query);
   ?>
   <div class="container">

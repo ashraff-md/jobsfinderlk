@@ -104,13 +104,10 @@
                 <a class="nav-link text-white me-4" href="#">About</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
-              </li>
-              <li class="nav-item">
                 <a class="nav-link text-white me-3" href="#">Subscribe</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link text-white me-3" href="login.php">Login</a>
+                <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
               </li>
             </ul>
           </div>

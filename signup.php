@@ -96,7 +96,7 @@
 
     <!-- Sign Up -->
     <div class="container signup pt-4 pb-4 ps-4 pe-4">
-        <form action="db/db_signup.php" method="POST" onsubmit="return validatePasswords()">
+        <form action="db/db_signup.php" method="POST" onsubmit="return validatePassword()">
             <div class="mb-3">
                 <label for="name" class="form-label">Name</label>
                 <input type="text" class="form-control" id="name" name="name" aria-describedby="nameHelp">
@@ -123,18 +123,19 @@
 
 
     <script>
-        function validatePasswords() {
+        function validatePassword() {
             var password = document.getElementById('password').value;
-            var confirmPassword = document.getElementById('confirm_password').value;
+            var confirmPassword = document.getElementById('confirmPassword').value;
 
             if (password !== confirmPassword) {
-                alert("Passwords do not match.");
-                return false;
+                alert('Passwords do not match. Please try again.');
+                return false; // Prevent form submission
             }
 
-            return true;
+            return true; // Allow form submission
         }
     </script>
+
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>

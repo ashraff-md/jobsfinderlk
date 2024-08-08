@@ -1,13 +1,5 @@
 <?php
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $password = $_POST['password'];
-    $confirmPassword = $_POST['confirmPassword'];
-
-    if ($password !== $confirmPassword) {
-        echo "Passwords do not match.";
-        exit;
-    }
-
     // Establish database connection
     include_once 'db_config.php';
 

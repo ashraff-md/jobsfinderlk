@@ -1,6 +1,14 @@
 <!doctype html>
 <html lang="en">
 
+<?php
+session_start();
+if (!isset($_SESSION['userloggedin'])) {
+  header('Location: login.php');
+  exit();
+}
+?>
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -99,7 +107,7 @@
   <div class="container adForm pe-5 ps-5 pt-5 pb-5">
     <h1 class="text-center">Post Your Vacancy</h1>
     <form action="db_postad.php" method="POST" enctype="multipart/form-data">
-      
+
       <div class="row">
         <div class="col mb-3">
           <label for="job-title" class="form-label ps-1">Job Title</label>
@@ -116,6 +124,7 @@
           <input type="file" class="form-control" id="company_logo" name="company_logo" required>
         </div>
       </div>
+
       <?php
       include_once 'db/db_config.php';
       if ($conn->connect_error) {
@@ -138,6 +147,7 @@
         }
       }
       ?>
+
       <div class="row">
         <div class="col-md-6 col-sm-6 col-12 mb-3">
           <label for="job-category" class="form-label ps-1">Job Category</label>

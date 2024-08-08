@@ -1,6 +1,14 @@
 <!doctype html>
 <html lang="en">
 
+<?php
+session_start();
+if (!isset($_SESSION['userloggedin'])) {
+    header('Location: login.php');
+    exit();
+}
+?>
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -84,6 +92,9 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white me-4" href="db/db_logout.php">Logout</a>
                         </li>
                     </ul>
                 </div>

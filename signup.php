@@ -75,16 +75,7 @@
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="#">About</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="#">Subscribe</a>
+                            <a class="nav-link text-white me-4 active" aria-current="page" href="login.php">Login</a>
                         </li>
                     </ul>
                 </div>
@@ -117,7 +108,7 @@
                 <label for="confirmPassword" class="form-label">Confirm Password</label>
                 <input type="password" class="form-control" id="confirmPassword" name="confirmPassword">
             </div>
-            <button type="submit" class="btn btn-primary">Submit</button>
+            <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Sign up</button>
         </form>
     </div>
 

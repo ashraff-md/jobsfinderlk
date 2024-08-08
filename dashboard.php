@@ -101,6 +101,11 @@ if (!isset($_SESSION['userloggedin'])) {
                 </button>
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li>
+                            <a class="nav-link text-white me-4 active" href="#">
+                                <?php echo $_SESSION['userloggedin']; ?>
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
                         </li>
@@ -119,16 +124,64 @@ if (!isset($_SESSION['userloggedin'])) {
 
 
     <br><br><br>
-    <!-- Form -->
+    <!-- Dashboard -->
     <div class="container">
-        <h1>Dashboard</h1>
-        <p><?php echo $_SESSION['userloggedin']; ?></p>
+        <h1 class="text-center">Dashboard</h1>
         <?php
         // Database connection
         include_once 'db/db_config.php';
 
+        // Rejected Ads
         // SQL query to join tables
         $sql = "SELECT 
+            job_ads.company_name, 
+            job_ads.job_title, 
+            job_ads.status, 
+            job_ads.rejection_reason
+        FROM 
+            job_ads
+        WHERE 
+            job_ads.recruiter_id = " . $_SESSION['userid'] . " 
+            AND job_ads.status = 'rejected' 
+        ORDER BY 
+            job_ads.id DESC";
+
+
+        $result = $conn->query($sql);
+        ?>
+
+        <?php
+        if ($result->num_rows > 0) { ?>
+            <h3>Rejected Ads</h3>
+            <table class="mb-4">
+                <tr>
+                    <th>Company Name</th>
+                    <th>Job Title</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Edit</th>
+                    <th>Delete</th>
+                </tr>
+            <?php
+            // Output data of each row
+            while ($row = $result->fetch_assoc()) {
+                echo "<tr>";
+                echo "<td>" . $row['company_name'] . "</td>";
+                echo "<td>" . $row['job_title'] . "</td>";
+                echo "<td>" . $row['rejection_reason'] . "</td>";
+                echo "<td>" . $row['status'] . "</td>";
+                echo "</tr>";
+            }
+        }
+            ?>
+            </table>
+
+
+            <!-- Approved Ads -->
+            <?php
+            // SQL query to join tables
+            $sql = "SELECT 
+            job_ads.id,
             job_ads.company_name, 
             job_ads.company_logo, 
             job_ads.job_description, 
@@ -151,55 +204,119 @@ if (!isset($_SESSION['userloggedin'])) {
             LEFT JOIN qualifications ON job_ads.qualification_id = qualifications.id
             LEFT JOIN experience_levels ON job_ads.experience_id = experience_levels.id
 
-            WHERE job_ads.recruiter_id = " . $_SESSION['userid'] . " AND job_ads.status = 'pending' 
+            WHERE job_ads.recruiter_id = " . $_SESSION['userid'] . " AND job_ads.status = 'approved' 
             ORDER BY job_ads.id DESC";
 
-        $result = $conn->query($sql);
-        ?>
-        <h2>Job Listings</h2>
+            $result = $conn->query($sql);
 
-        <table>
-            <tr>
-                <th>Company Name</th>
-                <th>Company Logo</th>
-                <th>Job Description</th>
-                <th>Job Title</th>
-                <th>Job Category</th>
-                <th>Location</th>
-                <th>Employment Type</th>
-                <th>Work Arrangement</th>
-                <th>Qualification</th>
-                <th>Experience</th>
-                <th>Salary</th>
-                <th>Application Deadline</th>
-                <th>Status</th>
-            </tr>
-            <?php
-            if ($result->num_rows > 0) {
+            if ($result->num_rows > 0) { ?>
+                <h3>Approved Ads</h3>
+                <table class="mb-4">
+                    <tr>
+                        <th>Company Name</th>
+                        <th>Job Title</th>
+                        <th>Job Category</th>
+                        <th>Location</th>
+                        <th>Employment Type</th>
+                        <th>Work Arrangement</th>
+                        <th>Salary</th>
+                        <th>Application Deadline</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                <?php
                 // Output data of each row
                 while ($row = $result->fetch_assoc()) {
                     echo "<tr>";
                     echo "<td>" . $row['company_name'] . "</td>";
-                    echo "<td><img src='" . $row['company_logo'] . "' alt='Company Logo' style='width:100px;'></td>";
-                    echo "<td>" . $row['job_description'] . "</td>";
                     echo "<td>" . $row['job_title'] . "</td>";
                     echo "<td>" . $row['job_category'] . "</td>";
                     echo "<td>" . $row['location'] . "</td>";
                     echo "<td>" . $row['employment_type'] . "</td>";
                     echo "<td>" . $row['work_arrangement'] . "</td>";
-                    echo "<td>" . $row['qualification'] . "</td>";
-                    echo "<td>" . $row['experience'] . "</td>";
                     echo "<td>" . $row['salary'] . "</td>";
                     echo "<td>" . $row['application_deadline'] . "</td>";
                     echo "<td>" . $row['status'] . "</td>";
+                    echo "<td>";
+                    echo '<a href="db/db_edit.php?id=' . $row['id'] . '">Edit</a> | ';
+                    echo '<a href="db/db_delete.php?id=' . $row['id'] . '">Delete</a>';
+                    echo "</td>";
                     echo "</tr>";
                 }
-            } else {
-                echo "<tr><td colspan='13'>No jobs found</td></tr>";
             }
-            ?>
-        </table>
+                ?>
+                </table>
 
+                <!-- Approved Ads -->
+                <?php
+                // SQL query to join tables
+                $sql = "SELECT 
+                job_ads.id,
+                job_ads.company_name, 
+                job_ads.company_logo, 
+                job_ads.job_description, 
+                job_ads.job_title, 
+                job_categories.category_name AS job_category, 
+                locations.location_name AS location, 
+                employment_types.employment_type AS employment_type, 
+                work_arrangements.work_arrangement AS work_arrangement, 
+                qualifications.qualification_name AS qualification, 
+                experience_levels.experience_level AS experience, 
+                job_ads.salary, 
+                job_ads.application_deadline, 
+                job_ads.status
+                FROM 
+                    job_ads
+                LEFT JOIN job_categories ON job_ads.job_category_id = job_categories.id
+                LEFT JOIN locations ON job_ads.location_id = locations.id
+                LEFT JOIN employment_types ON job_ads.employment_type_id = employment_types.id
+                LEFT JOIN work_arrangements ON job_ads.work_arrangement_id = work_arrangements.id
+                LEFT JOIN qualifications ON job_ads.qualification_id = qualifications.id
+                LEFT JOIN experience_levels ON job_ads.experience_id = experience_levels.id
+
+                WHERE job_ads.recruiter_id = " . $_SESSION['userid'] . " AND job_ads.status = 'pending' 
+                ORDER BY job_ads.id DESC";
+
+                $result = $conn->query($sql);
+
+                if ($result->num_rows > 0) { ?>
+                    <h3>Pending Ads</h3>
+                    <table>
+                        <tr>
+                            <th>Company Name</th>
+                            <th>Job Title</th>
+                            <th>Job Category</th>
+                            <th>Location</th>
+                            <th>Employment Type</th>
+                            <th>Work Arrangement</th>
+                            <th>Salary</th>
+                            <th>Application Deadline</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    <?php
+                    // Output data of each row
+                    while ($row = $result->fetch_assoc()) {
+                        echo "<tr>";
+                        echo "<td>" . $row['company_name'] . "</td>";
+                        echo "<td>" . $row['job_title'] . "</td>";
+                        echo "<td>" . $row['job_category'] . "</td>";
+                        echo "<td>" . $row['location'] . "</td>";
+                        echo "<td>" . $row['employment_type'] . "</td>";
+                        echo "<td>" . $row['work_arrangement'] . "</td>";
+                        echo "<td>" . $row['salary'] . "</td>";
+                        echo "<td>" . $row['application_deadline'] . "</td>";
+                        echo "<td>" . $row['status'] . "</td>";
+                        echo "<td>";
+                        echo '<a href="db/db_edit.php?id=' . $row['id'] . '">Edit</a> | ';
+                        echo '<a href="db/db_delete.php?id=' . $row['id'] . '">Delete</a>';
+                        echo "</td>";
+                        echo "</tr>";
+                    }
+                }
+                    ?>
+                    </table>
+    </div>
 </body>
 
 </html>

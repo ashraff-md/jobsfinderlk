@@ -88,8 +88,8 @@
 
     <!-- Sign in -->
     <div class="container login pt-4 pb-4 ps-4 pe-4">
-        <div class="d-flex justify-content-center">
-            <img src="assets/logo/user-icon.svg" width="50" height="50" class="rounded-circle border border-secondary" alt="User Icon">
+        <div class="d-flex justify-content-center pb-2">
+            <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
         </div>
         <form action="db/db_login.php" method="POST" class="text-center">
             <div class="mb-3">
@@ -100,7 +100,7 @@
                 <label for="password" class="form-label">Password</label>
                 <input type="password" class="form-control" id="password" name="password">
             </div>
-            <button type="submit" class="btn btn-primary d-block mx-auto">Login</button>
+            <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
             <a href="signup.php">Sign Up</a>
         </form>
     </div>

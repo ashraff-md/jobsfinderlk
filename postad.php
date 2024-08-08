@@ -30,13 +30,6 @@ if (!isset($_SESSION['userloggedin'])) {
   <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
 
   <style>
-    /*
-    .SearchBox {
-      background-image: url('assets/images/bg.jpg');
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: cover;
-    } */
     body {
       background-color: rgb(228, 228, 228);
     }
@@ -212,16 +205,16 @@ if (!isset($_SESSION['userloggedin'])) {
           </div>
         </div>
         <div class="row">
-          <div class="col mb-3">
+          <div class="col mb-2">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" value="1" id="is_sponsored" name="is_sponsored">
               <label class="form-check-label" for="is_sponsored">
                 Sponsored
               </label>
-            </div>
+            </div><br>
+            <button type="submit" class="btn btn-primary">Post Ad</button>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
   </div>
 

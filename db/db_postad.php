@@ -11,7 +11,7 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $job_title = $_POST['job_title'] ?? '';
+    $job_title = $_POST['job_title'] ?? ''; 
     $company_name = $_POST['company_name'] ?? '';
     $category_id = (int)$_POST['job_category_id'] ?? 0;
     $employment_type_id = (int)$_POST['employment_type_id'] ?? 0;
@@ -27,7 +27,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $isSponsored = isset($_POST['is_sponsored']) ? 1 : 0;
 
     $companyLogo = $_FILES['company_logo']['name'];
-    $targetDir = "uploads/";
+    $targetDir = "../uploads/";
     $targetFile = $targetDir . basename($companyLogo);
 
     if (!is_dir($targetDir)) {
@@ -36,7 +36,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $targetFile)) {
         $sql = "INSERT INTO job_ads (job_title, company_name, company_logo, job_category_id, employment_type_id, location_id, job_description, qualification_id, experience_id, work_arrangement_id, applyto, application_deadline, salary, recruiter_id, is_sponsored)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("sssiiisssisssii", $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $applyto, $application_deadline, $salary, $recruiter_id, $isSponsored);

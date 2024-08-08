@@ -19,6 +19,7 @@ if ($result->num_rows === 1) {
         if ($user['password'] === $pass) {
                 // Redirect to the desired page
                 $_SESSION['userloggedin'] = $uname;
+                $_SESSION['userid'] = $user['id'];
                 header("Location: ..\dashboard.php");
                 exit();
         } else {

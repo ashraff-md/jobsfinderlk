@@ -1,4 +1,9 @@
 <?php
+session_start();
+if (!isset($_SESSION['userloggedin'])) {
+  header('Location: login.php');
+  exit();
+}
 include_once 'db_config.php';
 
 if ($conn->connect_error) {
@@ -17,6 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $work_arrangement_id = (int)$_POST['work_arrangement_id'] ?? 0;
     $application_deadline = $_POST['application_deadline'] ?? '';
     $salary = $_POST['salary'] ?? '';
+    $recruiter_id	= (int)$_SESSION['userid'];
     $isSponsored = isset($_POST['is_sponsored']) ? 1 : 0;
 
     $companyLogo = $_FILES['company_logo']['name'];
@@ -28,11 +34,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $targetFile)) {
-        $sql = "INSERT INTO job_ads (job_title, company_name, company_logo, job_category_id, employment_type_id, location_id, job_description, qualification_id, experience_id, work_arrangement_id, application_deadline, salary, is_sponsored)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO job_ads (job_title, company_name, company_logo, job_category_id, employment_type_id, location_id, job_description, qualification_id, experience_id, work_arrangement_id, application_deadline, salary, recruiter_id, is_sponsored)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssiiisssissi", $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $application_deadline, $salary, $isSponsored);
+        $stmt->bind_param("sssiiisssissii", $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $application_deadline, $salary, $recruiter_id, $isSponsored);
 
         if ($stmt->execute()) {
             echo "New vacancy posted successfully";

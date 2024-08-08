@@ -108,6 +108,7 @@ if (!isset($_SESSION['userloggedin'])) {
     <!-- Form -->
     <div class="container">
         <h1>Dashboard</h1>
+        <p><?php echo $_SESSION['userloggedin']; echo $_SESSION['userid'];?></p>
     </div>
 
 

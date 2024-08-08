@@ -106,7 +106,10 @@ if (!isset($_SESSION['userloggedin'])) {
   <!-- Form -->
   <div class="container adForm pe-5 ps-5 pt-5 pb-5">
     <h1 class="text-center">Post Your Vacancy</h1>
-    <form action="db_postad.php" method="POST" enctype="multipart/form-data">
+    <form action="db/db_postad.php" method="POST" enctype="multipart/form-data">
+
+      <input class="form-control" type="text" id="recruiter" name="recruiter" placeholder="<?php echo $_SESSION['userloggedin'];?>" aria-label="Disabled input example" disabled>
+
 
       <div class="row">
         <div class="col mb-3">

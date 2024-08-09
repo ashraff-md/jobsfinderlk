@@ -108,13 +108,13 @@ if (!isset($_SESSION['userloggedin'])) {
         <div class="row">
           <div class="col mb-3">
             <label for="job-title" class="form-label ps-1">Job Title</label>
-            <input type="text" class="form-control" id="job_title" name="job_title" maxlength="50" required>
+            <input type="text" class="form-control" id="job_title" name="job_title" maxlength="50" placeholder="Enter your Job Title" required>
           </div>
         </div>
         <div class="row">
           <div class="col-md-6 col-sm-6 col-12 mb-3">
             <label for="company-name" class="form-label ps-1">Company Name</label>
-            <input type="text" class="form-control" id="company_name" name="company_name" maxlength="50" required>
+            <input type="text" class="form-control" id="company_name" name="company_name" maxlength="50" placeholder="Enter your Company Name" required>
           </div>
           <div class="col-md-6 col-sm-6 col-12 mb-3">
             <label for="company-logo" class="form-label ps-1">Company Logo</label>
@@ -169,21 +169,9 @@ if (!isset($_SESSION['userloggedin'])) {
         <div class="row">
           <div class="col mb-3">
             <label for="job-description" class="form-label ps-1">Job Description</label>
-            <textarea class="form-control" id="job_description" name="job_description" maxlength="5000" required style="height: 6rem;"></textarea>
+            <textarea class="form-control" id="job_description" name="job_description" maxlength="5000" style="height: 6rem;" placeholder="Describe the Key Responsibilities, Requirements, what the company offers, etc." required></textarea>
           </div>
         </div>
-
-        <div class="row">
-          <div class="col-md-6 col-sm-6 col-12 mb-3">
-            <label for="salary-range" class="form-label ps-1"> Send your aplication to:</label>
-            <input type="text" class="form-control" id="applyto" name="applyto" placeholder="e-mail or phone number" required>
-          </div>
-          <div class="col-md-6 col-sm-6 col-12 mb-3">
-            <label for="application-deadline" class="form-label ps-1">Application Deadline</label>
-            <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
-          </div>
-        </div>
-
         <div class="row">
           <div class="col-md-6 col-sm-6 col-12 mb-3">
             <label for="qualification" class="form-label ps-1">Qualification</label>
@@ -196,13 +184,20 @@ if (!isset($_SESSION['userloggedin'])) {
         </div>
         <div class="row">
           <div class="col-md-6 col-sm-6 col-12 mb-3">
-            <label for="experience" class="form-label ps-1">Work Arrangements</label>
-            <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "work_arrangement_id", "work_arrangement_id"); ?>
+            <label for="salary-range" class="form-label ps-1">Salary Range (Optional)</label>
+            <input type="text" class="form-control" id="salary" name="salary" placeholder="30,000 - 40,000">
           </div>
           <div class="col-md-6 col-sm-6 col-12 mb-3">
-            <label for="salary-range" class="form-label ps-1">Salary Range (Optional)</label>
-            <input type="text" class="form-control" id="salary" name="salary">
+            <label for="application-deadline" class="form-label ps-1">Application Deadline</label>
+            <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
           </div>
+        </div>
+        <div class="row">
+          <div class="col mb-3">
+            <label for="salary-range" class="form-label ps-1"> Send your aplication to:</label>
+            <input type="text" class="form-control" id="applyto" name="applyto" placeholder="e-mail or phone number" required>
+          </div>
+          
         </div>
         <div class="row">
           <div class="col mb-2">

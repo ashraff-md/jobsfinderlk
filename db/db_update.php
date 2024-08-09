@@ -10,8 +10,19 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+session_start();
+if (!isset($_SESSION['userloggedin'])) {
+    header('Location: ../login.php');
+    exit();
+}
+include_once 'db_config.php';
+
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $job_id = (int)$_POST['job_id']; // The ID of the job ad to update
+    $job_id = (int)$_POST['id']; // The ID of the job ad to update
     $job_title = $_POST['job_title'] ?? '';
     $company_name = $_POST['company_name'] ?? '';
     $category_id = (int)$_POST['job_category_id'] ?? 0;
@@ -52,11 +63,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         applyto = ?, 
                         application_deadline = ?, 
                         salary = ?, 
-                        is_sponsored = ?
+                        is_sponsored = ?,
+                        status = 'pending'
                     WHERE id = ? AND recruiter_id = ?";
 
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("sssiiisssissiiii", $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $applyto, $application_deadline, $salary, $recruiter_id, $isSponsored, $job_id, $recruiter_id);
+            $stmt->bind_param("sssiiisssissiiii", 
+                $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, 
+                $location_id, $job_description, $qualification_id, $experience_level_id, 
+                $work_arrangement_id, $applyto, $application_deadline, $salary, 
+                $isSponsored, $job_id, $recruiter_id
+            );
         } else {
             echo "Error uploading file.";
             exit();
@@ -76,11 +93,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     applyto = ?, 
                     application_deadline = ?, 
                     salary = ?, 
-                    is_sponsored = ?
+                    is_sponsored = ?,
+                    status = 'pending'
                 WHERE id = ? AND recruiter_id = ?";
 
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssiiisssissiiii", $job_title, $company_name, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $applyto, $application_deadline, $salary, $recruiter_id, $isSponsored, $job_id, $recruiter_id);
+        $stmt->bind_param("ssiiisssissiiii", 
+            $job_title, $company_name, $category_id, $employment_type_id, 
+            $location_id, $job_description, $qualification_id, $experience_level_id, 
+            $work_arrangement_id, $applyto, $application_deadline, $salary, 
+            $isSponsored, $job_id, $recruiter_id
+        );
     }
 
     if ($stmt->execute()) {

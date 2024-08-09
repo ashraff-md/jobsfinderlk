@@ -23,8 +23,9 @@
 
   <style>
     body {
-      background-color: #2C3333;
+      background-color: rgb(228, 228, 228);
     }
+
 
     .hero {
       background-image: url('assets/images/bg.jpg');
@@ -37,10 +38,16 @@
 
     .Blur {
       backdrop-filter: blur(4px);
-      background-color: #0c15389b;
+      background-color: #0c1538c6;
       border-radius: 10px;
       box-shadow: 0px 0px 30px rgba(227, 227, 237, 0.37);
-      border: 1px #0c15389b;
+      border: 1px #0c1538c6;
+    }
+
+    .card-text {
+      text-wrap: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     @media only screen and (max-width: 768px) {
@@ -189,12 +196,6 @@
                 </div>
               </div>
 
-              <?php
-              // Close the database connection
-              $conn->close();
-              ?>
-
-
               <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-4">
                 <button type="submit" class="btn btn-light">Search</button>
               </div>
@@ -208,45 +209,75 @@
     </div>
   </div>
   </div>
-
-  <br><br><br>
+  <br>
   <!-- Cards -->
   <?php
   include_once 'db/db_config.php';
 
-  $query = "SELECT company_logo, job_title, company_name, location_id, job_category_id, deadline FROM job_ads WHERE is_sponsored = 1";
+  // Corrected SQL query with JOINs
+  $query = "
+  SELECT 
+    job_ads.company_logo, 
+    job_ads.job_title, 
+    job_ads.company_name, 
+    locations.location_name AS location, 
+    job_categories.category_name AS job_category, 
+    job_ads.application_deadline 
+    FROM job_ads
+    LEFT JOIN locations ON job_ads.location_id = locations.id
+    LEFT JOIN job_categories ON job_ads.job_category_id = job_categories.id
+    WHERE job_ads.is_sponsored = 1
+    LIMIT 15";
+
   $result = mysqli_query($conn, $query);
   ?>
-  <div class="container">
+  <div class="container mt-4">
+    <h2 class="text-center">Sponsored Job Listings</h2>
     <?php
-    while ($row = mysqli_fetch_assoc($result)) {
+    if ($result->num_rows > 0) {
+      $count = 0;
+      echo '<div class="row">';
+      // Output data of each row
+      while ($row = $result->fetch_assoc()) {
+        // Start a new row every 3 cards
+        if ($count % 3 == 0 && $count > 0) {
+          echo '</div><div class="row">';
+        }
     ?>
-      <div class="row">
-        <div class="col-md-6 mb-3">
+        <div class="col-md-4 mb-3">
           <div class="card">
             <div class="row no-gutters">
               <div class="col-md-4">
-                <img src="<?php echo $row['company_logo']; ?>" class="img-fluid rounded-start" alt="<?php echo $row['company_name']; ?>">
+                <img src="uploads/<?php echo $row['company_logo']; ?>" class="img-fluid rounded-start" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
               </div>
               <div class="col-md-8">
                 <div class="card-body">
-                  <h5 class="card-title"><?php echo $row['job_title']; ?></h5>
-                  <small><?php echo $row['company_name']; ?></small>
+                  <h5 class="card-title"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                  <small class="text-muted"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
                   <br>
-                  <p class="card-text mb-0">Location: <?php echo $row['location']; ?></p>
-                  <p class="card-text mb-0">Category: <?php echo $row['job_category']; ?></p>
-                  <p class="card-text mb-0">Deadline: <?php echo $row['deadline']; ?></p>
+                  <p class="card-text mb-0">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
+                  <p class="card-text mb-0">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
+                  <p class="card-text mb-0">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
     <?php
+        $count++;
+        // Stop after 15 ads
+        if ($count >= 15) {
+          break;
+        }
+      }
+      echo '</div>'; // Close the last row
+    } else {
+      echo "<p class='text-center'>No sponsored jobs found</p>";
     }
-    mysqli_close($conn);
     ?>
+
   </div>
+
 
 
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
@@ -255,3 +286,8 @@
 </body>
 
 </html>
+
+<?php
+
+mysqli_close($conn);
+?>

@@ -101,7 +101,7 @@
                 <input type="password" class="form-control" id="password" name="password">
             </div>
             <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
-            <a href="signup.php">Sign Up</a>
+            <p class="text-center">Don't have an account? <a href="signup.php">Sign Up</a></p>
         </form>
     </div>
 

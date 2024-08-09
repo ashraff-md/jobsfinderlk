@@ -110,7 +110,7 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
     <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
         <div class="container mt-1 mb-1">
             <a class="navbar-brand" href="index.php">
-                <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
+                <img src="..\assets/logo/logo.png" alt="JobsFinder.lk" height="34">
             </a>
             <div class="d-flex">
                 <button class="navbar-toggler" style="background-color: #ffffff;" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">

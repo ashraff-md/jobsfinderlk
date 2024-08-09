@@ -131,22 +131,22 @@ if (!isset($_SESSION['userloggedin'])) {
         // Database connection
         include_once 'db/db_config.php';
 
+
         // Rejected Ads
         // SQL query to join tables
         $sql = "SELECT 
+            job_ads.id,
             job_ads.company_name, 
             job_ads.job_title, 
             job_ads.status, 
             job_ads.rejection_reason
-        FROM 
+            FROM 
             job_ads
-        WHERE 
+            WHERE 
             job_ads.recruiter_id = " . $_SESSION['userid'] . " 
             AND job_ads.status = 'rejected' 
-        ORDER BY 
+            ORDER BY 
             job_ads.id DESC";
-
-
         $result = $conn->query($sql);
         ?>
 
@@ -159,8 +159,7 @@ if (!isset($_SESSION['userloggedin'])) {
                     <th>Job Title</th>
                     <th>Reason</th>
                     <th>Status</th>
-                    <th>Edit</th>
-                    <th>Delete</th>
+                    <th>Action</th>
                 </tr>
             <?php
             // Output data of each row
@@ -170,6 +169,10 @@ if (!isset($_SESSION['userloggedin'])) {
                 echo "<td>" . $row['job_title'] . "</td>";
                 echo "<td>" . $row['rejection_reason'] . "</td>";
                 echo "<td>" . $row['status'] . "</td>";
+                echo "<td>";
+                echo '<a href="db/db_edit.php?id=' . $row['id'] . '">Edit</a> | ';
+                echo '<a href="db/db_delete.php?id=' . $row['id'] . '">Delete</a>';
+                echo "</td>";
                 echo "</tr>";
             }
         }
@@ -177,8 +180,9 @@ if (!isset($_SESSION['userloggedin'])) {
             </table>
 
 
-            <!-- Approved Ads -->
+
             <?php
+            //Approved Ads
             // SQL query to join tables
             $sql = "SELECT 
             job_ads.id,
@@ -247,11 +251,13 @@ if (!isset($_SESSION['userloggedin'])) {
                 ?>
                 </table>
 
-                <!-- Approved Ads -->
+                
+
+            
                 <?php
+                //Approved Ads
                 // SQL query to join tables
                 $sql = "SELECT 
-                job_ads.id,
                 job_ads.company_name, 
                 job_ads.company_logo, 
                 job_ads.job_description, 
@@ -292,7 +298,6 @@ if (!isset($_SESSION['userloggedin'])) {
                             <th>Salary</th>
                             <th>Application Deadline</th>
                             <th>Status</th>
-                            <th>Action</th>
                         </tr>
                     <?php
                     // Output data of each row
@@ -307,10 +312,6 @@ if (!isset($_SESSION['userloggedin'])) {
                         echo "<td>" . $row['salary'] . "</td>";
                         echo "<td>" . $row['application_deadline'] . "</td>";
                         echo "<td>" . $row['status'] . "</td>";
-                        echo "<td>";
-                        echo '<a href="db/db_edit.php?id=' . $row['id'] . '">Edit</a> | ';
-                        echo '<a href="db/db_delete.php?id=' . $row['id'] . '">Delete</a>';
-                        echo "</td>";
                         echo "</tr>";
                     }
                 }

@@ -77,7 +77,7 @@
     <div class="container signup pt-4 pb-4 ps-4 pe-4">
         <form action="db/db_signup.php" method="POST" onsubmit="return validatePassword()">
             <div class="mb-3">
-                <label for="name" class="form-label">Name</label>
+                <label for="name" class="form-label">Full Name</label>
                 <input type="text" class="form-control" id="name" name="name" aria-describedby="nameHelp">
             </div>
             <div class="mb-3">

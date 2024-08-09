@@ -26,6 +26,11 @@
       background-color: rgb(228, 228, 228);
     }
 
+    .card-text {
+      text-wrap: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     .hero {
       background-image: url('assets/images/bg.jpg');
@@ -42,12 +47,6 @@
       border-radius: 10px;
       box-shadow: 0px 0px 30px rgba(227, 227, 237, 0.37);
       border: 1px #0c1538c6;
-    }
-
-    .card-text {
-      text-wrap: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     @media only screen and (max-width: 768px) {
@@ -227,24 +226,25 @@
     LEFT JOIN locations ON job_ads.location_id = locations.id
     LEFT JOIN job_categories ON job_ads.job_category_id = job_categories.id
     WHERE job_ads.is_sponsored = 1
-    LIMIT 15";
+    LIMIT 10";
 
   $result = mysqli_query($conn, $query);
   ?>
   <div class="container mt-4">
     <h2 class="text-center">Sponsored Job Listings</h2>
+
     <?php
     if ($result->num_rows > 0) {
       $count = 0;
       echo '<div class="row">';
       // Output data of each row
       while ($row = $result->fetch_assoc()) {
-        // Start a new row every 3 cards
-        if ($count % 3 == 0 && $count > 0) {
+        // Start a new row every two cards
+        if ($count % 2 == 0 && $count > 0) {
           echo '</div><div class="row">';
         }
     ?>
-        <div class="col-md-4 mb-3">
+        <div class="col-md-6 mb-3">
           <div class="card">
             <div class="row no-gutters">
               <div class="col-md-4">
@@ -265,10 +265,6 @@
         </div>
     <?php
         $count++;
-        // Stop after 15 ads
-        if ($count >= 15) {
-          break;
-        }
       }
       echo '</div>'; // Close the last row
     } else {

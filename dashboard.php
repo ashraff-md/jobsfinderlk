@@ -19,6 +19,7 @@ if (!isset($_SESSION['userloggedin'])) {
     <title>Jobs Finder</title>
 
     <!-- Bootstrap -->
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
     <!-- CSS -->
@@ -101,10 +102,10 @@ if (!isset($_SESSION['userloggedin'])) {
                 </button>
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li>
-                            <a class="nav-link text-white me-4 active" href="#">
+                        <li class="nav-item">
+                            <p class="nav-link text-white me-4 active">
                                 <?php echo $_SESSION['userloggedin']; ?>
-                            </a>
+                            </p>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
@@ -118,6 +119,7 @@ if (!isset($_SESSION['userloggedin'])) {
                     </ul>
                 </div>
             </div>
+
         </div>
     </nav>
 
@@ -251,9 +253,9 @@ if (!isset($_SESSION['userloggedin'])) {
                 ?>
                 </table>
 
-                
 
-            
+
+
                 <?php
                 //Approved Ads
                 // SQL query to join tables

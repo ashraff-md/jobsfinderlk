@@ -23,12 +23,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $applyto = $_POST['applyto'] ?? '';
     $application_deadline = $_POST['application_deadline'] ?? '';
     $salary = $_POST['salary'] ?? '';
-    $recruiter_id	= (int)$_SESSION['userid'];
+    $recruiter_id = (int)$_SESSION['userid'];
     $isSponsored = isset($_POST['is_sponsored']) ? 1 : 0;
 
+    // Handling file upload with unique filename
     $companyLogo = $_FILES['company_logo']['name'];
+    $fileExtension = pathinfo($companyLogo, PATHINFO_EXTENSION);
+    $uniqueFilename = uniqid() . '.' . $fileExtension; // Generate unique filename
     $targetDir = "../uploads/";
-    $targetFile = $targetDir . basename($companyLogo);
+    $targetFile = $targetDir . $uniqueFilename;
 
     if (!is_dir($targetDir)) {
         mkdir($targetDir, 0777, true);
@@ -39,7 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssiiisssisssii", $job_title, $company_name, $companyLogo, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $applyto, $application_deadline, $salary, $recruiter_id, $isSponsored);
+        $stmt->bind_param("sssiiisssisssii", $job_title, $company_name, $uniqueFilename, $category_id, $employment_type_id, $location_id, $job_description, $qualification_id, $experience_level_id, $work_arrangement_id, $applyto, $application_deadline, $salary, $recruiter_id, $isSponsored);
 
         if ($stmt->execute()) {
             header('Location: ../dashboard.php');

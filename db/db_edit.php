@@ -39,7 +39,7 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
     if ($result->num_rows > 0) {
         while ($option = $result->fetch_assoc()) {
             $selected = ($option[$idField] == $selectedValue) ? 'selected' : '';
-            echo "<option value='" . $option[$idField] . "' $selected>" . $option[$nameField] . "</option>";
+            echo "<option value='" . htmlspecialchars($option[$idField], ENT_QUOTES) . "' $selected>" . htmlspecialchars($option[$nameField], ENT_QUOTES) . "</option>";
         }
     }
 }
@@ -50,10 +50,10 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!-- Faviocon -->
+    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="assets/logo/solo-logo.png">
 
-    <title>Jobs Finder</title>
+    <title>Jobs Finder | Edit you ad</title>
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
@@ -64,7 +64,7 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
     <!-- Poppins Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <style>
         body {
@@ -75,10 +75,8 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
             background-color: rgb(240, 240, 240);
         }
 
-
         @media only screen and (max-width: 768px) {
             /* For mobile phones: */
-
             .adForm {
                 min-width: 250px;
                 max-width: 410px;
@@ -86,7 +84,6 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
         }
 
         @media only screen and (min-width: 600px) {
-
             /* For tablets: */
             .adForm {
                 max-width: 600px;
@@ -94,14 +91,12 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
         }
 
         @media only screen and (min-width: 768px) {
-
             /* For desktop: */
             .adForm {
                 max-width: 700px;
             }
         }
     </style>
-
 </head>
 
 
@@ -137,21 +132,26 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
     <div class="container adForm pe-5 ps-5 pt-5 pb-5">
         <h1 class="text-center">Edit Your Vacancy</h1>
         <form action="db_update.php" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
+            <input type="hidden" name="id" value="<?php echo htmlspecialchars($row['id'], ENT_QUOTES); ?>">
             <div class="row">
                 <div class="col mb-3">
                     <label for="job_title" class="form-label">Job Title</label>
-                    <input type="text" class="form-control" id="job_title" name="job_title" value="<?php echo $row['job_title']; ?>" required>
+                    <input type="text" class="form-control" id="job_title" name="job_title" value="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES); ?>" required>
                 </div>
             </div>
             <div class="row">
                 <div class="col-md-6 col-sm-6 col-12 mb-3">
                     <label for="company_name" class="form-label">Company Name</label>
-                    <input type="text" class="form-control" id="company_name" name="company_name" value="<?php echo $row['company_name']; ?>" required>
+                    <input type="text" class="form-control" id="company_name" name="company_name" value="<?php echo htmlspecialchars($row['company_name'], ENT_QUOTES); ?>" required>
                 </div>
                 <div class="col-md-6 col-sm-6 col-12 mb-3">
                     <label for="company_logo" class="form-label">Company Logo</label>
                     <input type="file" class="form-control" id="company_logo" name="company_logo">
+                    <?php if (!empty($row['company_logo'])): ?>
+                        <small>Current Logo:</small><br>
+                        <img src="../uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES); ?>" alt="Company Logo" height="50"><br>
+                        <small>Leave this field empty if you don't want to change the logo.</small>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="row">
@@ -176,67 +176,29 @@ function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selec
                     </select>
                 </div>
                 <div class="col-md-6 col-sm-6 col-12 mb-3">
-                    <label for="work_arrangement_id" class="form-label">Work Arrangement</label>
-                    <select class="form-select" id="work_arrangement_id" name="work_arrangement_id">
-                        <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", $row['work_arrangement_id']); ?>
-                    </select>
+                    <label for="salary" class="form-label">Salary (Optional)</label>
+                    <input type="text" class="form-control" id="salary" name="salary" value="<?php echo htmlspecialchars($row['salary'], ENT_QUOTES); ?>">
                 </div>
             </div>
             <div class="row">
                 <div class="col mb-3">
                     <label for="job_description" class="form-label">Job Description</label>
-                    <textarea class="form-control" id="job_description" name="job_description" required><?php echo $row['job_description']; ?></textarea>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 col-sm-6 col-12 mb-3">
-                    <label for="qualification_id" class="form-label">Qualification</label>
-                    <select class="form-select" id="qualification_id" name="qualification_id">
-                        <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", $row['qualification_id']); ?>
-                    </select>
-                </div>
-                <div class="col-md-6 col-sm-6 col-12 mb-3">
-                    <label for="experience_level_id" class="form-label">Experience Level</label>
-                    <select class="form-select" id="experience_level_id" name="experience_level_id">
-                        <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", $row['experience_id']); ?>
-                    </select>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6 col-sm-6 col-12 mb-3">
-                    <label for="salary" class="form-label">Salary Range (Optional)</label>
-                    <input type="text" class="form-control" id="salary" name="salary" value="<?php echo $row['salary']; ?>">
-                </div>
-                <div class="col-md-6 col-sm-6 col-12 mb-3">
-                    <label for="application_deadline" class="form-label">Application Deadline</label>
-                    <input type="date" class="form-control" id="application_deadline" name="application_deadline" value="<?php echo $row['application_deadline']; ?>" required>
-                </div>
-
-            </div>
-            <div class="row">
-                <div class="col mb-3">
-                    <label for="applyto" class="form-label">Send your application to:</label>
-                    <input type="text" class="form-control" id="applyto" name="applyto" value="<?php echo $row['applyto']; ?>" required>
+                    <textarea class="form-control" id="job_description" name="job_description" rows="6" required><?php echo htmlspecialchars($row['job_description'], ENT_QUOTES); ?></textarea>
                 </div>
             </div>
             <div class="row">
                 <div class="col mb-3">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" value="1" id="is_sponsored" name="is_sponsored" <?php echo $row['is_sponsored'] ? 'checked' : ''; ?>>
-                        <label class="form-check-label" for="is_sponsored">
-                            Sponsored
-                        </label>
-                    </div>
+                    <label for="work_arrangement_id" class="form-label">Work Arrangement</label>
+                    <select class="form-select" id="work_arrangement_id" name="work_arrangement_id">
+                        <?php generateDropdownOptions($conn, "work_arrangements", "id", "arrangement_type", $row['work_arrangement_id']); ?>
+                    </select>
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary">Update Ad</button>
+            <button type="submit" class="btn btn-success mt-3">Save Changes</button>
         </form>
-
-
     </div>
 
-    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-L2A6cMKWKcZ1nLmeLuP1C6MCceDkAnfJAV1q6M/d/36SElsfCJhM2h5BAmRAqGzO" crossorigin="anonymous"></script>
 </body>
-
 </html>

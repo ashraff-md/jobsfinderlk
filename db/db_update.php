@@ -4,6 +4,7 @@ if (!isset($_SESSION['userloggedin'])) {
     header('Location: ../login.php');
     exit();
 }
+
 include_once 'db_config.php';
 
 if ($conn->connect_error) {
@@ -37,69 +38,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stmtOldLogo->close();
 
     if (isset($_FILES['company_logo']['name']) && !empty($_FILES['company_logo']['name'])) {
-        // If a new image is uploaded, handle the file upload
-        $companyLogo = time() . '_' . basename($_FILES['company_logo']['name']);
-        $targetDir = "../uploads/";
-        $targetFile = $targetDir . $companyLogo;
+    // Generate a completely unique name for the file
+    $uniqueId = uniqid();
+    $extension = pathinfo($_FILES['company_logo']['name'], PATHINFO_EXTENSION);
+    $companyLogo = $uniqueId . '.' . $extension;
+    $targetDir = "../uploads/";
+    $targetFile = $targetDir . $companyLogo;
 
-        if (!is_dir($targetDir)) {
-            mkdir($targetDir, 0777, true);
+    if (!is_dir($targetDir)) {
+        mkdir($targetDir, 0777, true);
+    }
+
+    if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $targetFile)) {
+        // Delete the old image file if it exists
+        if ($oldLogo && file_exists($targetDir . $oldLogo)) {
+            unlink($targetDir . $oldLogo);
         }
 
-        if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $targetFile)) {
-            // Delete the old image file if it exists
-            if ($oldLogo && file_exists($targetDir . $oldLogo)) {
-                unlink($targetDir . $oldLogo);
-            }
-
-            // Update the job ad with the new image
-            $sql = "UPDATE job_ads SET 
-                        job_title = ?, 
-                        company_name = ?, 
-                        company_logo = ?, 
-                        job_category_id = ?, 
-                        employment_type_id = ?, 
-                        location_id = ?, 
-                        job_description = ?, 
-                        qualification_id = ?, 
-                        experience_id = ?, 
-                        work_arrangement_id = ?, 
-                        applyto = ?, 
-                        application_deadline = ?, 
-                        salary = ?, 
-                        is_sponsored = ?,
-                        status = 'pending'
-                    WHERE id = ? AND recruiter_id = ?";
-
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param(
-                "sssiiisssissiiii",
-                $job_title,
-                $company_name,
-                $companyLogo,
-                $category_id,
-                $employment_type_id,
-                $location_id,
-                $job_description,
-                $qualification_id,
-                $experience_level_id,
-                $work_arrangement_id,
-                $applyto,
-                $application_deadline,
-                $salary,
-                $isSponsored,
-                $job_id,
-                $recruiter_id
-            );
-        } else {
-            echo "Error uploading file.";
-            exit();
-        }
-    } else {
-        // If no new file is uploaded, keep the old one
+        // Update the job ad with the new image
         $sql = "UPDATE job_ads SET 
                     job_title = ?, 
                     company_name = ?, 
+                    company_logo = ?, 
                     job_category_id = ?, 
                     employment_type_id = ?, 
                     location_id = ?, 
@@ -116,9 +76,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $stmt = $conn->prepare($sql);
         $stmt->bind_param(
-            "ssiiisssissiiii",
+            "sssiiisssissiiii",
             $job_title,
             $company_name,
+            $companyLogo,
             $category_id,
             $employment_type_id,
             $location_id,
@@ -133,14 +94,57 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $job_id,
             $recruiter_id
         );
-    }
-
-    if ($stmt->execute()) {
-        header('Location: ../dashboard.php');
     } else {
-        echo "Error: " . $stmt->error;
+        echo "Error uploading file.";
+        exit();
     }
+} else {
+    // If no new file is uploaded, keep the old one
+    $sql = "UPDATE job_ads SET 
+                job_title = ?, 
+                company_name = ?, 
+                job_category_id = ?, 
+                employment_type_id = ?, 
+                location_id = ?, 
+                job_description = ?, 
+                qualification_id = ?, 
+                experience_id = ?, 
+                work_arrangement_id = ?, 
+                applyto = ?, 
+                application_deadline = ?, 
+                salary = ?, 
+                is_sponsored = ?,
+                status = 'pending'
+            WHERE id = ? AND recruiter_id = ?";
 
-    $stmt->close();
-    $conn->close();
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param(
+        "ssiiisssissiiii",
+        $job_title,
+        $company_name,
+        $category_id,
+        $employment_type_id,
+        $location_id,
+        $job_description,
+        $qualification_id,
+        $experience_level_id,
+        $work_arrangement_id,
+        $applyto,
+        $application_deadline,
+        $salary,
+        $isSponsored,
+        $job_id,
+        $recruiter_id
+    );
 }
+
+if ($stmt->execute()) {
+    header('Location: ../dashboard.php');
+} else {
+    echo "Error: " . $stmt->error;
+}
+
+$stmt->close();
+$conn->close();
+}
+?>

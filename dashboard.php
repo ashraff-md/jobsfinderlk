@@ -29,63 +29,6 @@ if (!isset($_SESSION['userloggedin'])) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-
-    <style>
-        /*
-    .SearchBox {
-      background-image: url('assets/images/bg.jpg');
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: cover;
-    } */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        table,
-        th,
-        td {
-            border: 1px solid black;
-        }
-
-        th,
-        td {
-            padding: 10px;
-            text-align: left;
-        }
-
-        body {
-            background-color: rgb(228, 228, 228);
-        }
-
-
-        @media only screen and (max-width: 768px) {
-            /* For mobile phones: */
-
-            .adForm {
-                min-width: 250px;
-                max-width: 350px;
-            }
-        }
-
-        @media only screen and (min-width: 600px) {
-
-            /* For tablets: */
-            .adForm {
-                max-width: 600px;
-            }
-        }
-
-        @media only screen and (min-width: 768px) {
-
-            /* For desktop: */
-            .adForm {
-                max-width: 700px;
-            }
-        }
-    </style>
-
 </head>
 
 

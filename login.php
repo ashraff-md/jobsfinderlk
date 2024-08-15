@@ -72,11 +72,13 @@
                 <input type="password" class="form-control" id="password" name="password">
             </div>
             <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
-            <p class="text-center">Don't have an account? <a href="signup.php">Sign Up</a></p>
+            <p class="text-center">Don't have an account? <a href="signup.php" style="text-decoration: underline; color: blue" >Sign Up</a></p>
         </form>
     </div>
 
-
+    <?php
+    include_once 'footer.php';
+    ?>
 
 
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>

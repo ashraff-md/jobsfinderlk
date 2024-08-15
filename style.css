@@ -51,6 +51,29 @@ td {
   text-align: left;
 }
 
+th{
+  text-align: center;
+}
+
+.seacrhFormLabel {
+  color: white;
+}
+
+.seacrhFormLabel {
+  justify-content: space-evenly;
+}
+
+.login {
+  background-color: rgb(250, 250, 250);
+  width: 400px;
+}
+
+a {
+  text-decoration: none;
+  color: white;
+}
+
+
 @media only screen and (max-width: 768px) {
   /* For mobile phones: */
   .adForm {

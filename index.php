@@ -16,6 +16,11 @@
   <!-- CSS -->
   <link rel="stylesheet" href="style.css">
 
+  <!-- Font Awesome CDN -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+
+
+
   <!-- Poppins Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,6 +55,9 @@
               <li class="nav-item">
                 <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
               </li>
+              <li class="nav-item">
+                <a class="nav-link text-white me-4" href="admin.php">Admin</a>
+              </li>
             </ul>
           </div>
         </div>
@@ -61,14 +69,15 @@
       <div class="container mt-5 mb-5 pt-3 pb-3 Blur" id="search">
         <div class="row g-2 mt-1 ms-1 me-1 mb-1">
           <div class="col-md-12 col-sm-12 col-12">
-            <h1 class="mt-1 ms-1 me-1 mb-2" style="font-family: 'Poppins', sans-serif; font-weight: 300; font-size: 2.5rem; line-height: 1.2; letter-spacing: -0.02em; color: #fff; text-align: center;">
+            <h1 class="mt-1 ms-1 me-1 mb-1" style="font-family: 'Poppins', sans-serif; font-weight: 300; font-size: 2.5rem; line-height: 1.2; letter-spacing: -0.02em; color: #fff; text-align: center;">
               Discover Your Dream Job
             </h1>
           </div>
           <div class="col-md-12 col-sm-12 col-12">
             <form>
-              <div class="row g-2 mt-1 ms-1 me-1 mb-1">
+              <div class="seacrhFormLabel row g-2 ms-1 me-1 mb-1">
                 <div class="col-md-6 col-sm-6 col-12">
+                  <label for="keyword" class="form-label ps-2">Keyword</label>
                   <input type="text" class="form-control" id="keyword" placeholder="Keyword">
                 </div>
 
@@ -82,7 +91,7 @@
                 }
 
                 // Function to generate dropdown options
-                function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId)
+                function generateDropdownOptions($conn, $tableName, $idField, $nameField, $selectId, $label)
                 {
                   $sql = "SELECT * FROM $tableName";
                   $result = $conn->query($sql);
@@ -91,6 +100,7 @@
                     // Fetch the first row to set as the default option
                     $firstRow = $result->fetch_assoc();
 
+                    echo "<label for='$selectId' class='form-label ps-2'>$label</label>";
                     echo "<select class='form-select' aria-label='$selectId' id='$selectId'>";
                     echo "<option selected value='" . $firstRow[$idField] . "'>" . $firstRow[$nameField] . "</option>";
 
@@ -107,35 +117,37 @@
 
                 <!-- Locations dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location"); ?>
+                  <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location", "Location"); ?>
                 </div>
 
                 <!-- Categories dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category"); ?>
+                  <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category", "Category"); ?>
                 </div>
 
                 <!-- Qualifications dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification"); ?>
+                  <?php generateDropdownOptions($conn, "qualifications", "id", "qualification_name", "qualification", "Qualification"); ?>
                 </div>
 
                 <!-- Experience dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience"); ?>
+                  <?php generateDropdownOptions($conn, "experience_levels", "id", "experience_level", "experience", "Experience Level"); ?>
                 </div>
 
+                <!-- Employment Type dropdown -->
                 <div class="col-md-6 col-sm-6 col-12">
-                  <input type="number" class="form-control" id="age" placeholder="Age">
+                  <?php generateDropdownOptions($conn, "employment_types", "id", "employment_type", "employment_type", "Employment Type"); ?>
                 </div>
               </div>
 
-              <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-4">
-                <button type="submit" class="btn btn-light">Search</button>
+              <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-4 mb-2">
+                <button type="submit" class="btn btn-outline-light btn-floating">Search</button>
               </div>
-              <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-1">
-                <a href="#">Explore all ads</a>
+              <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-2 mb-2">
+                <a href="#" style="text-decoration: underline;">Explore all ads</a>
               </div>
+            </form>
           </div>
           </form>
         </div>
@@ -206,10 +218,11 @@
       echo "<p class='text-center'>No sponsored jobs found</p>";
     }
     ?>
-
   </div>
 
-
+  <?php
+  include_once 'footer.php';
+  ?>
 
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

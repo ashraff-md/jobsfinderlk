@@ -83,10 +83,14 @@ if (!isset($_SESSION['userloggedin'])) {
             job_ads.id,
             job_ads.company_name, 
             job_ads.job_title, 
+            job_categories.category_name AS job_category, 
+            locations.location_name AS location,
             job_ads.status, 
             job_ads.rejection_reason
             FROM 
-            job_ads
+                job_ads
+            LEFT JOIN job_categories ON job_ads.job_category_id = job_categories.id
+            LEFT JOIN locations ON job_ads.location_id = locations.id
             WHERE 
             job_ads.recruiter_id = " . $_SESSION['userid'] . " 
             AND job_ads.status = 'rejected' 
@@ -102,9 +106,11 @@ if (!isset($_SESSION['userloggedin'])) {
                 <tr>
                     <th>Company Name</th>
                     <th>Job Title</th>
+                    <th>Job Category</th>
+                    <th>Location</th>
                     <th>Reason</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th colspan="2">Action</th>
                 </tr>
             <?php
             // Output data of each row
@@ -112,12 +118,12 @@ if (!isset($_SESSION['userloggedin'])) {
                 echo "<tr>";
                 echo "<td>" . $row['company_name'] . "</td>";
                 echo "<td>" . $row['job_title'] . "</td>";
+                echo "<td>" . $row['job_category'] . "</td>";
+                echo "<td>" . $row['location'] . "</td>";
                 echo "<td>" . $row['rejection_reason'] . "</td>";
                 echo "<td>" . $row['status'] . "</td>";
-                echo "<td>";
-                echo '<a href="db/db_edit.php?id=' . $row['id'] . '">Edit</a> | ';
-                echo '<a href="db/db_delete.php?id=' . $row['id'] . '">Delete</a>';
-                echo "</td>";
+                echo "<td style='text-align: center;'>" . '<a href="db/db_edit.php?id=' . $row['id'] . '" style="color:black;"><i class="fa fa-pencil" aria-hidden="true"></i></a>' . "</td>";
+                echo "<td style='text-align: center;'>" . '<a href="db/db_delete.php?id=' . $row['id'] . '" style="color:black;"><i class="fa fa-trash" aria-hidden="true"></i></a>' . "</td>";
                 echo "</tr>";
             }
         }
@@ -168,10 +174,9 @@ if (!isset($_SESSION['userloggedin'])) {
                         <th>Location</th>
                         <th>Employment Type</th>
                         <th>Work Arrangement</th>
-                        <th>Salary</th>
                         <th>Application Deadline</th>
                         <th>Status</th>
-                        <th>Action</th>
+                        <th colspan="2">Action</th>
                     </tr>
                 <?php
                 // Output data of each row
@@ -183,13 +188,10 @@ if (!isset($_SESSION['userloggedin'])) {
                     echo "<td>" . $row['location'] . "</td>";
                     echo "<td>" . $row['employment_type'] . "</td>";
                     echo "<td>" . $row['work_arrangement'] . "</td>";
-                    echo "<td>" . $row['salary'] . "</td>";
                     echo "<td>" . $row['application_deadline'] . "</td>";
                     echo "<td>" . $row['status'] . "</td>";
-                    echo "<td>";
-                    echo '<a href="db/db_edit.php?id=' . $row['id'] . '">Edit</a> | ';
-                    echo '<a href="db/db_delete.php?id=' . $row['id'] . '">Delete</a>';
-                    echo "</td>";
+                    echo "<td>" . '<a href="db/db_edit.php?id=' . $row['id'] . '" style="color:black"><i class="fa fa-pencil" aria-hidden="true"></i></a>' . "</td>";
+                    echo "<td>" . '<a href="db/db_delete.php?id=' . $row['id'] . '" style="color:black"><i class="fa fa-trash" aria-hidden="true"></i></a>' . "</td>";
                     echo "</tr>";
                 }
             }
@@ -263,16 +265,16 @@ if (!isset($_SESSION['userloggedin'])) {
                     ?>
                     </table>
     </div>
-</body>
 
-</html>
+    <?php
+    include_once 'footer.php';
+    ?>
+
+</body>
 
 <?php
 $conn->close();
 ?>
-
-</div>
-
 
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

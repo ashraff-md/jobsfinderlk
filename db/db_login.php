@@ -6,9 +6,17 @@ $uname = $_POST['email'];
 $pass = $_POST['password'];
 $table_name = $_POST['table_name']; // Retrieve the table name from the form
 
-// Prepare and execute the SQL query to fetch the user details
+// Establish database connection
 $conn = new mysqli($servername, $username, $password, $dbname);
-$stmt = $conn->prepare("SELECT * FROM $table_name WHERE email = ?");
+
+// Check connection
+if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+}
+
+// Prepare and execute the SQL query to fetch the user details
+$sql = "SELECT * FROM $table_name WHERE email = ?";
+$stmt = $conn->prepare($sql);
 $stmt->bind_param("s", $uname);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -16,8 +24,9 @@ $result = $stmt->get_result();
 // Check if the user exists
 if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
+
         // Verify the password
-        if ($user['password'] === $pass) {
+        if (password_verify($pass, $user['password'])) {
                 // Store user information in session
                 $_SESSION['userloggedin'] = $uname;
                 $_SESSION['userid'] = $user['id'];

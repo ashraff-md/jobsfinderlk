@@ -63,29 +63,32 @@ if (isset($_SESSION['userloggedin'])) {
         </div>
     </nav><br><br>
 
-
-
-    <!-- Sign in -->
+    <!-- Login -->
     <div class="container login pt-4 pb-4 ps-4 pe-4">
-        <div class="d-flex justify-content-center pb-2">
+        <div class="d-flex justify-content-center pb-4">
             <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
         </div>
         <form action="db/db_login.php" method="POST" class="text-center">
             <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" aria-describedby="emailHelp">
+                <div class="form-floating">
+                    <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
+                    <label for="email">Email address</label>
+                </div>
             </div>
             <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password">
+                <div class="form-floating">
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                    <label for="password">Password</label>
+                </div>
             </div>
             <!-- Hidden field to pass the table name -->
             <input type="hidden" name="table_name" value="recruiters">
 
             <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
-            <p class="text-center">Don't have an account? <a href="signup.php" style="text-decoration: underline; color: blue">Sign Up</a></p>
+            <p class="text-center">Don't have an account? <a href="signup.php" class="text-decoration-underline text-primary">Sign Up</a></p>
         </form>
     </div>
+
 
     <?php
     include_once 'footer.php';

@@ -36,7 +36,7 @@ if (!isset($_SESSION['userloggedin'])) {
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
         <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="dashboard.php">
+            <a class="navbar-brand" href="../index.php">
                 <img src="../assets/logo/logo.png" alt="JobsFinder.lk" height="34">
             </a>
             <div class="d-flex">

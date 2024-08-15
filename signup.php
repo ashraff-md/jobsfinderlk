@@ -38,32 +38,55 @@
 
     <!-- Sign Up -->
     <div class="container signup pt-4 pb-4 ps-4 pe-4">
+        <div class="d-flex justify-content-center pb-4">
+            <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
+        </div>
         <form action="db/db_signup.php" method="POST" onsubmit="return validatePassword()">
-            <div class="mb-3">
-                <label for="name" class="form-label">Full Name</label>
-                <input type="text" class="form-control" id="name" name="name" aria-describedby="nameHelp">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="firstName" name="first_name" placeholder="First Name" required>
+                        <label for="firstName">First Name</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="lastName" name="last_name" placeholder="Last Name" required>
+                        <label for="lastName">Last Name</label>
+                    </div>
+                </div>
             </div>
             <div class="mb-3">
-                <label for="name" class="form-label">Phone Number</label>
-                <input type="text" class="form-control" id="phone_number" name="phone_number" aria-describedby="nameHelp">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="phone_number" name="phone_number" placeholder="Phone Number" required>
+                    <label for="phone_number">Phone Number</label>
+                </div>
             </div>
             <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" aria-describedby="emailHelp">
+                <div class="form-floating">
+                    <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
+                    <label for="email">Email address</label>
+                </div>
             </div>
             <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password">
+                <div class="form-floating">
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                    <label for="password">Password</label>
+                </div>
             </div>
             <div class="mb-3">
-                <label for="confirmPassword" class="form-label">Confirm Password</label>
-                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword">
+                <div class="form-floating">
+                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm Password" required>
+                    <label for="confirmPassword">Confirm Password</label>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Sign up</button>
-            <p class="text-center">Already have an account? <a href="login.php">Login</a></p>
+            <p class="text-center">Already have an account? <a href="login.php" class="text-decoration-underline text-primary">Login</a></p>
         </form>
     </div>
 
+
+    <?php include_once 'footer.php'; ?>
 
     <script>
         function validatePassword() {

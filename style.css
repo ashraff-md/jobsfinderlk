@@ -68,6 +68,11 @@ th{
   width: 400px;
 }
 
+.signup {
+  background-color: rgb(250, 250, 250);
+  width: 450px;
+}
+
 a {
   text-decoration: none;
   color: white;

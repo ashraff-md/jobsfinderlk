@@ -16,13 +16,13 @@ if (isset($_SESSION['userloggedin'])) {
     <!-- Faviocon -->
     <link rel="icon" type="image/x-icon" href="assets/logo/solo-logo.png">
 
-    <title>Jobs Finder | Login</title>
+    <title>Jobs Finder | Admin Login</title>
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="..\style.css">
 
     <!-- Poppins Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,41 +36,19 @@ if (isset($_SESSION['userloggedin'])) {
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
         <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="index.php">
-                <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
+            <a class="navbar-brand" href="..\index.php">
+                <img src="..\assets/logo/logo.png" alt="JobsFinder.lk" height="34">
             </a>
-            <div class="d-flex">
-                <button class="navbar-toggler" style="background-color: #ffffff;" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="#">About</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="#">Subscribe</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
         </div>
     </nav><br><br>
-
 
 
     <!-- Sign in -->
     <div class="container login pt-4 pb-4 ps-4 pe-4">
         <div class="d-flex justify-content-center pb-2">
-            <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
+            <img src="..\assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
         </div>
-        <form action="db/db_login.php" method="POST" class="text-center">
+        <form action="..\db/db_login.php" method="POST" class="text-center">
             <div class="mb-3">
                 <label for="email" class="form-label">Email address</label>
                 <input type="email" class="form-control" id="email" name="email" aria-describedby="emailHelp">
@@ -79,18 +57,19 @@ if (isset($_SESSION['userloggedin'])) {
                 <label for="password" class="form-label">Password</label>
                 <input type="password" class="form-control" id="password" name="password">
             </div>
+
             <!-- Hidden field to pass the table name -->
-            <input type="hidden" name="table_name" value="recruiters">
+            <input type="hidden" name="table_name" value="admins">
 
             <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
-            <p class="text-center">Don't have an account? <a href="signup.php" style="text-decoration: underline; color: blue">Sign Up</a></p>
+            <p class="text-center">Forgot Password? Contact admin for reset.</p>
         </form>
+
     </div>
 
     <?php
-    include_once 'footer.php';
+    include_once '..\footer.php';
     ?>
-
 
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

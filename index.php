@@ -56,7 +56,7 @@
                 <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link text-white me-4" href="admin.php">Admin</a>
+                <a class="nav-link text-white me-4" href="admin/login.php">Admin</a>
               </li>
             </ul>
           </div>

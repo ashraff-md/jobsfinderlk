@@ -156,6 +156,7 @@
   </div>
   </div>
   <br>
+
   <!-- Cards -->
   <?php
   include_once 'db/db_config.php';

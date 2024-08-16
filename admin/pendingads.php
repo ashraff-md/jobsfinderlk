@@ -127,8 +127,6 @@ if (!isset($_SESSION['adminloggedin'])) {
         $conn->close();
         ?>
 
-
-
         <?php
         include_once '..\social.php';
         ?>

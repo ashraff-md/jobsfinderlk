@@ -14,21 +14,21 @@ if (!isset($_SESSION['adminloggedin'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Faviocon -->
-    <link rel="icon" type="image/x-icon" href="../assets/logo/solo-logo.png">
+    <link rel="icon" type="image/x-icon" href="assets/logo/solo-logo.png">
 
-    <title>Jobs Finder | Admin</title>
+    <title>Jobs Finder | Admin Login</title>
 
     <!-- Bootstrap -->
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="..\style.css">
 
     <!-- Poppins Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+
 </head>
 
 
@@ -65,87 +65,74 @@ if (!isset($_SESSION['adminloggedin'])) {
         </nav>
 
 
+        <!-- Pending Ads -->
+        <?php
+        // Include your database connection
+        include_once '../db/db_config.php';
 
-        <br><br>
-        <!-- Dashboard -->
-        <div class="container">
-            <h1 class="text-center">Admin Dashboard</h1>
-            <br>
-            <?php
-            // Database connection
-            include_once '../db/db_config.php';
+        // SQL query to select pending ads with joined tables for location and category
+        $sql = "SELECT 
+            job_ads.company_logo, 
+            job_ads.job_title, 
+            job_ads.company_name, 
+            locations.location_name AS location, 
+            job_categories.category_name AS job_category, 
+            job_ads.application_deadline, 
+            job_ads.status
+        FROM 
+            job_ads
+        LEFT JOIN 
+            locations ON job_ads.location_id = locations.id
+        LEFT JOIN 
+            job_categories ON job_ads.job_category_id = job_categories.id
+        WHERE 
+            job_ads.status = 'pending'";
 
-            // Get the count of pending, approved, and rejected ads
-            $sql = "SELECT 
-                SUM(CASE WHEN job_ads.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
-                SUM(CASE WHEN job_ads.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_count,
-                SUM(CASE WHEN job_ads.status = 'approved' THEN 1 ELSE 0 END) AS approved_count
-            FROM 
-                job_ads";
+        $result = $conn->query($sql);
 
-            $result = $conn->query($sql);
+        // Check if there are any pending ads
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+        ?>
 
-            // Initialize the counts
-            $pending_count = 0;
-            $approved_count = 0;
-            $rejected_count = 0;
+                <!-- Card -->
+                <div class="container col-md-5 mt-3 mb-3 d-flex justify-content-center">
+                    <div class="card" style="width: 100%;">
+                        <div class="row no-gutters">
+                            <div class="col-md-4 d-flex justify-content-center align-items-center">
+                                <img src="../uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid rounded-start" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
+                            </div>
+                            <div class="col-md-8">
+                                <div class="card-body">
+                                    <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                                    <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
+                                    <br>
+                                    <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <p class="card-text mb-0 text-truncate">Status: <?php echo htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-            if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                $pending_count = $row['pending_count'];
-                $approved_count = $row['approved_count'];
-                $rejected_count = $row['rejected_count'];
+        <?php
             }
-            ?>
+        } else {
+            echo "<p>No pending ads found.</p>";
+        }
 
-            <!-- Card Container with Flexbox -->
-            <div class="d-flex justify-content-center">
-                <!-- Pending Ads Card -->
-                <div class="card border-warning mb-3 me-3" style="max-width: 18rem; cursor: pointer;">
-                    <a href="pendingads.php" class="text-decoration-none text-warning">
-                        <div class="card-header">Pending Ads</div>
-                        <div class="card-body">
-                            <h5 class="card-title"><?php echo $pending_count; ?> Pending Ads</h5>
-                            <p class="card-text">These are the ads that are currently awaiting approval.</p>
-                        </div>
-                    </a>
-                </div>
-
-                <!-- Approved Ads Card -->
-                <div class="card border-success mb-3 me-3" style="max-width: 18rem; cursor: pointer;">
-                    <a href="approvedads.php" class="text-decoration-none text-success">
-                        <div class="card-header">Approved Ads</div>
-                        <div class="card-body">
-                            <h5 class="card-title"><?php echo $approved_count; ?> Approved Ads</h5>
-                            <p class="card-text">These ads have been approved and are now live.</p>
-                        </div>
-                    </a>
-                </div>
-
-                <!-- Rejected Ads Card -->
-                <div class="card border-danger mb-3" style="max-width: 18rem; cursor: pointer;">
-                    <a href="rejectedads.php" class="text-decoration-none text-danger">
-                        <div class="card-header">Rejected Ads</div>
-                        <div class="card-body">
-                            <h5 class="card-title"><?php echo $rejected_count; ?> Rejected Ads</h5>
-                            <p class="card-text">These ads were rejected and did not meet the required standards.</p>
-                        </div>
-                    </a>
-                </div>
-            </div>
-        </div>
+        // Close the database connection
+        $conn->close();
+        ?>
 
 
 
-        <!-- Footer -->
         <?php
         include_once '..\social.php';
         ?>
     </div>
-
-    <?php
-    $conn->close();
-    ?>
 
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

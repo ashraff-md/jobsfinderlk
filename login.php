@@ -33,66 +33,68 @@ if (isset($_SESSION['userloggedin'])) {
 
 
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
-        <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="index.php">
-                <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
-            </a>
-            <div class="d-flex">
-                <button class="navbar-toggler" style="background-color: #ffffff;" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="#">About</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="#">Subscribe</a>
-                        </li>
-                    </ul>
+    <div class="content-wrapper">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
+            <div class="container mt-1 mb-1">
+                <a class="navbar-brand" href="index.php">
+                    <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
+                </a>
+                <div class="d-flex">
+                    <button class="navbar-toggler" style="background-color: #ffffff;" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                            <li class="nav-item">
+                                <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white me-4" href="#">About</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white me-4" href="#">Subscribe</a>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
-    </nav><br><br>
+        </nav><br><br>
 
-    <!-- Login -->
-    <div class="container login pt-4 pb-4 ps-4 pe-4">
-        <div class="d-flex justify-content-center pb-4">
-            <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
-        </div>
-        <form action="db/db_login.php" method="POST" class="text-center">
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
-                    <label for="email">Email address</label>
-                </div>
+        <!-- Login -->
+        <div class="container login pt-4 pb-4 ps-4 pe-4">
+            <div class="d-flex justify-content-center pb-4">
+                <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
             </div>
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
-                    <label for="password">Password</label>
+            <form action="db/db_login.php" method="POST" class="text-center">
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
+                        <label for="email">Email address</label>
+                    </div>
                 </div>
-            </div>
-            <!-- Hidden field to pass the table name -->
-            <input type="hidden" name="table_name" value="recruiters">
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                        <label for="password">Password</label>
+                    </div>
+                </div>
+                <!-- Hidden field to pass the table name -->
+                <input type="hidden" name="table_name" value="recruiters">
 
-            <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
-            <p class="text-center">Don't have an account? <a href="signup.php" class="text-decoration-underline text-primary">Sign Up</a></p>
-        </form>
+                <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
+                <p class="text-center">Don't have an account? <a href="signup.php" class="text-decoration-underline text-primary">Sign Up</a></p>
+            </form>
+        </div>
+
+
+        <?php
+        include_once 'social.php';
+        ?>
     </div>
-
-
-    <?php
-    include_once 'footer.php';
-    ?>
 
 
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>

@@ -14,38 +14,20 @@
                         <!-- Grid row -->
                         <div class="row mt-3">
                             <!-- Grid column -->
-                            <div class="col-md-3 col-lg-4 col-xl-3 mx-auto mb-4">
-                                <!-- Content -->
-                                <h6 class="text-uppercase fw-bold">Company name</h6>
-                                <hr
-                                    class="mb-4 mt-0 d-inline-block mx-auto"
-                                    style="width: 60px; background-color: #7c4dff; height: 2px" />
-                                <p>
-                                    Here you can use rows and columns to organize your footer
-                                    content. Lorem ipsum dolor sit amet, consectetur adipisicing
-                                    elit.
-                                </p>
-                            </div>
-                            <!-- Grid column -->
-
-                            <!-- Grid column -->
                             <div class="col-md-2 col-lg-2 col-xl-2 mx-auto mb-4">
                                 <!-- Links -->
-                                <h6 class="text-uppercase fw-bold">Products</h6>
+                                <h6 class="text-uppercase fw-bold">Help & Support</h6>
                                 <hr
                                     class="mb-4 mt-0 d-inline-block mx-auto"
                                     style="width: 60px; background-color: #7c4dff; height: 2px" />
                                 <p>
-                                    <a href="#!" class="text-white">MDBootstrap</a>
+                                    <a href="#!" class="text-white">FAQ</a>
                                 </p>
                                 <p>
-                                    <a href="#!" class="text-white">MDWordPress</a>
+                                    <a href="#!" class="text-white">Terms and Conditions</a>
                                 </p>
                                 <p>
-                                    <a href="#!" class="text-white">BrandFlow</a>
-                                </p>
-                                <p>
-                                    <a href="#!" class="text-white">Bootstrap Angular</a>
+                                    <a href="#!" class="text-white">Privacy policy</a>
                                 </p>
                             </div>
                             <!-- Grid column -->
@@ -53,36 +35,50 @@
                             <!-- Grid column -->
                             <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mb-4">
                                 <!-- Links -->
-                                <h6 class="text-uppercase fw-bold">Useful links</h6>
+                                <h6 class="text-uppercase fw-bold">Promotions</h6>
                                 <hr
                                     class="mb-4 mt-0 d-inline-block mx-auto"
                                     style="width: 60px; background-color: #7c4dff; height: 2px" />
                                 <p>
-                                    <a href="#!" class="text-white">Your Account</a>
+                                    <a href="#!" class="text-white">Banner Ads</a>
                                 </p>
                                 <p>
-                                    <a href="#!" class="text-white">Become an Affiliate</a>
+                                    <a href="#!" class="text-white">Boost Ads</a>
                                 </p>
                                 <p>
-                                    <a href="#!" class="text-white">Shipping Rates</a>
-                                </p>
-                                <p>
-                                    <a href="#!" class="text-white">Help</a>
+                                    <a href="#!" class="text-white">Ad pricing</a>
                                 </p>
                             </div>
                             <!-- Grid column -->
 
                             <!-- Grid column -->
-                            <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mb-md-0 mb-4">
+                            <div class="col-md-2 col-lg-2 col-xl-2 mx-auto mb-4">
+                                <!-- Links -->
+                                <h6 class="text-uppercase fw-bold">About Jobs Finder</h6>
+                                <hr
+                                    class="mb-4 mt-0 d-inline-block mx-auto"
+                                    style="width: 60px; background-color: #7c4dff; height: 2px" />
+                                <p>
+                                    <a href="#!" class="text-white">Contact Us</a>
+                                </p>
+                                <p>
+                                    <a href="#!" class="text-white">About Us</a>
+                                </p>
+                                <p>
+                                    <a href="#!" class="text-white">Follow Us</a>
+                                </p>
+                            </div>
+                            <!-- Grid column -->
+
+                            <!-- Grid column -->
+                            <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mb-4">
                                 <!-- Links -->
                                 <h6 class="text-uppercase fw-bold">Contact</h6>
                                 <hr
                                     class="mb-4 mt-0 d-inline-block mx-auto"
                                     style="width: 60px; background-color: #7c4dff; height: 2px" />
-                                <p><i class="fas fa-home mr-3"></i>  Colmbo, Sri Lanka</p>
-                                <p><i class="fas fa-envelope mr-3"></i>  info@jobsfinder.lk</p>
-                                <p><i class="fas fa-phone mr-3"></i>  +94 70 212 0612</p>
-                                <p><i class="fas fa-print mr-3"></i>  +94 70 212 0612</p>
+                                <p><i class="fas fa-envelope mr-3"></i> info@jobsfinder.lk</p>
+                                <p><i class="fas fa-phone mr-3"></i> +94 70 212 0612</p>
                             </div>
                             <!-- Grid column -->
                         </div>

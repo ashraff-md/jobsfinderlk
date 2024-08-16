@@ -3,7 +3,7 @@
 
 <?php
 session_start();
-if (isset($_SESSION['userloggedin'])) {
+if (isset($_SESSION['adminloggedin'])) {
     header('Location: dashboard.php');
     exit();
 }
@@ -33,45 +33,48 @@ if (isset($_SESSION['userloggedin'])) {
 
 
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
-        <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="..\index.php">
-                <img src="..\assets/logo/logo.png" alt="JobsFinder.lk" height="34">
-            </a>
-        </div>
-    </nav><br><br>
-
-
-    <!-- Login -->
-    <div class="container login pt-4 pb-4 ps-4 pe-4">
-        <div class="d-flex justify-content-center pb-4">
-            <img src="../assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
-        </div>
-        <form action="../db/db_login.php" method="POST" class="text-center">
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
-                    <label for="email">Email address</label>
-                </div>
+    <div class="content-wrapper">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
+            <div class="container mt-1 mb-1">
+                <a class="navbar-brand" href="..\index.php">
+                    <img src="..\assets/logo/logo.png" alt="JobsFinder.lk" height="34">
+                </a>
             </div>
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
-                    <label for="password">Password</label>
-                </div>
-            </div>
-            <!-- Hidden field to pass the table name -->
-            <input type="hidden" name="table_name" value="admins">
+        </nav><br><br>
 
-            <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
-            <p class="text-center">Forgot Password? Contact Admin</p>
-        </form>
+
+        <!-- Login -->
+        <div class="container login pt-4 pb-4 ps-4 pe-4">
+            <div class="d-flex justify-content-center pb-4">
+                <img src="../assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
+            </div>
+            <form action="../db/db_login.php" method="POST" class="text-center">
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
+                        <label for="email">Email address</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                        <label for="password">Password</label>
+                    </div>
+                </div>
+                <!-- Hidden field to pass the table name -->
+                <input type="hidden" name="table_name" value="admins">
+
+                <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Login</button>
+                <p class="text-center">Forgot Password? Contact Admin</p>
+            </form>
+        </div>
+
+
+        <?php
+        include_once '..\social.php';
+        ?>
     </div>
-    
-    <?php
-    include_once '..\footer.php';
-    ?>
 
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

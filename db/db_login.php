@@ -27,22 +27,28 @@ if ($result->num_rows === 1) {
 
         // Verify the password
         if (password_verify($pass, $user['password'])) {
-                // Store user information in session
-                $_SESSION['userloggedin'] = $uname;
+                // Store user information in session based on table name
                 $_SESSION['userid'] = $user['id'];
 
-                // Redirect based on table name
                 if ($table_name === "recruiters") {
+                        $_SESSION['userloggedin'] = $uname;
                         header("Location: ../dashboard.php");
                 } elseif ($table_name === "admins") {
+                        $_SESSION['adminloggedin'] = $uname;
                         header("Location: ../admin/dashboard.php");
                 } else {
                         header("Location: ../login.php?error");
                 }
                 exit();
         } else {
-                // Invalid password
-                header("Location: ../login.php?error");
+                // Invalid password, redirect based on table name
+                if ($table_name === "recruiters") {
+                        header("Location: ../login.php?error");
+                } elseif ($table_name === "admins") {
+                        header("Location: ../admin/login.php?error");
+                } else {
+                        header("Location: ../login.php?error");
+                }
                 exit();
         }
 } else {

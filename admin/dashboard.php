@@ -3,7 +3,7 @@
 
 <?php
 session_start();
-if (!isset($_SESSION['userloggedin'])) {
+if (!isset($_SESSION['adminloggedin'])) {
     header('Location: login.php');
     exit();
 }
@@ -14,9 +14,9 @@ if (!isset($_SESSION['userloggedin'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Faviocon -->
-    <link rel="icon" type="image/x-icon" href="assets/logo/solo-logo.png">
+    <link rel="icon" type="image/x-icon" href="../assets/logo/solo-logo.png">
 
-    <title>Jobs Finder</title>
+    <title>Jobs Finder | Admin</title>
 
     <!-- Bootstrap -->
 
@@ -47,7 +47,7 @@ if (!isset($_SESSION['userloggedin'])) {
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
                             <p class="nav-link text-white me-4 active">
-                                <?php echo $_SESSION['userloggedin']; ?>
+                                <?php echo $_SESSION['adminloggedin']; ?>
                             </p>
                         </li>
                         <li class="nav-item">

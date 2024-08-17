@@ -35,35 +35,10 @@ if (isset($_SESSION['userloggedin'])) {
 <body>
     <div class="content-wrapper">
         <!-- Navbar -->
-        <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
-            <div class="container mt-1 mb-1">
-                <a class="navbar-brand" href="index.php">
-                    <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
-                </a>
-                <div class="d-flex">
-                    <button class="navbar-toggler" style="background-color: #ffffff;" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                            <li class="nav-item">
-                                <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white me-4" href="#">About</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white me-4" href="postad.php">Post Ad</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white me-4" href="#">Subscribe</a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </nav><br><br>
-
+        <?php
+        include_once 'navbar.php';
+        ?>
+        
         <!-- Login -->
         <div class="container login pt-4 pb-4 ps-4 pe-4">
             <div class="d-flex justify-content-center pb-4">

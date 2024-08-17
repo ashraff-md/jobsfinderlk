@@ -25,70 +25,66 @@
 
 
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
-        <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="index.php">
-                <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
-            </a>
-        </div>
-    </nav><br><br>
+    <div class="content-wrapper">
+        <!-- Navbar -->
+        <?php
+        include_once 'navbar.php';
+        ?>
 
-
-
-    <!-- Sign Up -->
-    <div class="container signup pt-4 pb-4 ps-4 pe-4">
-        <div class="d-flex justify-content-center pb-4">
-            <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
-        </div>
-        <form action="db/db_signup.php" method="POST" onsubmit="return validatePassword()">
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        <input type="text" class="form-control" id="firstName" name="first_name" placeholder="First Name" required>
-                        <label for="firstName">First Name</label>
+        <!-- Sign Up -->
+        <div class="container signup pt-4 pb-4 ps-4 pe-4">
+            <div class="d-flex justify-content-center pb-4">
+                <img src="assets/logo/user-icon.png" width="60" height="60" alt="User Icon">
+            </div>
+            <form action="db/db_signup.php" method="POST" onsubmit="return validatePassword()">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="firstName" name="first_name" placeholder="First Name" required>
+                            <label for="firstName">First Name</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="lastName" name="last_name" placeholder="Last Name" required>
+                            <label for="lastName">Last Name</label>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="mb-3">
                     <div class="form-floating">
-                        <input type="text" class="form-control" id="lastName" name="last_name" placeholder="Last Name" required>
-                        <label for="lastName">Last Name</label>
+                        <input type="text" class="form-control" id="phone_number" name="phone_number" placeholder="Phone Number" required>
+                        <label for="phone_number">Phone Number</label>
                     </div>
                 </div>
-            </div>
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="text" class="form-control" id="phone_number" name="phone_number" placeholder="Phone Number" required>
-                    <label for="phone_number">Phone Number</label>
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
+                        <label for="email">Email address</label>
+                    </div>
                 </div>
-            </div>
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="email" class="form-control" id="email" name="email" placeholder="Email address" required>
-                    <label for="email">Email address</label>
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                        <label for="password">Password</label>
+                    </div>
                 </div>
-            </div>
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
-                    <label for="password">Password</label>
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm Password" required>
+                        <label for="confirmPassword">Confirm Password</label>
+                    </div>
                 </div>
-            </div>
-            <div class="mb-3">
-                <div class="form-floating">
-                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm Password" required>
-                    <label for="confirmPassword">Confirm Password</label>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Sign up</button>
-            <p class="text-center">Already have an account? <a href="login.php" class="text-decoration-underline text-primary">Login</a></p>
-        </form>
+                <button type="submit" class="btn btn-primary d-block mx-auto mb-2">Sign up</button>
+                <p class="text-center">Already have an account? <a href="login.php" class="text-decoration-underline text-primary">Login</a></p>
+            </form>
+        </div>
+
+
+        <?php
+        include_once 'social.php';
+        ?>
     </div>
-
-
-    <?php
-    include_once 'social.php';
-    ?>
 
     <script>
         function validatePassword() {

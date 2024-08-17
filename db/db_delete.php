@@ -1,9 +1,9 @@
 <?php
 session_start();
 
-// Check if user is logged in
-if (!isset($_SESSION['userloggedin'])) {
-    // Redirect to login page if not logged in
+// Check if user or admin is logged in
+if (!isset($_SESSION['userloggedin']) && !isset($_SESSION['adminloggedin'])) {
+    // Redirect to login page if neither user nor admin is logged in
     header('Location: ../index.php');
     exit();
 }
@@ -20,7 +20,7 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 
 $id = intval($_GET['id']);
 
-// Check if the ID exists in the database and if the logged-in user is the owner
+// Check if the ID exists in the database
 $sql = "SELECT recruiter_id FROM job_ads WHERE id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $id);
@@ -34,7 +34,9 @@ if ($result->num_rows === 0) {
 }
 
 $row = $result->fetch_assoc();
-if ($row['recruiter_id'] !== $_SESSION['userid']) {
+
+// Check if the logged-in user is the owner or if the admin is logged in
+if (!isset($_SESSION['adminloggedin']) && $row['recruiter_id'] !== $_SESSION['userid']) {
     // User does not have permission to delete this item
     header('Location: ../dashboard.php?error=unauthorized');
     exit();

@@ -176,54 +176,80 @@
       LEFT JOIN job_categories ON job_ads.job_category_id = job_categories.id
       LEFT JOIN employment_types ON job_ads.employment_type_id = employment_types.id
       WHERE job_ads.is_sponsored = 1
+      AND job_ads.status = 'Approved'
+      ORDER BY RAND()  -- Randomize the ads
       LIMIT 10";
 
     $result = mysqli_query($conn, $query);
-    ?>
-    <div class="container mt-4">
-      <h2 class="text-center">Sponsored Job Listings</h2>
 
-      <?php
-      if ($result->num_rows > 0) {
-        $count = 0;
-        echo '<div class="row">';
-        // Output data of each row
-        while ($row = $result->fetch_assoc()) {
-          // Start a new row every two cards
-          if ($count % 2 == 0 && $count > 0) {
-            echo '</div><div class="row">';
-          }
-      ?>
-          <div class="card m-1">
-            <div class="card-body p-2 row">
-              <div class="col-md-5 d-flex justify-content-center align-items-center">
-                <img src="uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid p-1 rounded-3" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
-              </div>
-              <div class="card-body">
-                <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
-                <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
-                <br>
-                <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
-                <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
-                <p class="card-text mb-0 text-truncate">Employment Type: <?php echo htmlspecialchars($row['employment_type'], ENT_QUOTES, 'UTF-8'); ?></p>
-                <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
-              </div>
+    // Check for SQL errors
+    if (!$result) {
+      echo "<p class='text-center'>Error fetching sponsored jobs: " . mysqli_error($conn) . "</p>";
+      exit;
+    }
+    ?>
+
+    <div class="container mt-4">
+      <div class="row">
+        <div class="d-flex justify-content-between">
+          <div class="container">
+            <h2 class="me-3 text-center">Sponsored Job Listings</h2>
+            <?php
+            if ($result->num_rows > 0) {
+              $count = 0;
+              echo '<div class="row">';
+              // Output data of each row
+              while ($row = $result->fetch_assoc()) {
+                // Start a new row every two cards
+                if ($count % 2 == 0 && $count > 0) {
+                  echo '</div><div class="row">';
+                }
+            ?>
+                <div class="card m-2">
+                  <div class="card-body p-1 row">
+                    <div class="col-md-5 d-flex justify-content-center align-items-center p-1">
+                      <img src="uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid p-1 rounded-3" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
+                    </div>
+                    <div class="card-body ps-1">
+                      <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                      <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
+                      <br>
+                      <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
+                      <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
+                      <p class="card-text mb-0 text-truncate">Employment Type: <?php echo htmlspecialchars($row['employment_type'], ENT_QUOTES, 'UTF-8'); ?></p>
+                      <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    </div>
+                  </div>
+                </div>
+
+            <?php
+                $count++;
+              }
+              echo '</div>'; // Close the last row
+            } else {
+              echo "<p class='text-center'>No sponsored jobs found</p>";
+            }
+            ?>
+          </div>
+          <div class="banners">
+            <div class="bannerAd">
+              <img src="assets/logo/banner.png" alt="">
+            </div>
+            <div class="bannerAd mt-3">
+              <img src="assets/logo/banner.png" alt="">
             </div>
           </div>
 
-      <?php
-          $count++;
-        }
-        echo '</div>'; // Close the last row
-      } else {
-        echo "<p class='text-center'>No sponsored jobs found</p>";
-      }
-      ?>
+        </div>
+      </div>
     </div>
 
-    <?php
-    include_once 'footer.php';
-    ?>
+
+  </div>
+
+  <?php
+  include_once 'footer.php';
+  ?>
   </div>
 
 

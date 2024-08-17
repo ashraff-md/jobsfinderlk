@@ -50,6 +50,12 @@ footer {
   flex: 1;
 }
 
+.bannerAd img{
+  width: 160px;
+  height: 600px;
+}
+
+
 .hero {
   background-image: url("assets/images/bg.jpg");
   background-position: center center;

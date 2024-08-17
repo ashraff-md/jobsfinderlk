@@ -66,7 +66,7 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../style.css">
 
     <!-- Poppins Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -79,7 +79,7 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
         <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="index.php">
+            <a class="navbar-brand" href="../index.php">
                 <img src="..\assets/logo/logo.png" alt="JobsFinder.lk" height="34">
             </a>
             <div class="d-flex">
@@ -89,10 +89,10 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
+                            <a class="nav-link text-white me-4 active" aria-current="page" href="../index.php">Home</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="dashboard.php">Dashboard</a>
+                            <a class="nav-link text-white me-4" href="../dashboard.php">Dashboard</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-white me-4" href="db/db_logout.php">Logout</a>
@@ -198,7 +198,7 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
                     <label for="experience" class="form-label ps-1">Experience</label>
                     <select class='form-select' id='experience_level_id' name='experience_level_id'>
                         <?php foreach ($experienceLevels as $level) : ?>
-                            <option value="<?php echo htmlspecialchars($level['id'], ENT_QUOTES); ?>" <?php echo ($level['id'] == $job['experience_level_id']) ? 'selected' : ''; ?>>
+                            <option value="<?php echo htmlspecialchars($level['id'], ENT_QUOTES); ?>" <?php echo ($level['id'] == $job['id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($level['experience_level'], ENT_QUOTES); ?>
                             </option>
                         <?php endforeach; ?>

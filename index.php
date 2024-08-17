@@ -163,19 +163,20 @@
     include_once 'db/db_config.php';
 
     // Corrected SQL query with JOINs
-    $query = "
-  SELECT 
-    job_ads.company_logo, 
-    job_ads.job_title, 
-    job_ads.company_name, 
-    locations.location_name AS location, 
-    job_categories.category_name AS job_category, 
-    job_ads.application_deadline 
-    FROM job_ads
-    LEFT JOIN locations ON job_ads.location_id = locations.id
-    LEFT JOIN job_categories ON job_ads.job_category_id = job_categories.id
-    WHERE job_ads.is_sponsored = 1
-    LIMIT 10";
+    $query = "SELECT 
+      job_ads.company_logo, 
+      job_ads.job_title, 
+      job_ads.company_name, 
+      locations.location_name AS location, 
+      job_categories.category_name AS job_category, 
+      employment_types.employment_type AS employment_type,
+      job_ads.application_deadline 
+      FROM job_ads
+      LEFT JOIN locations ON job_ads.location_id = locations.id
+      LEFT JOIN job_categories ON job_ads.job_category_id = job_categories.id
+      LEFT JOIN employment_types ON job_ads.employment_type_id = employment_types.id
+      WHERE job_ads.is_sponsored = 1
+      LIMIT 10";
 
     $result = mysqli_query($conn, $query);
     ?>
@@ -193,25 +194,23 @@
             echo '</div><div class="row">';
           }
       ?>
-          <div class="col-md-5 mb-3">
-            <div class="card">
-              <div class="row no-gutters">
-                <div class="col-md-4 d-flex justify-content-center">
-                  <img src="uploads/<?php echo $row['company_logo']; ?>" class="img-fluid rounded-start" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-8">
-                  <div class="card-body">
-                    <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
-                    <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
-                    <br>
-                    <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
-                    <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
-                    <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
-                  </div>
-                </div>
+          <div class="card m-1">
+            <div class="card-body p-2 row">
+              <div class="col-md-5 d-flex justify-content-center align-items-center">
+                <img src="uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid p-1 rounded-3" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
+              </div>
+              <div class="card-body">
+                <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
+                <br>
+                <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
+                <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
+                <p class="card-text mb-0 text-truncate">Employment Type: <?php echo htmlspecialchars($row['employment_type'], ENT_QUOTES, 'UTF-8'); ?></p>
+                <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
               </div>
             </div>
           </div>
+
       <?php
           $count++;
         }

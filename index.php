@@ -65,23 +65,32 @@
         </div>
       </nav>
 
-      <!-- Search -->
+      <!-- Search Form -->
       <div class="SearchBox">
         <div class="container mt-5 mb-5 pt-3 pb-3 Blur" id="search">
-          <div class="row g-2 mt-1 ms-1 me-1 mb-1">
+          <div class="row g-2 m-1">
             <div class="col-md-12 col-sm-12 col-12">
-              <h1 class="mt-1 ms-1 me-1 mb-1" style="font-family: 'Poppins', sans-serif; font-weight: 300; font-size: 2.5rem; line-height: 1.2; letter-spacing: -0.02em; color: #fff; text-align: center;">
+              <h1 class="m-1" style="font-family: 'Poppins', sans-serif; font-weight: 300; font-size: 2.5rem; line-height: 1.2; letter-spacing: -0.02em; color: #fff; text-align: center;">
                 Discover Your Dream Job
               </h1>
             </div>
+
+            <!-- Keyword Search Bar -->
+            <div class="container mt-4 mb-4">
+              <div class="row">
+                <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center">
+                  <div class="input-group search">
+                    <input type="text" class="form-control" id="keyword" placeholder="Enter Keyword or Job Title">
+                    <button type="button" class="btn btn-outline-light btn-floating"><i class="fas fa-search"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr style="color: #fff;">
             <div class="col-md-12 col-sm-12 col-12">
               <form>
                 <div class="seacrhFormLabel row g-2 ms-1 me-1 mb-1">
-                  <div class="col-md-6 col-sm-6 col-12">
-                    <label for="keyword" class="form-label ps-2">Keyword</label>
-                    <input type="text" class="form-control" id="keyword" placeholder="Keyword">
-                  </div>
-
                   <?php
                   // Establish a connection to your database
                   include_once 'db/db_config.php';
@@ -116,14 +125,14 @@
                   }
                   ?>
 
-                  <!-- Locations dropdown -->
-                  <div class="col-md-6 col-sm-6 col-12">
-                    <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location", "Location"); ?>
-                  </div>
-
                   <!-- Categories dropdown -->
                   <div class="col-md-6 col-sm-6 col-12">
                     <?php generateDropdownOptions($conn, "job_categories", "id", "category_name", "category", "Category"); ?>
+                  </div>
+
+                  <!-- Locations dropdown -->
+                  <div class="col-md-6 col-sm-6 col-12">
+                    <?php generateDropdownOptions($conn, "locations", "id", "location_name", "location", "Location"); ?>
                   </div>
 
                   <!-- Qualifications dropdown -->
@@ -140,6 +149,11 @@
                   <div class="col-md-6 col-sm-6 col-12">
                     <?php generateDropdownOptions($conn, "employment_types", "id", "employment_type", "employment_type", "Employment Type"); ?>
                   </div>
+
+                  <!-- Employment Type dropdown -->
+                  <div class="col-md-6 col-sm-6 col-12">
+                    <?php generateDropdownOptions($conn, "work_arrangements", "id", "work_arrangement", "work_arrangement", "Work Arrangement"); ?>
+                  </div>
                 </div>
 
                 <div class="col-md-12 col-sm-12 col-12 d-flex justify-content-center mt-4 mb-2">
@@ -154,6 +168,7 @@
           </div>
         </div>
       </div>
+      <!-- Search Form -->
     </div>
 
     <br>

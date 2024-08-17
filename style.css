@@ -27,6 +27,11 @@ footer {
   min-width: 250px;
 }
 
+#search {
+  max-width: 600px;
+  border-radius: 15px;
+}
+
 .card-text {
   text-wrap: nowrap;
   overflow: hidden;
@@ -53,6 +58,7 @@ footer {
 .bannerAd img{
   width: 160px;
   height: 600px;
+
 }
 
 
@@ -127,6 +133,10 @@ a {
     max-width: 350px;
     border-radius: 15px;
   }
+
+  .search{
+    width: 100%;
+  }
 }
 
 @media only screen and (min-width: 600px) {
@@ -139,16 +149,25 @@ a {
     max-width: 580px;
     border-radius: 15px;
   }
+
+  .search{
+    width: 70%;
+  }
+
 }
 
 @media only screen and (min-width: 768px) {
   /* For desktop: */
   .adForm {
-    max-width: 700px;
+    max-width: 600px;
   }
 
   #search {
-    max-width: 760px;
+    max-width: 600px;
     border-radius: 15px;
+  }
+
+  .search{
+    width: 70%;
   }
 }

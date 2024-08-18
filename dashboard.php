@@ -39,7 +39,6 @@ if (!isset($_SESSION['userloggedin'])) {
         <!-- Navbar -->
         <?php include_once 'userNavbar.php'; ?>
 
-        <br><br>
         <!-- Dashboard -->
         <div class="container">
             <h1 class="text-center">Dashboard</h1>
@@ -134,13 +133,13 @@ if (!isset($_SESSION['userloggedin'])) {
                         </div>
                 </div>
             <?php } ?>
-        </div>
-    <?php } ?>
 
-    <!-- Approved Ads -->
-    <?php
-    // Approved Ads
-    $sql = "SELECT 
+        <?php } ?>
+
+        <!-- Approved Ads -->
+        <?php
+        // Approved Ads
+        $sql = "SELECT 
                 job_ads.id,
                 job_ads.company_name, 
                 job_ads.company_logo,
@@ -156,80 +155,80 @@ if (!isset($_SESSION['userloggedin'])) {
                 WHERE job_ads.recruiter_id = " . $_SESSION['userid'] . " 
                 AND job_ads.status = 'approved' 
                 ORDER BY job_ads.id DESC";
-    $result = $conn->query($sql);
+        $result = $conn->query($sql);
 
-    if ($result->num_rows > 0) { ?>
-        <h3>Approved Ads</h3>
-        <div class="row p-3">
-            <?php while ($row = $result->fetch_assoc()) { ?>
-                <div class="container col-md-12 mt-3 mb-3">
-                    <div class="card" style="min-width: 580px;">
-                        <div class="row">
-                            <div class="col-md-4 pe-0 d-flex justify-content-center align-items-center">
-                                <img src="uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid p-2 rounded-3" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
-                            </div>
-                            <div class="col-md-8 ps-1">
-                                <div class="card-body ps-1">
-                                    <div class="row">
-                                        <div class="col-md-8">
-                                            <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
-                                        </div>
-                                        <div class="col-md-4 d-flex justify-content-end">
-                                            <a href="db/db_view.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-success me-2">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            <a href="editad.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary me-2">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <!-- Button trigger modal for deletion -->
-                                            <a href="#" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-href="db/db_delete.php?id=<?php echo $row['id']; ?>">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+        if ($result->num_rows > 0) { ?>
+            <h3>Approved Ads</h3>
+            <div class="row p-3">
+                <?php while ($row = $result->fetch_assoc()) { ?>
+                    <div class="container col-md-12 mt-3 mb-3 d-flex justify-content-center">
+                        <div class="card" style="min-width: 580px;">
+                            <div class="row">
+                                <div class="col-md-4 pe-0 d-flex justify-content-center align-items-center">
+                                    <img src="uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid p-2 rounded-3" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
+                                </div>
+                                <div class="col-md-8 ps-1">
+                                    <div class="card-body ps-1">
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                                            </div>
+                                            <div class="col-md-4 d-flex justify-content-end">
+                                                <a href="db/db_view.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-success me-2">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="editad.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary me-2">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <!-- Button trigger modal for deletion -->
+                                                <a href="#" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-href="db/db_delete.php?id=<?php echo $row['id']; ?>">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
 
-                                            <!-- Modal -->
-                                            <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h1 class="modal-title fs-5" id="deleteModalLabel">Confirm Deletion</h1>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            <div class="alert alert-warning" role="alert">
-                                                                <strong>Warning:</strong> This action is irreversible. Once deleted, this item cannot be recovered.
+                                                <!-- Modal -->
+                                                <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h1 class="modal-title fs-5" id="deleteModalLabel">Confirm Deletion</h1>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                             </div>
-                                                            Are you sure you want to delete this item?
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                            <form id="deleteForm" method="POST" action="">
-                                                                <button type="submit" class="btn btn-danger">Delete</button>
-                                                            </form>
+                                                            <div class="modal-body">
+                                                                <div class="alert alert-warning" role="alert">
+                                                                    <strong>Warning:</strong> This action is irreversible. Once deleted, this item cannot be recovered.
+                                                                </div>
+                                                                Are you sure you want to delete this item?
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <form id="deleteForm" method="POST" action="">
+                                                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                                                </form>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
-                                    <br>
-                                    <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <p class="card-text mb-0 text-truncate">Status: <?php echo htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
+                                        <br>
+                                        <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="card-text mb-0 text-truncate">Status: <?php echo htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            <?php } ?>
-        </div>
-    <?php } ?>
+                <?php } ?>
+            </div>
+        <?php } ?>
 
-    <?php
-    // Pending Ads
-    $sql = "SELECT 
+        <?php
+        // Pending Ads
+        $sql = "SELECT 
                 job_ads.id,
                 job_ads.company_name, 
                 job_ads.company_logo,
@@ -249,34 +248,36 @@ if (!isset($_SESSION['userloggedin'])) {
                 WHERE job_ads.recruiter_id = " . $_SESSION['userid'] . " 
                 AND job_ads.status = 'pending' 
                 ORDER BY job_ads.id DESC";
-    $result = $conn->query($sql);
+        $result = $conn->query($sql);
 
-    if ($result->num_rows > 0) { ?>
-        <h3>Pending Ads</h3>
-        <div class="row">
-            <?php while ($row = $result->fetch_assoc()) { ?>
-                <div class="container col-md-12 mt-3 mb-3 d-flex justify-content-center">
-                    <div class="card" style="min-width: 580px;">
-                        <div class="row">
-                            <div class="col-md-4 pe-0 d-flex justify-content-center align-items-center">
-                                <img src="uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid p-2 rounded-3" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
-                            </div>
-                            <div class="col-md-8 ps-1">
-                                <div class="card-body ps-1">
-                                    <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
-                                    <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
-                                    <br>
-                                    <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <p class="card-text mb-0 text-truncate">Status: <?php echo htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8'); ?></p>
+        if ($result->num_rows > 0) { ?>
+            <h3>Pending Ads</h3>
+            <div class="row">
+                <?php while ($row = $result->fetch_assoc()) { ?>
+                    <div class="container col-md-12 mt-3 mb-3 d-flex justify-content-center">
+                        <div class="card" style="min-width: 580px;">
+                            <div class="row">
+                                <div class="col-md-4 pe-0 d-flex justify-content-center align-items-center">
+                                    <img src="uploads/<?php echo htmlspecialchars($row['company_logo'], ENT_QUOTES, 'UTF-8'); ?>" class="img-fluid p-2 rounded-3" alt="<?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?>">
+                                </div>
+                                <div class="col-md-8 ps-1">
+                                    <div class="card-body ps-1">
+                                        <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                                        <small class="text-muted text-truncate"><?php echo htmlspecialchars($row['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
+                                        <br>
+                                        <p class="card-text mb-0 text-truncate">Location: <?php echo htmlspecialchars($row['location'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="card-text mb-0 text-truncate">Category: <?php echo htmlspecialchars($row['job_category'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="card-text mb-0 text-truncate">Deadline: <?php echo htmlspecialchars($row['application_deadline'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="card-text mb-0 text-truncate">Status: <?php echo htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            <?php } ?>
+                <?php } ?>
+            </div>
         </div>
+        
     <?php } ?>
     </div>
     <?php

@@ -8,7 +8,7 @@ if (!isset($_SESSION['userloggedin'])) {
     exit();
 }
 
-include_once 'db_config.php';
+include_once 'db/db_config.php';
 
 // Fetch the job ad data
 $id = $_GET['id'] ?? 0;
@@ -27,7 +27,7 @@ $result = $stmt->get_result();
 if ($result->num_rows > 0) {
     $job = $result->fetch_assoc();
 } else {
-    echo "Job ad not found.";
+    header('Location: dashboard.php');
     exit();
 }
 
@@ -77,31 +77,7 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
 
 <body>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
-        <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="index.php">
-                <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
-            </a>
-            <div class="d-flex">
-                <button class="navbar-toggler" style="background-color: #ffffff;" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="dashboard.php">Dashboard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="db/db_logout.php">Logout</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </nav><br>
+    <?php include_once 'userNavbar.php'; ?>
 
     <!-- Form -->
     <div class="container adForm pe-5 ps-5 pt-5 pb-5">

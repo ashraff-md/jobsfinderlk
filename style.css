@@ -27,6 +27,11 @@ footer {
   min-width: 250px;
 }
 
+.profilepic{
+  width: 300px;
+  background-color: rgb(240, 240, 240);
+}
+
 #search {
   max-width: 600px;
   border-radius: 15px;

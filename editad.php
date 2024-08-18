@@ -66,7 +66,7 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
 
     <!-- Poppins Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -79,8 +79,8 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg" style="background-color: #0c1538;">
         <div class="container mt-1 mb-1">
-            <a class="navbar-brand" href="../index.php">
-                <img src="..\assets/logo/logo.png" alt="JobsFinder.lk" height="34">
+            <a class="navbar-brand" href="index.php">
+                <img src="assets/logo/logo.png" alt="JobsFinder.lk" height="34">
             </a>
             <div class="d-flex">
                 <button class="navbar-toggler" style="background-color: #ffffff;" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -89,10 +89,10 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link text-white me-4 active" aria-current="page" href="../index.php">Home</a>
+                            <a class="nav-link text-white me-4 active" aria-current="page" href="index.php">Home</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white me-4" href="../dashboard.php">Dashboard</a>
+                            <a class="nav-link text-white me-4" href="dashboard.php">Dashboard</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-white me-4" href="db/db_logout.php">Logout</a>
@@ -128,7 +128,7 @@ $experienceLevels = fetchOptions($conn, 'experience_levels', 'id', 'experience_l
                 <div class="col-md-6 col-sm-6 col-12 mb-3">
                     <label for="company-logo" class="form-label ps-1">Company Logo</label>
                     <input type="file" class="form-control" id="company_logo" name="company_logo">
-                    <small>Current Logo: <img src="..\uploads/<?php echo htmlspecialchars($job['company_logo'], ENT_QUOTES); ?>" alt="Company Logo" style="max-width: 50px;"></small>
+                    <small>Current Logo: <img src="uploads/<?php echo htmlspecialchars($job['company_logo'], ENT_QUOTES); ?>" alt="Company Logo" style="max-width: 50px;"></small>
                 </div>
             </div>
 

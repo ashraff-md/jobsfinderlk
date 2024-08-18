@@ -16,7 +16,11 @@ if (!isset($_SESSION['userloggedin'])) {
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="assets/logo/solo-logo.png">
 
-    <title>Jobs Finder</title>
+    <title>Jobs Finder | Dashboard</title>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
@@ -112,7 +116,7 @@ if (!isset($_SESSION['userloggedin'])) {
                                                     <h5 class="card-title text-truncate"><?php echo htmlspecialchars($row['job_title'], ENT_QUOTES, 'UTF-8'); ?></h5>
                                                 </div>
                                                 <div class="col-md-4 d-flex justify-content-end">
-                                                    <a href="db/db_edit.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary me-2">
+                                                    <a href="editad.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary me-2">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
                                                     <!-- Button trigger modal for deletion -->
@@ -203,7 +207,7 @@ if (!isset($_SESSION['userloggedin'])) {
                                             <a href="db/db_view.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-success me-2">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="db/db_edit.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary me-2">
+                                            <a href="editad.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary me-2">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <!-- Button trigger modal for deletion -->
@@ -320,6 +324,12 @@ if (!isset($_SESSION['userloggedin'])) {
         });
     </script>
 
+    <script>
+        var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'))
+        var dropdownList = dropdownElementList.map(function(dropdownToggleEl) {
+            return new bootstrap.Dropdown(dropdownToggleEl)
+        })
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

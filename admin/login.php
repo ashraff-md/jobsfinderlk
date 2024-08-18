@@ -43,7 +43,6 @@ if (isset($_SESSION['adminloggedin'])) {
             </div>
         </nav><br><br>
 
-
         <!-- Login -->
         <div class="container login pt-4 pb-4 ps-4 pe-4">
             <div class="d-flex justify-content-center pb-4">

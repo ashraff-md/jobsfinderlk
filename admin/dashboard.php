@@ -18,8 +18,11 @@ if (!isset($_SESSION['adminloggedin'])) {
 
     <title>Jobs Finder | Admin</title>
 
-    <!-- Bootstrap -->
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
     <!-- CSS -->
@@ -35,9 +38,10 @@ if (!isset($_SESSION['adminloggedin'])) {
 <body>
     <div class="content-wrapper">
         <!-- Navbar -->
-        <?php include_once 'navbar.php'; ?>
+        <?php
+        include_once 'navbar.php';
+        ?>
 
-        <br><br>
         <!-- Dashboard -->
         <div class="container">
             <h1 class="text-center">Admin Dashboard</h1>
@@ -117,6 +121,15 @@ if (!isset($_SESSION['adminloggedin'])) {
     <?php
     $conn->close();
     ?>
+
+
+    <script>
+        $(document).ready(function() {
+            $('.nav-item.dropdown').hover(function() {
+                $(this).find('.dropdown-menu').toggle();
+            });
+        });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

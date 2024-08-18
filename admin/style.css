@@ -98,6 +98,20 @@ a {
   color: white;
 }
 
+.nav-item.dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+.pagination .page-link {
+  color: #0c1538;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #0c1538;
+  border-color: #0c1538;
+  color: #ffffff; /* Optional: change text color to white for better contrast */
+}
+
 @media only screen and (max-width: 768px) {
   /* For mobile phones: */
   .adForm {

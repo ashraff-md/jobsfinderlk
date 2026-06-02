@@ -1,0 +1,30 @@
+-- AlterEnum
+ALTER TYPE "JobStatus" ADD VALUE IF NOT EXISTS 'REJECTED';
+
+-- AlterTable
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "responsibilities" TEXT,
+ADD COLUMN IF NOT EXISTS "city" TEXT,
+ADD COLUMN IF NOT EXISTS "salary_type" TEXT,
+ADD COLUMN IF NOT EXISTS "salary_currency" TEXT DEFAULT 'LKR',
+ADD COLUMN IF NOT EXISTS "work_arrangement" TEXT,
+ADD COLUMN IF NOT EXISTS "education_requirement" TEXT,
+ADD COLUMN IF NOT EXISTS "category" TEXT,
+ADD COLUMN IF NOT EXISTS "sector" TEXT,
+ADD COLUMN IF NOT EXISTS "positions_count" INTEGER,
+ADD COLUMN IF NOT EXISTS "required_skills" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN IF NOT EXISTS "nice_to_have_skills" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN IF NOT EXISTS "keywords" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN IF NOT EXISTS "recruiter_role" TEXT,
+ADD COLUMN IF NOT EXISTS "requested_company_name" TEXT,
+ADD COLUMN IF NOT EXISTS "application_deadline" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "apply_via_email" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "apply_via_external_link" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "apply_via_walk_in" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "apply_via_one_click" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS "application_email" TEXT,
+ADD COLUMN IF NOT EXISTS "application_external_url" TEXT,
+ADD COLUMN IF NOT EXISTS "walk_in_details" TEXT,
+ADD COLUMN IF NOT EXISTS "job_document_url" TEXT,
+ADD COLUMN IF NOT EXISTS "vacancy_artwork_url" TEXT,
+ADD COLUMN IF NOT EXISTS "job_source_type" TEXT DEFAULT 'DIRECT_EMPLOYER',
+ADD COLUMN IF NOT EXISTS "verification_level" TEXT;

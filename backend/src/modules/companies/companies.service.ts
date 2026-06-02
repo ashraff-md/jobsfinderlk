@@ -1,0 +1,249 @@
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { slugify, uniqueSlug } from '../../common/utils/slug.util';
+import {
+  extractDomain,
+  matchReason,
+  similarityScore,
+} from '../../common/utils/company-match.util';
+import { CreateCompanyDto } from './dto/create-company.dto';
+
+export type CompanySuggestion = {
+  id: string;
+  name: string;
+  slug: string;
+  verified: boolean;
+  website?: string | null;
+  industry?: string | null;
+  location?: string | null;
+  score: number;
+  matchType: 'exact' | 'fuzzy' | 'phonetic' | 'domain';
+};
+
+@Injectable()
+export class CompaniesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findAll(search?: string) {
+    return this.prisma.company.findMany({
+      where: search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { description: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
+      include: {
+        _count: {
+          select: {
+            jobs: { where: { status: 'PUBLISHED' } },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async suggest(query: string, limit = 10): Promise<CompanySuggestion[]> {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+
+    const candidates = await this.prisma.company.findMany({
+      where: {
+        OR: [
+          { name: { contains: trimmed, mode: 'insensitive' } },
+          { industry: { contains: trimmed, mode: 'insensitive' } },
+        ],
+      },
+      take: 50,
+      orderBy: { name: 'asc' },
+    });
+
+    const scored = candidates
+      .map((company) => ({
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        verified: company.verified,
+        website: company.website,
+        industry: company.industry,
+        location: company.location,
+        score: similarityScore(trimmed, company.name),
+        matchType: matchReason(trimmed, company.name),
+      }))
+      .filter((item) => item.score >= 0.45)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (a.verified !== b.verified) return a.verified ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
+    return scored.slice(0, limit);
+  }
+
+  async findSimilar(input: {
+    name: string;
+    website?: string | null;
+    emailDomain?: string | null;
+  }): Promise<CompanySuggestion[]> {
+    const trimmed = input.name.trim();
+    if (!trimmed) return [];
+
+    const domain = extractDomain(input.emailDomain) ?? extractDomain(input.website);
+    const candidates = await this.prisma.company.findMany({
+      where: {
+        OR: [
+          { name: { contains: trimmed.slice(0, Math.max(3, trimmed.length)), mode: 'insensitive' } },
+          ...(domain
+            ? [
+                { emailDomain: { equals: domain, mode: 'insensitive' as const } },
+                { website: { contains: domain, mode: 'insensitive' as const } },
+              ]
+            : []),
+        ],
+      },
+      take: 50,
+    });
+
+    const scored = candidates
+      .map((company) => {
+        let score = similarityScore(trimmed, company.name);
+        const companyDomain =
+          extractDomain(company.emailDomain) ?? extractDomain(company.website);
+
+        if (domain && companyDomain && domain === companyDomain) {
+          score = Math.max(score, 0.95);
+        }
+
+        return {
+          id: company.id,
+          name: company.name,
+          slug: company.slug,
+          verified: company.verified,
+          website: company.website,
+          industry: company.industry,
+          location: company.location,
+          score,
+          matchType:
+            domain && companyDomain && domain === companyDomain
+              ? ('domain' as const)
+              : matchReason(trimmed, company.name),
+        };
+      })
+      .filter((item) => item.score >= 0.55)
+      .sort((a, b) => b.score - a.score);
+
+    return scored.slice(0, 8);
+  }
+
+  async findBySlug(slug: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { slug },
+      include: {
+        jobs: {
+          where: { status: 'PUBLISHED' },
+          orderBy: { publishedAt: 'desc' },
+        },
+      },
+    });
+    if (!company) throw new NotFoundException('Company not found');
+    return company;
+  }
+
+  async createForEmployer(userId: string, dto: CreateCompanyDto) {
+    const company = await this.createCompanyRecord(dto);
+
+    await this.prisma.employerUser.create({
+      data: { userId, companyId: company.id },
+    });
+
+    return company;
+  }
+
+  async createFromRequest(
+    userId: string,
+    dto: CreateCompanyDto & {
+      industry?: string;
+      location?: string;
+      companyType?: string;
+      emailDomain?: string;
+      lifeAtCompanyImages?: string[];
+      verified?: boolean;
+    },
+  ) {
+    const company = await this.createCompanyRecord(dto, {
+      industry: dto.industry,
+      location: dto.location,
+      companyType: dto.companyType,
+      emailDomain: dto.emailDomain,
+      lifeAtCompanyImages: dto.lifeAtCompanyImages,
+      verified: dto.verified ?? false,
+    });
+
+    await this.linkEmployerToCompany(userId, company.id);
+    return company;
+  }
+
+  private async createCompanyRecord(
+    dto: CreateCompanyDto,
+    extra?: {
+      industry?: string;
+      location?: string;
+      companyType?: string;
+      emailDomain?: string;
+      lifeAtCompanyImages?: string[];
+      verified?: boolean;
+    },
+  ) {
+    const baseSlug = slugify(dto.name);
+    let slug = baseSlug;
+    let attempt = 0;
+    while (await this.prisma.company.findUnique({ where: { slug } })) {
+      attempt += 1;
+      slug = uniqueSlug(dto.name, String(attempt));
+    }
+
+    return this.prisma.company.create({
+      data: {
+        name: dto.name,
+        slug,
+        website: dto.website,
+        description: dto.description,
+        logoUrl: dto.logoUrl,
+        industry: extra?.industry,
+        location: extra?.location,
+        companyType: extra?.companyType,
+        emailDomain: extra?.emailDomain,
+        lifeAtCompanyImages: extra?.lifeAtCompanyImages ?? [],
+        verified: extra?.verified ?? false,
+      },
+    });
+  }
+
+  async linkEmployerToCompany(userId: string, companyId: string) {
+    await this.prisma.employerUser.upsert({
+      where: {
+        userId_companyId: { userId, companyId },
+      },
+      update: {},
+      create: { userId, companyId },
+    });
+  }
+
+  async resolveForJob(userId: string, input: { companyId?: string }) {
+    if (!input.companyId) {
+      throw new BadRequestException(
+        'Select an existing company or submit a new company request before posting a job.',
+      );
+    }
+
+    const company = await this.prisma.company.findUnique({
+      where: { id: input.companyId },
+    });
+    if (!company) throw new NotFoundException('Company not found');
+
+    await this.linkEmployerToCompany(userId, company.id);
+    return company;
+  }
+}

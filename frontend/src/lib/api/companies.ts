@@ -25,9 +25,11 @@ export type CreateCompanyRequestBody = {
   industry: string;
   website?: string;
   emailDomain?: string;
-  location: string;
+  address?: string;
+  city: string;
   companyType: string;
   description?: string;
+  logoUrl?: string;
   lifeAtCompanyImages?: string[];
 };
 

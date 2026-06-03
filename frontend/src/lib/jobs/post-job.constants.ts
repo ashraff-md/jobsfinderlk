@@ -119,8 +119,7 @@ export type PostJobFormValues = {
   ageMax: string;
   description: string;
   responsibilities: string;
-  requiredSkills: string[];
-  niceToHaveSkills: string[];
+  requirements: string;
   applicationDeadline: string;
   applyViaEmail: boolean;
   applyViaExternalLink: boolean;
@@ -129,7 +128,6 @@ export type PostJobFormValues = {
   applicationEmail: string;
   applicationExternalUrl: string;
   walkInDetails: string;
-  jobDocumentName: string;
   vacancyArtworkName: string;
 };
 
@@ -153,8 +151,7 @@ export const DEFAULT_POST_JOB_VALUES: PostJobFormValues = {
   ageMax: "",
   description: "",
   responsibilities: "",
-  requiredSkills: [],
-  niceToHaveSkills: [],
+  requirements: "",
   applicationDeadline: "",
   applyViaEmail: false,
   applyViaExternalLink: false,
@@ -163,6 +160,5 @@ export const DEFAULT_POST_JOB_VALUES: PostJobFormValues = {
   applicationEmail: "",
   applicationExternalUrl: "",
   walkInDetails: "",
-  jobDocumentName: "",
   vacancyArtworkName: "",
 };

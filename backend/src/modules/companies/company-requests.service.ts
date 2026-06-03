@@ -11,7 +11,15 @@ import {
   MergeCompanyRequestDto,
   RejectCompanyRequestDto,
 } from './dto/company-request.dto';
-import { sanitizeLifeAtCompanyImages } from '../../common/utils/image-data.util';
+import {
+  sanitizeLifeAtCompanyImages,
+  sanitizeLogoDataUrl,
+} from '../../common/utils/image-data.util';
+
+function formatCompanyLocation(address?: string, city?: string): string | null {
+  const parts = [address?.trim(), city?.trim()].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
 
 @Injectable()
 export class CompanyRequestsService {
@@ -52,9 +60,12 @@ export class CompanyRequestsService {
         industry: dto.industry.trim(),
         website: dto.website?.trim() || null,
         emailDomain: dto.emailDomain?.trim().toLowerCase() || null,
-        location: dto.location.trim(),
+        address: dto.address?.trim() || null,
+        city: dto.city.trim(),
+        location: formatCompanyLocation(dto.address, dto.city),
         companyType: dto.companyType,
         description: dto.description?.trim() || null,
+        logoUrl: sanitizeLogoDataUrl(dto.logoUrl),
         lifeAtCompanyImages: sanitizeLifeAtCompanyImages(dto.lifeAtCompanyImages),
         requestedById: userId,
       },
@@ -123,7 +134,10 @@ export class CompanyRequestsService {
         name: request.companyName,
         website: request.website ?? undefined,
         description: request.description ?? undefined,
+        logoUrl: request.logoUrl ?? undefined,
         industry: request.industry ?? undefined,
+        address: request.address ?? undefined,
+        city: request.city ?? undefined,
         location: request.location ?? undefined,
         companyType: request.companyType ?? undefined,
         emailDomain: request.emailDomain ?? undefined,

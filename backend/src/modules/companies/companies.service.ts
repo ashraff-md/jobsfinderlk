@@ -165,6 +165,8 @@ export class CompaniesService {
     userId: string,
     dto: CreateCompanyDto & {
       industry?: string;
+      address?: string;
+      city?: string;
       location?: string;
       companyType?: string;
       emailDomain?: string;
@@ -174,6 +176,8 @@ export class CompaniesService {
   ) {
     const company = await this.createCompanyRecord(dto, {
       industry: dto.industry,
+      address: dto.address,
+      city: dto.city,
       location: dto.location,
       companyType: dto.companyType,
       emailDomain: dto.emailDomain,
@@ -189,6 +193,8 @@ export class CompaniesService {
     dto: CreateCompanyDto,
     extra?: {
       industry?: string;
+      address?: string;
+      city?: string;
       location?: string;
       companyType?: string;
       emailDomain?: string;
@@ -212,6 +218,8 @@ export class CompaniesService {
         description: dto.description,
         logoUrl: dto.logoUrl,
         industry: extra?.industry,
+        address: extra?.address,
+        city: extra?.city,
         location: extra?.location,
         companyType: extra?.companyType,
         emailDomain: extra?.emailDomain,

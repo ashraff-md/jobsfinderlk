@@ -8,7 +8,9 @@ import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
 import { createJob } from "@/lib/api/jobs";
 import { CompanyAutocomplete } from "@/components/companies/company-autocomplete";
+import { JobListingPreview } from "@/components/jobs/job-listing-preview";
 import { JobListingMediaUploader } from "@/components/jobs/job-listing-media-uploader";
+import type { CompanySuggestion } from "@/lib/api/types";
 import { ApplicationDeadlinePicker } from "@/components/ui/application-deadline-picker";
 import {
   CATEGORY_SUGGESTIONS,
@@ -100,59 +102,6 @@ function DatalistField({
   );
 }
 
-function TagInput({
-  label,
-  tags,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  tags: string[];
-  onChange: (tags: string[]) => void;
-  placeholder?: string;
-}) {
-  const [draft, setDraft] = useState("");
-
-  const addTag = (raw: string) => {
-    const tag = raw.trim();
-    if (!tag || tags.includes(tag)) return;
-    onChange([...tags, tag]);
-    setDraft("");
-  };
-
-  return (
-    <div className="space-y-2">
-      <label className={labelClass}>{label}</label>
-      <div className="flex flex-wrap gap-2 rounded-lg border border-outline-variant bg-white p-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-        {tags.map((tag) => (
-          <span
-            key={tag}
-            className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-label-sm text-on-primary"
-          >
-            {tag}
-            <button type="button" onClick={() => onChange(tags.filter((t) => t !== tag))}>
-              <Icon name="close" className="text-[14px]" />
-            </button>
-          </span>
-        ))}
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              addTag(draft);
-            }
-          }}
-          onBlur={() => addTag(draft)}
-          placeholder={placeholder}
-          className="min-w-[140px] flex-1 border-none p-0 text-body-md outline-none"
-        />
-      </div>
-    </div>
-  );
-}
-
 function ChipGroup<T extends string>({
   label,
   options,
@@ -198,6 +147,10 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
   const isAdmin = mode === "admin";
   const signInUrl = signInPath(isAdmin ? "admin" : "employer", pathname);
   const [form, setForm] = useState<PostJobFormValues>(DEFAULT_POST_JOB_VALUES);
+  const [selectedCompany, setSelectedCompany] = useState<Pick<
+    CompanySuggestion,
+    "logoUrl" | "verified"
+  > | null>(null);
   const [activeStep, setActiveStep] = useState<string>(FORM_SECTIONS[0].id);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -257,6 +210,7 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     title: form.title.trim(),
     description: form.description.trim(),
     responsibilities: form.responsibilities.trim() || undefined,
+    requirements: form.requirements.trim() || undefined,
     companyId: form.companyId,
     recruiterRole: form.recruiterRole,
     category: form.category.trim() || undefined,
@@ -279,8 +233,6 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     educationRequirement: form.educationRequirement,
     ageMin: form.ageMin ? Number(form.ageMin) : undefined,
     ageMax: form.ageMax ? Number(form.ageMax) : undefined,
-    requiredSkills: form.requiredSkills,
-    niceToHaveSkills: form.niceToHaveSkills,
     applicationDeadline: form.applicationDeadline || undefined,
     applyViaEmail: form.applyViaEmail,
     applyViaExternalLink: form.applyViaExternalLink,
@@ -329,13 +281,12 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     if (form.title) score += 10;
     if (form.description.length >= 20) score += 15;
     if (form.responsibilities) score += 10;
-    if (form.requiredSkills.length) score += 10;
+    if (form.requirements) score += 10;
     if (form.city) score += 5;
     if (form.category) score += 15;
     if (form.companyId) score += 10;
     if (form.salaryType === "Negotiable" || form.salaryMin || form.salaryMax) score += 10;
     if (form.applicationDeadline) score += 5;
-    if (form.niceToHaveSkills.length) score += 10;
     return Math.min(score, 100);
   }, [form]);
 
@@ -383,22 +334,25 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
             ))}
           </nav>
 
-          <div className="rounded-xl border border-primary/10 bg-surface-container-low p-5">
-            <div className="mb-2 flex items-center justify-between text-label-sm">
-              <span className="font-label-bold text-primary">Listing completeness</span>
-              <span className="font-bold text-primary">{completionScore}%</span>
+          <div className="space-y-3 rounded-xl border border-primary/10 bg-surface-container-low p-6">
+            <div className="flex items-center gap-2 text-primary">
+              <Icon name="psychology" filled />
+              <span className="font-label-bold">AI Optimization</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high">
               <div
-                className="h-full bg-primary transition-all"
+                className="h-full bg-primary transition-all duration-500"
                 style={{ width: `${completionScore}%` }}
               />
             </div>
+            <p className="text-[12px] text-on-surface-variant">
+              Listing is {completionScore}% optimized for matching.
+            </p>
           </div>
         </div>
       </aside>
 
-      <div className="space-y-8 pb-32 lg:w-3/4">
+      <div className="space-y-8 pb-32 lg:w-2/4">
         {error && (
           <div className="rounded-lg border border-error/30 bg-error-container px-4 py-3 font-body-md text-on-error-container">
             {error}
@@ -410,10 +364,17 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
             value={form.companySearch}
             selectedCompanyId={form.companyId || undefined}
             onQueryChange={(companySearch) => patch({ companySearch })}
-            onSelect={(company) =>
-              patch({ companyId: company.id, companySearch: company.name })
-            }
-            onClear={() => patch({ companyId: "" })}
+            onSelect={(company) => {
+              patch({ companyId: company.id, companySearch: company.name });
+              setSelectedCompany({
+                logoUrl: company.logoUrl,
+                verified: company.verified,
+              });
+            }}
+            onClear={() => {
+              patch({ companyId: "" });
+              setSelectedCompany(null);
+            }}
             required
             createHref={isAdmin ? "/admin/companies" : "/employer/companies/new"}
           />
@@ -645,18 +606,16 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
               className={cn(inputClass, "resize-y")}
             />
           </div>
-          <TagInput
-            label="Required skills / target expertise"
-            tags={form.requiredSkills}
-            onChange={(requiredSkills) => patch({ requiredSkills })}
-            placeholder="Type skill and press Enter"
-          />
-          <TagInput
-            label="Nice-to-have skills (optional)"
-            tags={form.niceToHaveSkills}
-            onChange={(niceToHaveSkills) => patch({ niceToHaveSkills })}
-            placeholder="Optional skills"
-          />
+          <div className="space-y-2">
+            <label className={labelClass}>Requirements</label>
+            <textarea
+              rows={5}
+              value={form.requirements}
+              onChange={(e) => patch({ requirements: e.target.value })}
+              placeholder="Bullet-style requirements (one per line)…"
+              className={cn(inputClass, "resize-y")}
+            />
+          </div>
         </Section>
 
         <Section id="application" icon="send" title="8. Application Settings">
@@ -722,11 +681,9 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
           )}
         </Section>
 
-        <Section id="media" icon="upload_file" title="9. Media Upload">
+        <Section id="media" icon="image" title="9. Vacancy artwork">
           <JobListingMediaUploader
-            jobDocumentName={form.jobDocumentName}
             vacancyArtworkName={form.vacancyArtworkName}
-            onJobDocumentChange={(jobDocumentName) => patch({ jobDocumentName })}
             onVacancyArtworkChange={(vacancyArtworkName) => patch({ vacancyArtworkName })}
             disabled={submitting}
           />
@@ -753,6 +710,22 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
           </div>
         </div>
       </div>
+
+      <JobListingPreview
+        title={form.title}
+        companyName={form.companySearch}
+        companyLogoUrl={selectedCompany?.logoUrl}
+        companyVerified={selectedCompany?.verified}
+        category={form.category}
+        employmentType={form.employmentType}
+        workArrangement={form.workArrangement}
+        experienceLevel={form.experienceLevel}
+        city={form.city}
+        salaryType={form.salaryType}
+        salaryMin={form.salaryMin}
+        salaryMax={form.salaryMax}
+        salaryCurrency={form.salaryCurrency}
+      />
     </div>
   );
 }

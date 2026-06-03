@@ -45,6 +45,8 @@ function buildJobKeywords(
   addPhrase(dto.employmentType);
   addPhrase(dto.workArrangement);
   addPhrase(dto.experienceLevel);
+  addPhrase(dto.responsibilities);
+  addPhrase(dto.requirements);
   if (dto.ageMin != null) tokens.add(String(dto.ageMin));
   if (dto.ageMax != null) tokens.add(String(dto.ageMax));
   addPhrase(companyName);
@@ -202,6 +204,7 @@ export class JobsService {
       dto.title,
       dto.description,
       dto.responsibilities,
+      dto.requirements,
       ...(dto.requiredSkills ?? []),
     ].join(' ');
     const isScam = detectScamContent(bodyText);
@@ -229,6 +232,7 @@ export class JobsService {
         slug,
         description: dto.description.trim(),
         responsibilities: dto.responsibilities?.trim() || null,
+        requirements: dto.requirements?.trim() || null,
         location,
         city: dto.city?.trim() || null,
         salaryMin: dto.salaryType === 'Negotiable' ? null : dto.salaryMin,

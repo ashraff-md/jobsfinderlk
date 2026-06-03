@@ -16,6 +16,7 @@ type LifeAtCompanyUploaderProps = {
   onRemove: (id: string) => void;
   maxImages?: number;
   disabled?: boolean;
+  variant?: "default" | "storytelling";
 };
 
 export function LifeAtCompanyUploader({
@@ -24,7 +25,9 @@ export function LifeAtCompanyUploader({
   onRemove,
   maxImages = MAX_LIFE_AT_IMAGES,
   disabled = false,
+  variant = "default",
 }: LifeAtCompanyUploaderProps) {
+  const storytelling = variant === "storytelling";
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -76,10 +79,74 @@ export function LifeAtCompanyUploader({
     handleFiles(event.dataTransfer.files);
   };
 
+  if (storytelling) {
+    return (
+      <div className="grid grid-cols-2 gap-stack-sm md:grid-cols-5">
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="file"
+          accept={ACCEPT}
+          multiple
+          disabled={atLimit || disabled}
+          className="sr-only"
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        {!atLimit && (
+          <button
+            type="button"
+            onClick={openPicker}
+            disabled={disabled}
+            className={cn(
+              "flex aspect-square items-center justify-center rounded border-2 border-dashed border-outline-variant bg-surface-container transition-colors hover:border-secondary",
+              isDragging && "border-secondary bg-secondary-container/30",
+            )}
+            onDragEnter={onDragEnter}
+            onDragLeave={onDragLeave}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+          >
+            <Icon name="add" className="text-outline" />
+          </button>
+        )}
+        {images.map((image) => (
+          <figure
+            key={image.id}
+            className="relative aspect-square overflow-hidden rounded border border-outline-variant bg-surface-container"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={image.previewUrl} alt={image.name} className="size-full object-cover" />
+            <button
+              type="button"
+              onClick={() => onRemove(image.id)}
+              disabled={disabled}
+              className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-error shadow hover:bg-error hover:text-on-primary"
+              aria-label={`Remove ${image.name}`}
+            >
+              <Icon name="close" className="text-[14px]" />
+            </button>
+          </figure>
+        ))}
+        {Array.from({
+          length: Math.max(0, maxImages - images.length - (atLimit ? 0 : 1)),
+        }).map((_, i) => (
+          <div
+            key={`empty-${i}`}
+            className="aspect-square rounded border border-outline-variant bg-surface-container"
+            aria-hidden
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border-2 border-dashed transition-all duration-200",
+        "w-full min-w-0 overflow-hidden rounded-xl border-2 border-dashed transition-all duration-200",
         "bg-gradient-to-b from-surface-container-low to-surface-container-lowest",
         isDragging
           ? "border-secondary bg-secondary-container/25 shadow-md"

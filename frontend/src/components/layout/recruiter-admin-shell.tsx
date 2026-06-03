@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AdminPostJobTypeDialog } from "@/components/admin/admin-post-job-type-dialog";
+import { LogoutLink } from "@/components/auth/logout-link";
 import { Icon } from "@/components/ui/icon";
 import { getAccessToken, getProfile, getStoredUser } from "@/lib/api/auth";
 import { LOGO_URL } from "@/lib/assets";
@@ -163,13 +164,7 @@ export function RecruiterAdminShell({
         </div>
 
         <div className="shrink-0 border-t border-white/10 p-6 pt-4">
-          <Link
-            href="/auth/sign-in"
-            className="flex items-center gap-3 p-2 text-on-primary-container transition-colors hover:text-error"
-          >
-            <Icon name="logout" />
-            <span className="font-label-bold">Logout</span>
-          </Link>
+          <LogoutLink />
         </div>
       </aside>
 

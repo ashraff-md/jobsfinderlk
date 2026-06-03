@@ -21,9 +21,15 @@ export class CreateCompanyRequestDto {
   @IsString()
   emailDomain?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string;
+
   @ApiProperty()
   @IsString()
-  location!: string;
+  city!: string;
 
   @ApiProperty()
   @IsString()
@@ -34,6 +40,11 @@ export class CreateCompanyRequestDto {
   @IsString()
   @MaxLength(5000)
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Base64 data URL (PNG, JPG, or WebP)' })
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

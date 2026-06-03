@@ -5,5 +5,4 @@ dist
 .next
 *.log
 .DS_Store
-References/
-references2/
+ui_references/

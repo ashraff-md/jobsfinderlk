@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { LogoutLink } from "@/components/auth/logout-link";
 import { Icon } from "@/components/ui/icon";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { LOGO_URL } from "@/lib/assets";
@@ -128,13 +129,7 @@ export function EmployerShell({
             <Icon name="help" />
             <span className="font-label-bold">Help Center</span>
           </Link>
-          <Link
-            href="/auth/sign-in"
-            className="flex items-center gap-3 p-2 text-on-primary-container transition-colors hover:text-error"
-          >
-            <Icon name="logout" />
-            <span className="font-label-bold">Logout</span>
-          </Link>
+          <LogoutLink />
         </div>
       </aside>
 

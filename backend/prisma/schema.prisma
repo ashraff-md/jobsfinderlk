@@ -85,6 +85,8 @@ model Company {
   description String?
   logoUrl     String?  @map("logo_url")
   industry    String?
+  address     String?
+  city        String?
   location    String?
   companyType String?  @map("company_type")
   emailDomain String?  @map("email_domain")
@@ -120,9 +122,12 @@ model CompanyRequest {
   industry      String?
   website       String?
   emailDomain   String?              @map("email_domain")
+  address       String?
+  city          String?
   location      String?
   companyType   String?              @map("company_type")
   description   String?
+  logoUrl       String?              @map("logo_url")
   lifeAtCompanyImages String[]       @default([]) @map("life_at_company_images")
   requestedById String               @map("requested_by")
   status        CompanyRequestStatus @default(PENDING)
@@ -144,6 +149,7 @@ model Job {
   slug                 String    @unique
   description          String
   responsibilities     String?
+  requirements         String?
   location             String?
   city                 String?
   salaryMin            Int?      @map("salary_min")

@@ -96,59 +96,6 @@ function DatalistField({
   );
 }
 
-function TagInput({
-  label,
-  tags,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  tags: string[];
-  onChange: (tags: string[]) => void;
-  placeholder?: string;
-}) {
-  const [draft, setDraft] = useState("");
-
-  const addTag = (raw: string) => {
-    const tag = raw.trim();
-    if (!tag || tags.includes(tag)) return;
-    onChange([...tags, tag]);
-    setDraft("");
-  };
-
-  return (
-    <div className="space-y-2">
-      <label className={labelClass}>{label}</label>
-      <div className="flex flex-wrap gap-2 rounded-lg border border-outline-variant bg-white p-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-        {tags.map((tag) => (
-          <span
-            key={tag}
-            className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-label-sm text-on-primary"
-          >
-            {tag}
-            <button type="button" onClick={() => onChange(tags.filter((t) => t !== tag))}>
-              <Icon name="close" className="text-[14px]" />
-            </button>
-          </span>
-        ))}
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              addTag(draft);
-            }
-          }}
-          onBlur={() => addTag(draft)}
-          placeholder={placeholder}
-          className="min-w-[140px] flex-1 border-none p-0 text-body-md outline-none"
-        />
-      </div>
-    </div>
-  );
-}
-
 function ChipGroup<T extends string>({
   label,
   options,
@@ -293,6 +240,7 @@ export function GovernmentJobForm() {
     title: form.designation.trim(),
     description: buildDescription(form),
     responsibilities: form.responsibilities.trim() || undefined,
+    requirements: form.requirements.trim() || undefined,
     companyId: form.companyId,
     recruiterRole: form.recruiterRole,
     category: form.category.trim() || "Government",
@@ -307,8 +255,6 @@ export function GovernmentJobForm() {
     educationRequirement: form.educationRequirement,
     ageMin: form.ageMin ? Number(form.ageMin) : undefined,
     ageMax: form.ageMax ? Number(form.ageMax) : undefined,
-    requiredSkills: form.requiredSkills,
-    niceToHaveSkills: form.niceToHaveSkills,
     applicationDeadline: form.applicationDeadline || undefined,
     applyViaEmail: form.applyViaEmail,
     applyViaExternalLink: form.applyViaExternalLink,
@@ -629,18 +575,19 @@ export function GovernmentJobForm() {
               className={cn(inputClass, "resize-y")}
             />
           </div>
-          <TagInput
-            label="Required skills / target expertise"
-            tags={form.requiredSkills}
-            onChange={(requiredSkills) => patch({ requiredSkills })}
-            placeholder="Type skill and press Enter"
-          />
-          <TagInput
-            label="Nice-to-have skills (optional)"
-            tags={form.niceToHaveSkills}
-            onChange={(niceToHaveSkills) => patch({ niceToHaveSkills })}
-            placeholder="Optional skills"
-          />
+          <div className="space-y-2">
+            <label className={labelClass} htmlFor="requirements">
+              Requirements
+            </label>
+            <textarea
+              id="requirements"
+              rows={4}
+              value={form.requirements}
+              onChange={(e) => patch({ requirements: e.target.value })}
+              placeholder="Bullet-style requirements (one per line)…"
+              className={cn(inputClass, "resize-y")}
+            />
+          </div>
         </FormCard>
 
         <FormCard icon="send" title="Application Settings">
@@ -711,11 +658,9 @@ export function GovernmentJobForm() {
           )}
         </FormCard>
 
-        <FormCard icon="upload_file" title="Media Upload">
+        <FormCard icon="image" title="Vacancy artwork">
           <JobListingMediaUploader
-            jobDocumentName={form.jobDocumentName}
             vacancyArtworkName={form.vacancyArtworkName}
-            onJobDocumentChange={(jobDocumentName) => patch({ jobDocumentName })}
             onVacancyArtworkChange={(vacancyArtworkName) => patch({ vacancyArtworkName })}
             disabled={submitting}
           />

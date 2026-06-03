@@ -36,6 +36,11 @@ export class CreateJobDto {
   @IsString()
   responsibilities?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  requirements?: string;
+
   @ApiPropertyOptional({ description: 'Existing company UUID' })
   @IsOptional()
   @IsString()

@@ -21,6 +21,8 @@ export type Company = {
   description?: string | null;
   logoUrl?: string | null;
   industry?: string | null;
+  address?: string | null;
+  city?: string | null;
   location?: string | null;
   companyType?: string | null;
   emailDomain?: string | null;
@@ -40,9 +42,12 @@ export type CompanyRequest = {
   industry?: string | null;
   website?: string | null;
   emailDomain?: string | null;
+  address?: string | null;
+  city?: string | null;
   location?: string | null;
   companyType?: string | null;
   description?: string | null;
+  logoUrl?: string | null;
   lifeAtCompanyImages?: string[];
   status: "PENDING" | "APPROVED" | "REJECTED" | "MERGED";
   reviewNotes?: string | null;
@@ -69,6 +74,8 @@ export type Job = {
   title: string;
   slug: string;
   description: string;
+  responsibilities?: string | null;
+  requirements?: string | null;
   location?: string | null;
   salaryMin?: number | null;
   salaryMax?: number | null;

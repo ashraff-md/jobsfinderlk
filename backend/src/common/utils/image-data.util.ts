@@ -18,3 +18,12 @@ export function sanitizeLifeAtCompanyImages(
 
   return sanitized;
 }
+
+export function sanitizeLogoDataUrl(url?: string | null): string | null {
+  if (!url?.trim()) return null;
+  const item = url.trim();
+  if (IMAGE_DATA_PATTERN.test(item) && item.length <= MAX_IMAGE_DATA_LENGTH) {
+    return item;
+  }
+  return null;
+}

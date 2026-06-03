@@ -1,7 +1,13 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { ChangePasswordDto, LoginDto, RegisterDto, UpdateAdminProfileDto } from './dto/auth.dto';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  RegisterDto,
+  UpdateAdminProfileDto,
+  UpdateEmployerProfileDto,
+} from './dto/auth.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -22,6 +28,11 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('admin/login')
+  adminLogin(@Body() dto: LoginDto) {
+    return this.authService.adminLogin(dto);
   }
 
   @Post('refresh')
@@ -49,5 +60,13 @@ export class AuthController {
   @ApiBearerAuth()
   updateAdminProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateAdminProfileDto) {
     return this.authService.updateAdminProfile(user.sub, user.role, dto);
+  }
+
+  @Patch('employer-profile')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  updateEmployerProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateEmployerProfileDto) {
+    return this.authService.updateEmployerProfile(user.sub, dto);
   }
 }

@@ -6,3 +6,6 @@ dist
 *.log
 .DS_Store
 ui_references/
+backend/images/**
+!backend/images/**/
+!backend/images/**/.gitkeep

@@ -7,7 +7,10 @@ import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
-import { JOB_CARD_SLIDES, JOB_SLIDE_INTERVAL_MS } from "@/lib/jobs/featured-jobs";
+import { searchPublishedJobs } from "@/lib/api/jobs";
+import { JOB_SLIDE_INTERVAL_MS } from "@/lib/jobs/featured-jobs";
+import { buildJobCardSlides } from "@/lib/jobs/map-job-to-featured-card";
+import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
 
 const MARQUEE_COMPANIES = [
   "DIALOG",
@@ -70,18 +73,47 @@ export function LandingPage() {
   const statCompaniesRef = useRef<HTMLDivElement>(null);
   const statMatchesRef = useRef<HTMLDivElement>(null);
   const statsAnimatedRef = useRef(false);
+  const [jobSlides, setJobSlides] = useState<FeaturedJobCardItem[][]>([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
   const [jobSlide, setJobSlide] = useState(0);
   const [jobCarouselPaused, setJobCarouselPaused] = useState(false);
 
   useEffect(() => {
-    if (jobCarouselPaused) return;
+    let cancelled = false;
+    (async () => {
+      setJobsLoading(true);
+      try {
+        const data = await searchPublishedJobs({ limit: 24 });
+        if (!cancelled) {
+          setJobSlides(buildJobCardSlides(data.items, 8));
+          setJobSlide(0);
+        }
+      } catch {
+        if (!cancelled) setJobSlides([]);
+      } finally {
+        if (!cancelled) setJobsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (jobCarouselPaused || jobSlides.length <= 1) return;
 
     const timer = window.setInterval(() => {
-      setJobSlide((current) => (current + 1) % JOB_CARD_SLIDES.length);
+      setJobSlide((current) => (current + 1) % jobSlides.length);
     }, JOB_SLIDE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [jobCarouselPaused]);
+  }, [jobCarouselPaused, jobSlides.length]);
+
+  useEffect(() => {
+    if (jobSlide >= jobSlides.length && jobSlides.length > 0) {
+      setJobSlide(0);
+    }
+  }, [jobSlide, jobSlides.length]);
 
   useEffect(() => {
     const section = statsSectionRef.current;
@@ -200,65 +232,86 @@ export function LandingPage() {
               </Link>
             </div>
 
-            <div
-              onMouseEnter={() => setJobCarouselPaused(true)}
-              onMouseLeave={() => setJobCarouselPaused(false)}
-            >
-            <div className="overflow-hidden">
+            {jobsLoading ? (
+              <div className="flex justify-center py-16">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-surface-container border-t-primary" />
+              </div>
+            ) : jobSlides.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-outline-variant py-12 text-center text-on-surface-variant">
+                No published roles yet. Check back soon or{" "}
+                <Link href="/jobs" className="font-label-bold text-secondary hover:underline">
+                  browse all jobs
+                </Link>
+                .
+              </p>
+            ) : (
               <div
-                className="flex transition-transform duration-500 ease-out"
-                style={{ transform: `translateX(-${jobSlide * 100}%)` }}
+                onMouseEnter={() => setJobCarouselPaused(true)}
+                onMouseLeave={() => setJobCarouselPaused(false)}
               >
-                {JOB_CARD_SLIDES.map((slide, slideIndex) => (
+                <div className="overflow-hidden">
                   <div
-                    key={slideIndex}
-                    className="grid w-full shrink-0 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+                    className="flex transition-transform duration-500 ease-out"
+                    style={{ transform: `translateX(-${jobSlide * 100}%)` }}
                   >
-                    {slide.map((job) => (
-                      <FeaturedJobCard key={`${job.title}-${job.company}`} job={job} />
+                    {jobSlides.map((slide, slideIndex) => (
+                      <div
+                        key={slideIndex}
+                        className="grid w-full shrink-0 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+                      >
+                        {slide.map((job) => (
+                          <FeaturedJobCard
+                            key={job.href ?? `${job.title}-${slideIndex}`}
+                            job={job}
+                          />
+                        ))}
+                      </div>
                     ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            <div className="mt-10 flex items-center justify-center gap-4">
-              <button
-                type="button"
-                aria-label="Previous jobs"
-                onClick={() =>
-                  setJobSlide(
-                    (current) => (current - 1 + JOB_CARD_SLIDES.length) % JOB_CARD_SLIDES.length,
-                  )
-                }
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
-              >
-                <Icon name="chevron_left" />
-              </button>
-              <div className="flex items-center gap-2">
-                {JOB_CARD_SLIDES.map((_, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    aria-label={`Go to slide ${index + 1}`}
-                    aria-current={jobSlide === index ? "true" : undefined}
-                    onClick={() => setJobSlide(index)}
-                    className={`h-2.5 rounded-full transition-all ${
-                      jobSlide === index ? "w-8 bg-primary" : "w-2.5 bg-outline-variant/60 hover:bg-primary/40"
-                    }`}
-                  />
-                ))}
+                {jobSlides.length > 1 && (
+                  <div className="mt-10 flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      aria-label="Previous jobs"
+                      onClick={() =>
+                        setJobSlide(
+                          (current) => (current - 1 + jobSlides.length) % jobSlides.length,
+                        )
+                      }
+                      className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
+                    >
+                      <Icon name="chevron_left" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      {jobSlides.map((_, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          aria-label={`Go to slide ${index + 1}`}
+                          aria-current={jobSlide === index ? "true" : undefined}
+                          onClick={() => setJobSlide(index)}
+                          className={`h-2.5 rounded-full transition-all ${
+                            jobSlide === index
+                              ? "w-8 bg-primary"
+                              : "w-2.5 bg-outline-variant/60 hover:bg-primary/40"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Next jobs"
+                      onClick={() => setJobSlide((current) => (current + 1) % jobSlides.length)}
+                      className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
+                    >
+                      <Icon name="chevron_right" />
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                type="button"
-                aria-label="Next jobs"
-                onClick={() => setJobSlide((current) => (current + 1) % JOB_CARD_SLIDES.length)}
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
-              >
-                <Icon name="chevron_right" />
-              </button>
-            </div>
-            </div>
+            )}
           </div>
         </section>
 

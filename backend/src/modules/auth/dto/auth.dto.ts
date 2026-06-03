@@ -43,6 +43,24 @@ export class ChangePasswordDto {
   newPassword!: string;
 }
 
+export class UpdateEmployerProfileDto {
+  @ApiPropertyOptional({ example: 'Harshana Silva' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  fullName?: string;
+
+  @ApiPropertyOptional({ example: 'Head of Talent Acquisition' })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional({ example: '+94 11 234 5678' })
+  @IsOptional()
+  @IsString()
+  contactNo?: string;
+}
+
 export class UpdateAdminProfileDto {
   @ApiPropertyOptional({ example: 'Ashra' })
   @IsOptional()

@@ -9,7 +9,13 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ChangePasswordDto, LoginDto, RegisterDto, UpdateAdminProfileDto } from './dto/auth.dto';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  RegisterDto,
+  UpdateAdminProfileDto,
+  UpdateEmployerProfileDto,
+} from './dto/auth.dto';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 
 @Injectable()
@@ -21,6 +27,10 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    if (dto.role === UserRole.ADMIN || dto.role === UserRole.MODERATOR) {
+      throw new ForbiddenException('Administrator accounts cannot be created via public registration');
+    }
+
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
@@ -50,7 +60,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, allowedRoles?: UserRole[]) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
@@ -63,6 +73,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
+      throw new ForbiddenException('This account is not authorized for the admin portal');
+    }
+
     return {
       user: {
         id: user.id,
@@ -72,6 +86,10 @@ export class AuthService {
       },
       ...this.issueTokens(user.id, user.email, user.role),
     };
+  }
+
+  adminLogin(dto: LoginDto) {
+    return this.login(dto, [UserRole.ADMIN, UserRole.MODERATOR]);
   }
 
   async refresh(refreshToken: string) {
@@ -126,6 +144,32 @@ export class AuthService {
     });
 
     return { message: 'Password updated successfully' };
+  }
+
+  async updateEmployerProfile(userId: string, dto: UpdateEmployerProfileDto) {
+    const link = await this.prisma.employerUser.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!link) {
+      throw new ForbiddenException(
+        'No company is linked to your account. Complete company registration first.',
+      );
+    }
+
+    const fullName = dto.fullName?.trim();
+    const title = dto.title?.trim();
+    const contactNo = dto.contactNo?.trim();
+
+    return this.prisma.employerUser.update({
+      where: { id: link.id },
+      data: {
+        ...(dto.fullName !== undefined ? { fullName: fullName || null } : {}),
+        ...(dto.title !== undefined ? { title: title || null } : {}),
+        ...(dto.contactNo !== undefined ? { contactNo: contactNo || null } : {}),
+      },
+      include: { company: true },
+    });
   }
 
   async updateAdminProfile(userId: string, role: UserRole, dto: UpdateAdminProfileDto) {

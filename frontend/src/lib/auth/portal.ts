@@ -51,6 +51,12 @@ export function isSafeReturnUrl(url: string, role: UserRole): boolean {
 }
 
 export function signInPath(portal: AuthPortal, returnUrl?: string): string {
+  if (portal === "admin") {
+    const params = new URLSearchParams();
+    if (returnUrl) params.set("returnUrl", returnUrl);
+    const query = params.toString();
+    return query ? `/admin/login?${query}` : "/admin/login";
+  }
   const params = new URLSearchParams({ role: signInRoleParam(portal) });
   if (returnUrl) params.set("returnUrl", returnUrl);
   return `/auth/sign-in?${params.toString()}`;

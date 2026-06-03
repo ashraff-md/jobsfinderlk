@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ApiError } from "@/lib/api/client";
 import { dashboardPath, login } from "@/lib/api/auth";
-import { authRoleFromSignInParam, isSafeReturnUrl } from "@/lib/auth/portal";
+import { authRoleFromSignInParam, isSafeReturnUrl, portalFromSignInRoleParam } from "@/lib/auth/portal";
 import { LOGO_URL } from "@/lib/assets";
 import { cn } from "@/lib/utils";
 
@@ -91,8 +91,16 @@ export function AuthSignInPage() {
   const boardroomRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
+    if (portalFromSignInRoleParam(searchParams.get("role")) === "admin") {
+      const returnUrl = searchParams.get("returnUrl");
+      const target = returnUrl
+        ? `/admin/login?returnUrl=${encodeURIComponent(returnUrl)}`
+        : "/admin/login";
+      router.replace(target);
+      return;
+    }
     setRole(authRoleFromSignInParam(searchParams.get("role")));
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     const img = boardroomRef.current;

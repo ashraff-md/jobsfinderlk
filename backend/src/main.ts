@@ -1,10 +1,22 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { ImageStorageService } from './common/storage/image-storage.service';
+
+/** Accepts base64 uploads before files are written under UPLOAD_ROOT. */
+const JSON_BODY_LIMIT = '8mb';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
+  app.useBodyParser('urlencoded', { limit: JSON_BODY_LIMIT, extended: true });
+
+  const imageStorage = app.get(ImageStorageService);
+  app.useStaticAssets(imageStorage.getUploadRoot(), {
+    prefix: imageStorage.getPublicPath(),
+  });
 
   app.setGlobalPrefix('api');
   app.enableCors({

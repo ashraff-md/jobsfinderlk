@@ -130,6 +130,11 @@ export const ROUTE_META: Record<
     reference: "References/17_admin_dashboard_executive_theme/code.html",
     phase: "M1",
   },
+  "/admin/login": {
+    title: "Admin Sign In",
+    reference: "References/17_admin_dashboard_executive_theme/code.html",
+    phase: "M1",
+  },
   "/admin/jobs": {
     title: "Ad Approval Queue",
     reference: "references2/admin_ad_job_post_approval_hub/code.html",

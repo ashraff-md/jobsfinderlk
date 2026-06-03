@@ -10,6 +10,16 @@ export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY);
 }
 
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function updateTokens(accessToken: string, refreshToken: string) {
+  localStorage.setItem(ACCESS_KEY, accessToken);
+  localStorage.setItem(REFRESH_KEY, refreshToken);
+}
+
 export function getStoredUser() {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(USER_KEY);
@@ -30,6 +40,15 @@ export function clearSession() {
 
 export async function login(email: string, password: string) {
   const data = await apiFetch<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  saveSession(data);
+  return data;
+}
+
+export async function loginAdmin(email: string, password: string) {
+  const data = await apiFetch<AuthResponse>("/auth/admin/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
@@ -63,10 +82,39 @@ export type UserProfile = {
     email?: string | null;
     contactNo?: string | null;
   } | null;
+  employerUsers?: Array<{
+    id: string;
+    fullName?: string | null;
+    title?: string | null;
+    contactNo?: string | null;
+    company: {
+      id: string;
+      name: string;
+      description?: string | null;
+      logoUrl?: string | null;
+      verified: boolean;
+    };
+  }>;
 };
 
 export async function getProfile() {
   return apiFetch<UserProfile>("/auth/me", { token: getAccessToken() });
+}
+
+export async function updateEmployerProfile(input: {
+  fullName?: string;
+  title?: string;
+  contactNo?: string;
+}) {
+  return apiFetch<{
+    fullName?: string | null;
+    title?: string | null;
+    contactNo?: string | null;
+  }>("/auth/employer-profile", {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(input),
+  });
 }
 
 export async function updateAdminProfile(input: {

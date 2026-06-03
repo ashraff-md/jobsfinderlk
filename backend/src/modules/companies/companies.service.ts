@@ -7,6 +7,7 @@ import {
   similarityScore,
 } from '../../common/utils/company-match.util';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { ImageStorageService } from '../../common/storage/image-storage.service';
 
 export type CompanySuggestion = {
   id: string;
@@ -22,10 +23,13 @@ export type CompanySuggestion = {
 
 @Injectable()
 export class CompaniesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly imageStorage: ImageStorageService,
+  ) {}
 
   async findAll(search?: string) {
-    return this.prisma.company.findMany({
+    const companies = await this.prisma.company.findMany({
       where: search
         ? {
             OR: [
@@ -43,6 +47,7 @@ export class CompaniesService {
       },
       orderBy: { name: 'asc' },
     });
+    return companies.map((company) => this.imageStorage.withPublicUrls(company));
   }
 
   async suggest(query: string, limit = 10): Promise<CompanySuggestion[]> {
@@ -148,7 +153,7 @@ export class CompaniesService {
       },
     });
     if (!company) throw new NotFoundException('Company not found');
-    return company;
+    return this.imageStorage.withPublicUrls(company);
   }
 
   async createForEmployer(userId: string, dto: CreateCompanyDto) {
@@ -158,7 +163,7 @@ export class CompaniesService {
       data: { userId, companyId: company.id },
     });
 
-    return company;
+    return this.imageStorage.withPublicUrls(company);
   }
 
   async createFromRequest(
@@ -186,7 +191,7 @@ export class CompaniesService {
     });
 
     await this.linkEmployerToCompany(userId, company.id);
-    return company;
+    return this.imageStorage.withPublicUrls(company);
   }
 
   private async createCompanyRecord(
@@ -252,6 +257,6 @@ export class CompaniesService {
     if (!company) throw new NotFoundException('Company not found');
 
     await this.linkEmployerToCompany(userId, company.id);
-    return company;
+    return this.imageStorage.withPublicUrls(company);
   }
 }

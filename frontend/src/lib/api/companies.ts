@@ -9,15 +9,18 @@ export async function suggestCompanies(q: string) {
   );
 }
 
-export async function checkCompanyDuplicates(params: {
-  name: string;
-  website?: string;
-  emailDomain?: string;
-}) {
+export async function checkCompanyDuplicates(
+  params: {
+    name: string;
+    website?: string;
+    emailDomain?: string;
+  },
+  signal?: AbortSignal,
+) {
   const query = new URLSearchParams({ name: params.name });
   if (params.website) query.set("website", params.website);
   if (params.emailDomain) query.set("emailDomain", params.emailDomain);
-  return apiFetch<CompanySuggestion[]>(`/companies/check-duplicates?${query}`);
+  return apiFetch<CompanySuggestion[]>(`/companies/check-duplicates?${query}`, { signal });
 }
 
 export type CreateCompanyRequestBody = {

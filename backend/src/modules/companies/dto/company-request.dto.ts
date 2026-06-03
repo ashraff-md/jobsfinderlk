@@ -41,12 +41,19 @@ export class CreateCompanyRequestDto {
   @MaxLength(5000)
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Base64 data URL (PNG, JPG, or WebP)' })
+  @ApiPropertyOptional({
+    description:
+      'Company logo as base64 data URL; stored on disk under UPLOAD_ROOT, path saved in DB',
+  })
   @IsOptional()
   @IsString()
   logoUrl?: string;
 
-  @ApiPropertyOptional({ type: [String] })
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Life-at photos as base64 data URLs; stored on disk, paths saved in DB',
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

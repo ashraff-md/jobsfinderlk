@@ -10,7 +10,7 @@ import { LifeAtCompanyUploader } from "@/components/companies/life-at-company-up
 import { Icon } from "@/components/ui/icon";
 import { CitySearchField } from "@/components/ui/city-search-field";
 import { ApiError } from "@/lib/api/client";
-import { getAccessToken } from "@/lib/api/auth";
+import { clearSession, getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
 import {
   checkCompanyDuplicates,
@@ -96,22 +96,37 @@ export function RegisterCompanyForm() {
       return;
     }
 
+    const websiteForCheck =
+      website.trim().length >= 4 && website.includes(".") ? website.trim() : undefined;
+
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setChecking(true);
       try {
-        const matches = await checkCompanyDuplicates({
-          name: companyName,
-          website,
-        });
+        const matches = await checkCompanyDuplicates(
+          {
+            name: companyName,
+            website: websiteForCheck,
+          },
+          controller.signal,
+        );
         setDuplicates(matches);
-      } catch {
+      } catch (err) {
+        if (controller.signal.aborted) return;
         setDuplicates([]);
+        if (err instanceof ApiError && err.status === 0) {
+          setError(err.message);
+        }
       } finally {
+        if (controller.signal.aborted) return;
         setChecking(false);
       }
-    }, 350);
+    }, 600);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [companyName, website]);
 
   useEffect(() => {
@@ -198,6 +213,11 @@ export function RegisterCompanyForm() {
       });
       setSuccess(true);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearSession();
+        router.push(signInPath("employer", pathname));
+        return;
+      }
       setError(err instanceof ApiError ? err.message : "Failed to submit company request.");
     } finally {
       setSubmitting(false);

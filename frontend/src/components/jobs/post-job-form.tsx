@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
@@ -154,6 +155,7 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
   const [activeStep, setActiveStep] = useState<string>(FORM_SECTIONS[0].id);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState<{ title: string } | null>(null);
 
   const patch = useCallback((partial: Partial<PostJobFormValues>) => {
     setForm((prev) => ({ ...prev, ...partial }));
@@ -262,8 +264,10 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
       const job = await createJob(buildPayload(publish));
       if (isAdmin) {
         router.push(publish ? "/admin/jobs" : "/admin/jobs/new");
+      } else if (publish) {
+        setSubmitSuccess({ title: job.title });
       } else {
-        router.push(publish ? `/jobs/${job.slug}` : "/employer");
+        router.push("/employer");
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -289,6 +293,35 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     if (form.applicationDeadline) score += 5;
     return Math.min(score, 100);
   }, [form]);
+
+  if (submitSuccess) {
+    return (
+      <div className="professional-card max-w-2xl space-y-4 rounded-lg border border-outline-variant bg-surface-container-lowest p-8 shadow-sm">
+        <div className="flex items-center gap-3 text-primary">
+          <Icon name="check_circle" />
+          <h2 className="text-headline-md text-on-surface">Job submitted for review</h2>
+        </div>
+        <p className="text-body-md text-on-surface-variant">
+          <span className="font-label-bold text-on-surface">{submitSuccess.title}</span> has been
+          sent to our admin team. It will appear on the public job board after approval.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/employer/jobs"
+            className="rounded-lg bg-primary px-6 py-3 font-label-bold text-on-primary"
+          >
+            View job listings
+          </Link>
+          <Link
+            href="/employer/jobs/new"
+            className="rounded-lg border border-primary px-6 py-3 font-label-bold text-primary hover:bg-surface-container-low"
+          >
+            Post another job
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-gutter lg:flex-row">

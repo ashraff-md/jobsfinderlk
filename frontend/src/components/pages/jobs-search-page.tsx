@@ -9,8 +9,9 @@ import { JobSearchFiltersSidebar } from "@/components/jobs/job-search-filters-si
 import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
-import { searchJobs } from "@/lib/api/jobs";
-import { SPONSORED_JOB_CARDS } from "@/lib/jobs/featured-jobs";
+import { searchJobs, searchPublishedJobs } from "@/lib/api/jobs";
+import { jobToSponsoredCardItem } from "@/lib/jobs/map-job-to-featured-card";
+import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
 import {
   buildJobSearchParams,
   DEFAULT_JOB_SEARCH_FILTERS,
@@ -24,6 +25,7 @@ export function JobsSearchPage() {
   const [filters, setFilters] = useState<JobSearchFilters>(DEFAULT_JOB_SEARCH_FILTERS);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [sponsoredJobs, setSponsoredJobs] = useState<FeaturedJobCardItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -89,6 +91,35 @@ export function JobsSearchPage() {
     };
   }, [searchParams]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const featured = await searchPublishedJobs({ featured: true, limit: 3 });
+        let items = featured.items;
+        if (items.length < 3) {
+          const fallback = await searchPublishedJobs({ limit: 3 });
+          const seen = new Set(items.map((j) => j.id));
+          for (const job of fallback.items) {
+            if (items.length >= 3) break;
+            if (!seen.has(job.id)) {
+              items = [...items, job];
+              seen.add(job.id);
+            }
+          }
+        }
+        if (!cancelled) {
+          setSponsoredJobs(items.slice(0, 3).map((job) => jobToSponsoredCardItem(job)));
+        }
+      } catch {
+        if (!cancelled) setSponsoredJobs([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
       <PublicHeader />
@@ -129,13 +160,15 @@ export function JobsSearchPage() {
             onChange={(q) => patchFilters({ q })}
           />
 
-          <div className="rounded-xl border border-primary/10 bg-primary/5 p-8">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {SPONSORED_JOB_CARDS.map((job) => (
-                <FeaturedJobCard key={`${job.title}-${job.company}`} job={job} />
-              ))}
+          {sponsoredJobs.length > 0 && (
+            <div className="rounded-xl border border-primary/10 bg-primary/5 p-8">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {sponsoredJobs.map((job) => (
+                  <FeaturedJobCard key={job.href ?? job.title} job={job} titleLineClamp={3} />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>

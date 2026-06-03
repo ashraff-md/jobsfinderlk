@@ -2,6 +2,27 @@ import { apiFetch } from "./client";
 import { getAccessToken } from "./auth";
 import type { CompanyRequest, Job } from "./types";
 
+export type AdminJobsFilters = {
+  status?: string;
+  q?: string;
+  source?: string;
+};
+
+export async function getAdminJobs(filters?: AdminJobsFilters) {
+  const query = new URLSearchParams();
+  if (filters?.status && filters.status !== "all") {
+    query.set("status", filters.status);
+  }
+  if (filters?.q?.trim()) {
+    query.set("q", filters.q.trim());
+  }
+  if (filters?.source && filters.source !== "all") {
+    query.set("source", filters.source);
+  }
+  const qs = query.toString();
+  return apiFetch<Job[]>(`/admin/jobs${qs ? `?${qs}` : ""}`, { token: getAccessToken() });
+}
+
 export async function getPendingJobs() {
   return apiFetch<Job[]>("/admin/jobs/pending", { token: getAccessToken() });
 }

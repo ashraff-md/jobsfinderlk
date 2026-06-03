@@ -11,10 +11,7 @@ import {
   MergeCompanyRequestDto,
   RejectCompanyRequestDto,
 } from './dto/company-request.dto';
-import {
-  sanitizeLifeAtCompanyImages,
-  sanitizeLogoDataUrl,
-} from '../../common/utils/image-data.util';
+import { ImageStorageService } from '../../common/storage/image-storage.service';
 
 function formatCompanyLocation(address?: string, city?: string): string | null {
   const parts = [address?.trim(), city?.trim()].filter(Boolean);
@@ -26,6 +23,7 @@ export class CompanyRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly companiesService: CompaniesService,
+    private readonly imageStorage: ImageStorageService,
   ) {}
 
   async create(userId: string, dto: CreateCompanyRequestDto) {
@@ -54,7 +52,12 @@ export class CompanyRequestsService {
       );
     }
 
-    return this.prisma.companyRequest.create({
+    const logoPath = await this.imageStorage.saveCompanyLogo(dto.logoUrl);
+    const lifeAtPaths = await this.imageStorage.saveLifeAtCompanyImages(
+      dto.lifeAtCompanyImages,
+    );
+
+    const created = await this.prisma.companyRequest.create({
       data: {
         companyName: dto.companyName.trim(),
         industry: dto.industry.trim(),
@@ -65,8 +68,8 @@ export class CompanyRequestsService {
         location: formatCompanyLocation(dto.address, dto.city),
         companyType: dto.companyType,
         description: dto.description?.trim() || null,
-        logoUrl: sanitizeLogoDataUrl(dto.logoUrl),
-        lifeAtCompanyImages: sanitizeLifeAtCompanyImages(dto.lifeAtCompanyImages),
+        logoUrl: logoPath,
+        lifeAtCompanyImages: lifeAtPaths,
         requestedById: userId,
       },
       include: {
@@ -75,16 +78,19 @@ export class CompanyRequestsService {
         },
       },
     });
+
+    return this.imageStorage.withPublicUrls(created);
   }
 
   async listMine(userId: string) {
-    return this.prisma.companyRequest.findMany({
+    const rows = await this.prisma.companyRequest.findMany({
       where: { requestedById: userId },
       orderBy: { createdAt: 'desc' },
       include: {
         mergedInto: { select: { id: true, name: true, slug: true, verified: true } },
       },
     });
+    return rows.map((row) => this.imageStorage.withPublicUrls(row));
   }
 
   async listPending() {
@@ -109,7 +115,7 @@ export class CompanyRequestsService {
 
     return Promise.all(
       requests.map(async (request) => ({
-        ...request,
+        ...this.imageStorage.withPublicUrls(request),
         similarCompanies: await this.companiesService.findSimilar({
           name: request.companyName,
           website: request.website,
@@ -146,7 +152,7 @@ export class CompanyRequestsService {
       },
     );
 
-    return this.prisma.companyRequest.update({
+    const updated = await this.prisma.companyRequest.update({
       where: { id },
       data: {
         status: CompanyRequestStatus.APPROVED,
@@ -157,6 +163,12 @@ export class CompanyRequestsService {
         requestedBy: { select: { id: true, email: true } },
       },
     });
+    return {
+      ...this.imageStorage.withPublicUrls(updated),
+      mergedInto: updated.mergedInto
+        ? this.imageStorage.withPublicUrls(updated.mergedInto)
+        : null,
+    };
   }
 
   async merge(id: string, dto: MergeCompanyRequestDto) {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JobsService } from '../jobs/jobs.service';
@@ -10,6 +10,7 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AdminListJobsQueryDto } from './dto/admin-list-jobs-query.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -21,6 +22,11 @@ export class AdminController {
     private readonly jobsService: JobsService,
     private readonly companyRequestsService: CompanyRequestsService,
   ) {}
+
+  @Get('jobs')
+  listJobs(@Query() query: AdminListJobsQueryDto) {
+    return this.jobsService.listForAdmin(query);
+  }
 
   @Get('jobs/pending')
   pendingJobs() {

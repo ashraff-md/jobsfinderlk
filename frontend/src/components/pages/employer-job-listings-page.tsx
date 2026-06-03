@@ -1,59 +1,85 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmployerShell } from "@/components/layout/employer-shell";
 import { Icon } from "@/components/ui/icon";
+import { ApiError } from "@/lib/api/client";
+import { getEmployerJobs } from "@/lib/api/jobs";
+import type { EmployerJob } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+
+type ListingStatus = "active" | "draft" | "pending" | "closed";
 
 type JobListing = {
   id: string;
+  slug: string;
   refId: string;
   title: string;
-  status: "active" | "draft" | "closed";
+  status: ListingStatus;
   location: string;
   meta: string;
+  category: string | null;
   applicants: number;
-  views: number;
 };
 
-const JOB_LISTINGS: JobListing[] = [
-  {
-    id: "director-engineering",
-    refId: "JF-9012",
-    title: "Director of Engineering",
-    status: "active",
-    location: "Colombo, SL (Remote Friendly)",
-    meta: "Posted 12 days ago",
-    applicants: 42,
-    views: 842,
-  },
-  {
-    id: "senior-product-designer",
-    refId: "JF-9015",
-    title: "Senior Product Designer",
-    status: "draft",
-    location: "Kandy, SL (On-site)",
-    meta: "Last edited 2 hours ago",
-    applicants: 0,
-    views: 0,
-  },
-  {
-    id: "vp-finance",
-    refId: "JF-8992",
-    title: "VP of Finance",
-    status: "active",
-    location: "Colombo, SL",
-    meta: "Posted 28 days ago",
-    applicants: 156,
-    views: 1204,
-  },
-];
+function timeAgo(dateStr?: string | null) {
+  if (!dateStr) return "Recently";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
 
-function statusBadgeClass(status: JobListing["status"]) {
+function mapListingStatus(status?: string): ListingStatus {
+  switch (status) {
+    case "PUBLISHED":
+      return "active";
+    case "DRAFT":
+      return "draft";
+    case "PENDING_REVIEW":
+      return "pending";
+    default:
+      return "closed";
+  }
+}
+
+function toJobListing(job: EmployerJob): JobListing {
+  const status = mapListingStatus(job.status);
+  const location =
+    [job.location, job.city].filter(Boolean).join(" • ") || "Location not set";
+
+  let meta: string;
+  if (status === "draft") {
+    meta = `Last edited ${timeAgo(job.updatedAt ?? job.createdAt)}`;
+  } else if (status === "pending") {
+    meta = `Submitted ${timeAgo(job.createdAt)}`;
+  } else if (status === "active") {
+    meta = `Posted ${timeAgo(job.publishedAt ?? job.createdAt)}`;
+  } else {
+    meta = `Updated ${timeAgo(job.updatedAt ?? job.createdAt)}`;
+  }
+
+  return {
+    id: job.id,
+    slug: job.slug,
+    refId: job.id.slice(0, 8).toUpperCase(),
+    title: job.title,
+    status,
+    location,
+    meta,
+    category: job.category ?? null,
+    applicants: job._count?.applications ?? 0,
+  };
+}
+
+function statusBadgeClass(status: ListingStatus) {
   switch (status) {
     case "active":
       return "bg-green-100 text-green-700";
+    case "pending":
+      return "bg-amber-100 text-amber-800";
     case "draft":
       return "bg-surface-container-high text-on-surface-variant";
     default:
@@ -61,15 +87,52 @@ function statusBadgeClass(status: JobListing["status"]) {
   }
 }
 
+function statusLabel(status: ListingStatus) {
+  if (status === "pending") return "pending review";
+  return status;
+}
+
 export function EmployerJobListingsPage() {
+  const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+
+  const loadJobs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getEmployerJobs();
+      setJobs(data.map(toJobListing));
+    } catch (err) {
+      setJobs([]);
+      setError(
+        err instanceof ApiError ? err.message : "Failed to load your job listings.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadJobs();
+  }, [loadJobs]);
+
+  const departments = useMemo(() => {
+    const values = new Set(
+      jobs.map((job) => job.category).filter((value): value is string => Boolean(value)),
+    );
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [jobs]);
 
   const filteredListings = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return JOB_LISTINGS.filter((job) => {
+    return jobs.filter((job) => {
       if (statusFilter !== "all" && job.status !== statusFilter) return false;
+      if (departmentFilter !== "all" && job.category !== departmentFilter) return false;
       if (!query) return true;
       return (
         job.title.toLowerCase().includes(query) ||
@@ -77,9 +140,9 @@ export function EmployerJobListingsPage() {
         job.location.toLowerCase().includes(query)
       );
     });
-  }, [searchQuery, statusFilter]);
+  }, [jobs, searchQuery, statusFilter, departmentFilter]);
 
-  const activeCount = JOB_LISTINGS.filter((job) => job.status === "active").length;
+  const activeCount = jobs.filter((job) => job.status === "active").length;
 
   return (
     <EmployerShell activeNav="listings">
@@ -95,11 +158,14 @@ export function EmployerJobListingsPage() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <button type="button" className="rounded p-2 text-on-surface-variant transition-colors hover:text-secondary">
-            <Icon name="notifications" />
-          </button>
-          <button type="button" className="rounded p-2 text-on-surface-variant transition-colors hover:text-secondary">
-            <Icon name="mail" />
+          <button
+            type="button"
+            onClick={() => void loadJobs()}
+            disabled={loading}
+            className="rounded p-2 text-on-surface-variant transition-colors hover:text-secondary disabled:opacity-50"
+            title="Refresh listings"
+          >
+            <Icon name="refresh" />
           </button>
         </div>
       </header>
@@ -120,17 +186,26 @@ export function EmployerJobListingsPage() {
         </Link>
       </div>
 
+      {error && (
+        <div className="mb-6 rounded-lg border border-error/30 bg-error-container px-4 py-3 font-body-md text-on-error-container">
+          {error}
+        </div>
+      )}
+
       <div className="mb-8 flex flex-wrap items-center gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-label-bold text-outline">Filters:</span>
           <select
+            value={departmentFilter}
+            onChange={(event) => setDepartmentFilter(event.target.value)}
             className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-1.5 font-label-sm text-on-surface outline-none focus:ring-secondary"
-            defaultValue="all"
           >
             <option value="all">All Departments</option>
-            <option value="engineering">Engineering</option>
-            <option value="leadership">Leadership</option>
-            <option value="product">Product</option>
+            {departments.map((department) => (
+              <option key={department} value={department}>
+                {department}
+              </option>
+            ))}
           </select>
           <select
             value={statusFilter}
@@ -139,6 +214,7 @@ export function EmployerJobListingsPage() {
           >
             <option value="all">Status: All</option>
             <option value="active">Status: Active</option>
+            <option value="pending">Status: Pending review</option>
             <option value="draft">Status: Draft</option>
             <option value="closed">Status: Closed</option>
           </select>
@@ -146,9 +222,25 @@ export function EmployerJobListingsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        {filteredListings.length === 0 ? (
+        {loading ? (
           <div className="rounded-xl border border-outline-variant bg-white p-12 text-center text-on-surface-variant">
-            No job listings match your search.
+            Loading your job listings…
+          </div>
+        ) : filteredListings.length === 0 ? (
+          <div className="rounded-xl border border-outline-variant bg-white p-12 text-center text-on-surface-variant">
+            {jobs.length === 0 ? (
+              <div className="space-y-4">
+                <p>You have not posted any jobs yet.</p>
+                <Link
+                  href="/employer/jobs/new"
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 font-label-bold text-on-primary"
+                >
+                  Post your first job
+                </Link>
+              </div>
+            ) : (
+              "No job listings match your filters."
+            )}
           </div>
         ) : (
           filteredListings.map((job) => (
@@ -157,20 +249,20 @@ export function EmployerJobListingsPage() {
               className="group flex flex-col gap-6 rounded-xl border border-outline-variant bg-surface-container-lowest p-6 transition-all hover:border-secondary hover:shadow-md lg:flex-row lg:items-center"
             >
               <div className="flex-1">
-                <div className="mb-2 flex items-center gap-3">
+                <h2 className="text-lg font-bold leading-snug text-on-surface transition-colors group-hover:text-secondary">
+                  {job.title}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
                   <span
                     className={cn(
                       "rounded px-2 py-0.5 text-[10px] font-bold uppercase",
                       statusBadgeClass(job.status),
                     )}
                   >
-                    {job.status}
+                    {statusLabel(job.status)}
                   </span>
                   <span className="font-label-sm text-on-surface-variant">ID: {job.refId}</span>
                 </div>
-                <h3 className="font-headline-md text-headline-md text-on-surface transition-colors group-hover:text-secondary">
-                  {job.title}
-                </h3>
                 <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
                   <div className="flex items-center font-label-bold text-on-surface-variant">
                     <Icon name="location_on" className="mr-1.5 text-[18px]" />
@@ -178,7 +270,13 @@ export function EmployerJobListingsPage() {
                   </div>
                   <div className="flex items-center font-label-bold text-on-surface-variant">
                     <Icon
-                      name={job.status === "draft" ? "edit_note" : "calendar_today"}
+                      name={
+                        job.status === "draft"
+                          ? "edit_note"
+                          : job.status === "pending"
+                            ? "hourglass_top"
+                            : "calendar_today"
+                      }
                       className="mr-1.5 text-[18px]"
                     />
                     {job.meta}
@@ -186,36 +284,31 @@ export function EmployerJobListingsPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-8 border-outline-variant sm:flex-row lg:border-l lg:border-r lg:px-12">
+              <div className="flex flex-col gap-8 border-outline-variant sm:flex-row lg:border-l lg:px-12">
                 <div className="text-center">
                   <p className="mb-1 font-label-sm text-on-surface-variant">Applicants</p>
                   <p className="font-headline-md text-headline-md text-secondary">{job.applicants}</p>
                 </div>
-                <div className="text-center">
-                  <p className="mb-1 font-label-sm text-on-surface-variant">Views</p>
-                  <p className="font-headline-md text-headline-md text-primary-container">
-                    {job.views.toLocaleString()}
-                  </p>
-                </div>
               </div>
 
               <div className="flex min-w-[180px] flex-wrap gap-3 lg:flex-col xl:flex-row">
-                <button
-                  type="button"
-                  className="inline-flex flex-1 items-center justify-center rounded-lg border border-primary-container px-4 py-2 font-label-bold text-primary-container transition-colors hover:bg-surface-container-low xl:flex-none"
-                >
-                  <Icon name="edit" className="mr-2 text-[18px]" />
-                  {job.status === "draft" ? "Continue" : "Edit"}
-                </button>
-                {job.status === "draft" ? (
-                  <button
-                    type="button"
-                    className="inline-flex flex-1 items-center justify-center rounded-lg bg-on-primary-container px-4 py-2 font-label-bold text-white transition-colors hover:opacity-90 xl:flex-none"
+                {job.status === "active" && (
+                  <Link
+                    href={`/jobs/${job.slug}`}
+                    className="inline-flex flex-1 items-center justify-center rounded-lg border border-outline-variant px-4 py-2 font-label-bold text-on-surface-variant transition-colors hover:bg-surface-container-low xl:flex-none"
                   >
-                    <Icon name="publish" className="mr-2 text-[18px]" />
-                    Publish
-                  </button>
-                ) : (
+                    View live
+                  </Link>
+                )}
+                {job.status === "draft" ? (
+                  <Link
+                    href="/employer/jobs/new"
+                    className="inline-flex flex-1 items-center justify-center rounded-lg border border-primary-container px-4 py-2 font-label-bold text-primary-container transition-colors hover:bg-surface-container-low xl:flex-none"
+                  >
+                    <Icon name="edit" className="mr-2 text-[18px]" />
+                    Continue
+                  </Link>
+                ) : job.status === "active" ? (
                   <Link
                     href={`/employer/jobs/${job.id}/applicants`}
                     className="inline-flex flex-1 items-center justify-center rounded-lg bg-secondary px-4 py-2 font-label-bold text-on-secondary transition-colors hover:opacity-90 xl:flex-none"
@@ -223,49 +316,21 @@ export function EmployerJobListingsPage() {
                     <Icon name="group" className="mr-2 text-[18px]" />
                     Applicants
                   </Link>
-                )}
-                <button
-                  type="button"
-                  className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
-                  title={job.status === "draft" ? "Delete" : "Archive"}
-                >
-                  <Icon name={job.status === "draft" ? "delete" : "archive"} />
-                </button>
+                ) : null}
               </div>
             </article>
           ))
         )}
       </div>
 
-      <div className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
-        <p className="font-label-sm text-on-surface-variant">
-          Showing {filteredListings.length} of {activeCount} active job listings
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled
-            className="rounded-lg border border-outline-variant p-2 hover:bg-surface-container-low disabled:opacity-50"
-          >
-            <Icon name="chevron_left" />
-          </button>
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary font-label-bold text-on-secondary"
-          >
-            1
-          </button>
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant font-label-bold hover:bg-surface-container-low"
-          >
-            2
-          </button>
-          <button type="button" className="rounded-lg border border-outline-variant p-2 hover:bg-surface-container-low">
-            <Icon name="chevron_right" />
-          </button>
+      {!loading && jobs.length > 0 && (
+        <div className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <p className="font-label-sm text-on-surface-variant">
+            Showing {filteredListings.length} of {jobs.length} job listing
+            {jobs.length === 1 ? "" : "s"} ({activeCount} live)
+          </p>
         </div>
-      </div>
+      )}
 
       <Link
         href="/employer/jobs/new"

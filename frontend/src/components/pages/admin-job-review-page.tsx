@@ -8,6 +8,7 @@ import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
+import { JobDetailView } from "@/components/jobs/job-detail-view";
 import { approveJob, getAdminJob, rejectJob } from "@/lib/api/admin";
 import type { Job } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -29,15 +30,6 @@ const COMPLIANCE_RULES = [
     detail: "Recruiter company profile and posting content passed automated checks.",
   },
 ] as const;
-
-function formatSalary(job: Job) {
-  if (job.salaryMin != null && job.salaryMax != null) {
-    return `$${job.salaryMin.toLocaleString()} – $${job.salaryMax.toLocaleString()}`;
-  }
-  if (job.salaryMax != null) return `Up to $${job.salaryMax.toLocaleString()}`;
-  if (job.salaryMin != null) return `From $${job.salaryMin.toLocaleString()}`;
-  return "Salary on application";
-}
 
 export function AdminJobReviewPage() {
   const params = useParams<{ id: string }>();
@@ -86,12 +78,6 @@ export function AdminJobReviewPage() {
       setActing(false);
     }
   };
-
-  const skills = job?.requiredSkills?.length
-    ? job.requiredSkills
-    : job?.niceToHaveSkills?.length
-      ? job.niceToHaveSkills
-      : [];
 
   return (
     <RecruiterAdminShell activeNav="jobs">
@@ -178,65 +164,17 @@ export function AdminJobReviewPage() {
 
                 <div
                   className={cn(
-                    "overflow-hidden rounded-lg border border-outline-variant bg-white shadow-sm transition-all duration-300",
-                    previewMobile && "mx-auto max-w-[375px]",
+                    "overflow-hidden rounded-xl border border-outline-variant bg-background shadow-sm transition-all duration-300",
+                    previewMobile && "mx-auto max-w-[390px]",
                   )}
                 >
-                  <div className="relative h-48 overflow-hidden bg-primary-container">
-                    {job.vacancyArtworkUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        alt=""
-                        className="h-full w-full object-cover opacity-80"
-                        src={job.vacancyArtworkUrl}
-                      />
-                    ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-primary-container to-surface-container-high" />
+                  <div
+                    className={cn(
+                      "px-margin-mobile py-8 md:px-8",
+                      previewMobile && "px-4 py-6 [&_section_h2]:!text-xl",
                     )}
-                    <div className="absolute bottom-6 left-8 right-8">
-                      <h2 className="text-headline-md text-white">{job.title}</h2>
-                      <p className="font-label-bold text-on-primary-container">{job.company.name}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-8 p-8">
-                    <div className="flex flex-wrap gap-6 border-b border-outline-variant pb-8">
-                      {[
-                        { icon: "payments", label: formatSalary(job) },
-                        { icon: "location_on", label: job.location ?? job.city ?? "Location TBD" },
-                        { icon: "schedule", label: job.employmentType ?? "Full-Time" },
-                        ...(job.workArrangement
-                          ? [{ icon: "home_work", label: job.workArrangement }]
-                          : []),
-                      ].map((m) => (
-                        <div key={m.icon} className="flex items-center gap-2 text-on-surface-variant">
-                          <Icon name={m.icon} className="text-secondary" />
-                          <span className="font-label-bold">{m.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="space-y-4">
-                      <h4 className="text-headline-md text-on-surface">Role Overview</h4>
-                      <p className="whitespace-pre-wrap leading-relaxed text-body-md text-on-surface-variant">
-                        {job.description}
-                      </p>
-                    </div>
-                    {skills.length > 0 && (
-                      <div className="space-y-4">
-                        <h4 className="font-label-bold uppercase tracking-wider text-on-surface">
-                          Required Competencies
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {skills.map((skill) => (
-                            <span
-                              key={skill}
-                              className="rounded-lg border border-outline-variant bg-surface-container px-3 py-1 text-label-sm"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  >
+                    <JobDetailView job={job} preview />
                   </div>
                 </div>
               </div>

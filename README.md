@@ -213,6 +213,23 @@ npm run dev
 |----------|-----|
 | Web app | http://localhost:3000 |
 
+### 4. Seed data and admin login
+
+After migrations, seed demo users (including an administrator):
+
+```bash
+cd backend
+npm run prisma:seed
+```
+
+| Portal | Sign-in URL | Default credentials (seed) |
+|--------|-------------|----------------------------|
+| Admin | http://localhost:3000/admin/login | `admin@jobsfinder.lk` / `Password123!` |
+| Recruiter | http://localhost:3000/auth/sign-in?role=recruiter | `hr@wso2.com` / `Password123!` |
+| Job seeker | http://localhost:3000/auth/sign-in | `seeker@jobsfinder.lk` / `Password123!` |
+
+Protected admin routes redirect unauthenticated users to `/admin/login`. The admin API endpoint `POST /api/auth/admin/login` only accepts `ADMIN` and `MODERATOR` roles.
+
 ---
 
 ## Environment Variables

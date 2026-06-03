@@ -4,12 +4,27 @@ import type {
   Application,
   Company,
   CompanyDetail,
+  EmployerJob,
   Job,
   JobsSearchResponse,
 } from "./types";
 
+export async function searchPublishedJobs(options?: {
+  q?: string;
+  page?: number;
+  limit?: number;
+  featured?: boolean;
+}) {
+  return searchJobs({
+    page: options?.page ?? 1,
+    limit: options?.limit ?? 20,
+    ...(options?.q?.trim() ? { q: options.q.trim() } : {}),
+    ...(options?.featured ? { featured: true } : {}),
+  });
+}
+
 export async function searchJobs(
-  params: Record<string, string | number | string[] | undefined>,
+  params: Record<string, string | number | boolean | string[] | undefined>,
 ) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -18,6 +33,10 @@ export async function searchJobs(
       value.forEach((item) => {
         if (item) query.append(key, item);
       });
+      return;
+    }
+    if (typeof value === "boolean") {
+      query.set(key, value ? "true" : "false");
       return;
     }
     query.set(key, String(value));
@@ -51,6 +70,12 @@ export async function createJob(body: Record<string, unknown>) {
     method: "POST",
     token: getAccessToken(),
     body: JSON.stringify(body),
+  });
+}
+
+export async function getEmployerJobs() {
+  return apiFetch<EmployerJob[]>("/jobs/employer/mine", {
+    token: getAccessToken(),
   });
 }
 

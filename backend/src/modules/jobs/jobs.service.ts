@@ -11,6 +11,7 @@ import {
 } from '../../common/utils/company-match.util';
 import { detectScamContent, slugify, uniqueSlug } from '../../common/utils/slug.util';
 import { assertValidApplicationDeadline } from '../../common/utils/application-deadline.util';
+import { ImageStorageService } from '../../common/storage/image-storage.service';
 import { CreateJobDto, JobQueryDto } from './dto/job.dto';
 
 function buildJobSlug(
@@ -70,7 +71,21 @@ export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly companiesService: CompaniesService,
+    private readonly imageStorage: ImageStorageService,
   ) {}
+
+  private mapJobForPublic<
+    T extends {
+      vacancyArtworkUrl?: string | null;
+      company: { logoUrl?: string | null; lifeAtCompanyImages?: string[] };
+    },
+  >(job: T): T {
+    return {
+      ...job,
+      vacancyArtworkUrl: this.imageStorage.resolvePublicUrl(job.vacancyArtworkUrl),
+      company: this.imageStorage.withPublicUrls(job.company),
+    };
+  }
 
   async search(query: JobQueryDto) {
     const page = query.page ?? 1;
@@ -116,6 +131,7 @@ export class JobsService {
       }),
       ...(query.salaryMin && { salaryMax: { gte: query.salaryMin } }),
       ...(query.salaryMax && { salaryMin: { lte: query.salaryMax } }),
+      ...(query.featured && { isFeatured: true }),
     };
 
     const [items, total] = await Promise.all([
@@ -129,7 +145,13 @@ export class JobsService {
       this.prisma.job.count({ where }),
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    return {
+      items: items.map((job) => this.mapJobForPublic(job)),
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    };
   }
 
   async suggest(query: string, limit = 8): Promise<JobSearchSuggestion[]> {
@@ -190,7 +212,7 @@ export class JobsService {
       include: { company: true },
     });
     if (!job) throw new NotFoundException('Job not found');
-    return job;
+    return this.mapJobForPublic(job);
   }
 
   async create(userId: string, dto: CreateJobDto) {
@@ -283,6 +305,46 @@ export class JobsService {
       where: { status: JobStatus.PENDING_REVIEW },
       include: { company: true },
       orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async listForAdmin(filters?: {
+    status?: JobStatus;
+    q?: string;
+    source?: string;
+  }) {
+    const where: {
+      status?: JobStatus;
+      jobSourceType?: string;
+      OR?: Array<Record<string, unknown>>;
+    } = {};
+
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+
+    const source = filters?.source?.trim();
+    if (source && source !== 'all') {
+      where.jobSourceType = source;
+    }
+
+    const q = filters?.q?.trim();
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { location: { contains: q, mode: 'insensitive' } },
+        { city: { contains: q, mode: 'insensitive' } },
+        { company: { name: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    return this.prisma.job.findMany({
+      where,
+      include: {
+        company: true,
+        _count: { select: { applications: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

@@ -69,6 +69,11 @@ export type CompanyDetail = Company & {
   jobs: Job[];
 };
 
+export type EmployerJob = Job & {
+  updatedAt?: string;
+  _count?: { applications: number };
+};
+
 export type Job = {
   id: string;
   title: string;
@@ -99,6 +104,7 @@ export type Job = {
   applicationDeadline?: string | null;
   vacancyArtworkUrl?: string | null;
   company: Company;
+  _count?: { applications: number };
 };
 
 export type JobsSearchResponse = {

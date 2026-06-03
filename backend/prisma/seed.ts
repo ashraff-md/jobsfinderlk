@@ -14,6 +14,30 @@ async function main() {
       passwordHash,
       role: UserRole.ADMIN,
       emailVerified: true,
+      adminProfile: {
+        create: {
+          firstName: 'Platform',
+          lastName: 'Admin',
+          email: 'admin@jobsfinder.lk',
+          contactNo: '+94 11 000 0000',
+        },
+      },
+    },
+  });
+
+  await prisma.adminProfile.upsert({
+    where: { userId: admin.id },
+    update: {
+      firstName: 'Platform',
+      lastName: 'Admin',
+      email: 'admin@jobsfinder.lk',
+    },
+    create: {
+      userId: admin.id,
+      firstName: 'Platform',
+      lastName: 'Admin',
+      email: 'admin@jobsfinder.lk',
+      contactNo: '+94 11 000 0000',
     },
   });
 

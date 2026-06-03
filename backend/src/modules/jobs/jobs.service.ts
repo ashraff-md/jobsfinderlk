@@ -5,6 +5,10 @@ import {
 import { JobStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompaniesService } from '../companies/companies.service';
+import {
+  matchReason,
+  similarityScore,
+} from '../../common/utils/company-match.util';
 import { detectScamContent, slugify, uniqueSlug } from '../../common/utils/slug.util';
 import { assertValidApplicationDeadline } from '../../common/utils/application-deadline.util';
 import { CreateJobDto, JobQueryDto } from './dto/job.dto';
@@ -51,6 +55,13 @@ function buildJobKeywords(
 
   return [...tokens].slice(0, 30);
 }
+
+export type JobSearchSuggestion = {
+  text: string;
+  type: 'title' | 'category' | 'city' | 'keyword';
+  score: number;
+  matchType: 'exact' | 'fuzzy' | 'phonetic' | 'domain';
+};
 
 @Injectable()
 export class JobsService {
@@ -117,6 +128,58 @@ export class JobsService {
     ]);
 
     return { items, total, page, limit, pages: Math.ceil(total / limit) };
+  }
+
+  async suggest(query: string, limit = 8): Promise<JobSearchSuggestion[]> {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+
+    const jobs = await this.prisma.job.findMany({
+      where: {
+        status: JobStatus.PUBLISHED,
+        OR: [
+          { title: { contains: trimmed, mode: 'insensitive' } },
+          { category: { contains: trimmed, mode: 'insensitive' } },
+          { city: { contains: trimmed, mode: 'insensitive' } },
+          { keywords: { has: trimmed.toLowerCase() } },
+        ],
+      },
+      select: { title: true, category: true, city: true, keywords: true },
+      take: 40,
+      orderBy: { publishedAt: 'desc' },
+    });
+
+    const seen = new Set<string>();
+    const candidates: JobSearchSuggestion[] = [];
+
+    const add = (text: string | null | undefined, type: JobSearchSuggestion['type']) => {
+      const value = text?.trim();
+      if (!value || seen.has(value.toLowerCase())) return;
+      const score = similarityScore(trimmed, value);
+      if (score < 0.35) return;
+      seen.add(value.toLowerCase());
+      candidates.push({
+        text: value,
+        type,
+        score,
+        matchType: matchReason(trimmed, value),
+      });
+    };
+
+    for (const job of jobs) {
+      add(job.title, 'title');
+      add(job.category, 'category');
+      add(job.city, 'city');
+      for (const keyword of job.keywords) {
+        if (keyword.toLowerCase().includes(trimmed.toLowerCase())) {
+          add(keyword, 'keyword');
+        }
+      }
+    }
+
+    return candidates
+      .sort((a, b) => b.score - a.score || a.text.localeCompare(b.text))
+      .slice(0, limit);
   }
 
   async findBySlug(slug: string) {
@@ -199,7 +262,8 @@ export class JobsService {
         walkInDetails: dto.walkInDetails,
         jobDocumentUrl: dto.jobDocumentUrl,
         vacancyArtworkUrl: dto.vacancyArtworkUrl,
-        jobSourceType: 'DIRECT_EMPLOYER',
+        jobSourceType: dto.jobSourceType?.trim() || 'DIRECT_EMPLOYER',
+        verificationLevel: dto.verificationLevel?.trim() || null,
         status,
         publishedAt: null,
         expiresAt: dto.applicationDeadline
@@ -216,6 +280,23 @@ export class JobsService {
       include: { company: true },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  async listGovernmentJobs() {
+    return this.prisma.job.findMany({
+      where: { jobSourceType: 'GOVERNMENT' },
+      include: { company: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findByIdForModeration(id: string) {
+    const job = await this.prisma.job.findUnique({
+      where: { id },
+      include: { company: true },
+    });
+    if (!job) throw new NotFoundException('Job not found');
+    return job;
   }
 
   async moderate(jobId: string, action: 'approve' | 'reject') {

@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -8,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto, RegisterDto, UpdateAdminProfileDto } from './dto/auth.dto';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 
 @Injectable()
@@ -97,12 +98,62 @@ export class AuthService {
         email: true,
         role: true,
         emailVerified: true,
+        createdAt: true,
+        adminProfile: true,
         seekerProfile: true,
         employerUsers: { include: { company: true } },
       },
     });
     if (!user) throw new UnauthorizedException();
     return user;
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.passwordHash) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    return { message: 'Password updated successfully' };
+  }
+
+  async updateAdminProfile(userId: string, role: UserRole, dto: UpdateAdminProfileDto) {
+    if (role !== UserRole.ADMIN && role !== UserRole.MODERATOR) {
+      throw new ForbiddenException('Admin profile is only available for administrators');
+    }
+
+    const firstName = dto.firstName?.trim() || undefined;
+    const lastName = dto.lastName?.trim() || undefined;
+    const email = dto.email?.trim().toLowerCase() || undefined;
+    const contactNo = dto.contactNo?.trim() || undefined;
+
+    return this.prisma.adminProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        firstName: firstName ?? null,
+        lastName: lastName ?? null,
+        email: email ?? null,
+        contactNo: contactNo ?? null,
+      },
+      update: {
+        ...(dto.firstName !== undefined ? { firstName: firstName ?? null } : {}),
+        ...(dto.lastName !== undefined ? { lastName: lastName ?? null } : {}),
+        ...(dto.email !== undefined ? { email: email ?? null } : {}),
+        ...(dto.contactNo !== undefined ? { contactNo: contactNo ?? null } : {}),
+      },
+    });
   }
 
   private issueTokens(userId: string, email: string, role: UserRole) {

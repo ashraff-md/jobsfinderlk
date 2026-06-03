@@ -1,19 +1,22 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
+import { signInPath } from "@/lib/auth/portal";
 import { applyToJob } from "@/lib/api/jobs";
 
 export function ApplyButton({ slug }: { slug: string }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const signInUrl = signInPath("seeker", pathname);
   const [loading, setLoading] = useState(false);
   const [applied, setApplied] = useState(false);
 
   const handleApply = async () => {
     if (!getAccessToken()) {
-      router.push("/auth/sign-in");
+      router.push(signInUrl);
       return;
     }
     setLoading(true);
@@ -22,7 +25,7 @@ export function ApplyButton({ slug }: { slug: string }) {
       setApplied(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        router.push("/auth/sign-in");
+        router.push(signInUrl);
       }
     } finally {
       setLoading(false);

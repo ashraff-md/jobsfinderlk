@@ -31,3 +31,38 @@ export class LoginDto {
   @IsString()
   password!: string;
 }
+
+export class ChangePasswordDto {
+  @ApiProperty()
+  @IsString()
+  currentPassword!: string;
+
+  @ApiProperty({ minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  newPassword!: string;
+}
+
+export class UpdateAdminProfileDto {
+  @ApiPropertyOptional({ example: 'Ashra' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  firstName?: string;
+
+  @ApiPropertyOptional({ example: 'Fernando' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  lastName?: string;
+
+  @ApiPropertyOptional({ example: 'admin@jobsfinder.lk' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ example: '+94 11 234 5678' })
+  @IsOptional()
+  @IsString()
+  contactNo?: string;
+}

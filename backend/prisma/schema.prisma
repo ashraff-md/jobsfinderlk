@@ -40,11 +40,27 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   seekerProfile SeekerProfile?
+  adminProfile  AdminProfile?
   employerUsers EmployerUser[]
   applications  Application[]
   companyRequests CompanyRequest[]
 
   @@map("users")
+}
+
+model AdminProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  firstName String?  @map("first_name")
+  lastName  String?  @map("last_name")
+  email     String?
+  contactNo String?  @map("contact_no")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_profiles")
 }
 
 model SeekerProfile {

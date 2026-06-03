@@ -1,7 +1,15 @@
+"use client";
+
 import Link from "next/link";
-import { AdminShell } from "@/components/layout/admin-shell";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
+import { ApiError } from "@/lib/api/client";
+import { getAccessToken } from "@/lib/api/auth";
+import { signInPath } from "@/lib/auth/portal";
+import { getPendingCompanyRequests, getPendingJobs } from "@/lib/api/admin";
 
 const STATS = [
   { icon: "group", label: "Total Candidates", value: "128,432", trend: "12.4%" },
@@ -52,13 +60,71 @@ const CHART_HEIGHTS = [40, 55, 45, 70, 85, 95, 75];
 const ENGAGEMENT_HEIGHTS = [30, 40, 35, 50, 60, 75, 65];
 
 export function AdminDashboardPage() {
+  const router = useRouter();
+  const [pendingJobs, setPendingJobs] = useState(0);
+  const [pendingCompanies, setPendingCompanies] = useState(0);
+
+  const loadCounts = useCallback(async () => {
+    if (!getAccessToken()) {
+      router.push(signInPath("admin"));
+      return;
+    }
+    try {
+      const [jobs, companies] = await Promise.all([
+        getPendingJobs(),
+        getPendingCompanyRequests(),
+      ]);
+      setPendingJobs(jobs.length);
+      setPendingCompanies(companies.length);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push(signInPath("admin"));
+      }
+    }
+  }, [router]);
+
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
+
   return (
-    <AdminShell variant="executive" activeNav="dashboard">
-      <div className="mx-auto max-w-container-max space-y-10 p-6 md:p-margin-desktop">
+    <RecruiterAdminShell activeNav="dashboard">
+      <AdminPageCanvas className="space-y-10">
+        <section>
+          <div className="mb-6 grid grid-cols-1 gap-gutter sm:grid-cols-2 lg:grid-cols-4">
+            <Link href="/admin/jobs" className="glass-card rounded-xl p-6 transition-shadow hover:shadow-md">
+              <Icon name="pending_actions" className="rounded-lg bg-secondary-container/20 p-2 text-secondary" />
+              <p className="mt-4 font-label-bold text-on-surface-variant">Pending Job Approvals</p>
+              <h3 className="text-headline-md">{pendingJobs}</h3>
+            </Link>
+            <Link
+              href="/admin/jobs/government"
+              className="glass-card rounded-xl p-6 transition-shadow hover:shadow-md"
+            >
+              <Icon
+                name="account_balance"
+                className="rounded-lg bg-primary-fixed/20 p-2 text-on-primary-fixed-variant"
+              />
+              <p className="mt-4 font-label-bold text-on-surface-variant">Government Postings</p>
+              <h3 className="text-headline-md">View all</h3>
+            </Link>
+            <Link href="/admin/companies" className="glass-card rounded-xl p-6 transition-shadow hover:shadow-md">
+              <Icon name="business" className="rounded-lg bg-primary-fixed/20 p-2 text-on-primary-fixed-variant" />
+              <p className="mt-4 font-label-bold text-on-surface-variant">Company Requests</p>
+              <h3 className="text-headline-md">{pendingCompanies}</h3>
+            </Link>
+            <Link href="/admin/verifications" className="glass-card rounded-xl p-6 transition-shadow hover:shadow-md">
+              <Icon name="verified_user" className="rounded-lg bg-tertiary-container/20 p-2 text-on-tertiary-container" />
+              <p className="mt-4 font-label-bold text-on-surface-variant">Recruiter Verifications</p>
+              <h3 className="text-headline-md">24</h3>
+            </Link>
+          </div>
+        </section>
+
         <section>
           <div className="mb-6 flex items-end justify-between">
             <div>
-              <h2 className="text-headline-lg text-primary">Executive Overview</h2>
+              <h2 className="text-headline-lg text-primary">Platform Overview</h2>
               <p className="text-on-surface-variant">Key performance indicators for Q4 cycle</p>
             </div>
             <div className="flex gap-2">
@@ -201,7 +267,7 @@ export function AdminDashboardPage() {
           <div className="professional-card overflow-hidden rounded-xl shadow-sm">
             <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest p-6">
               <h3 className="text-body-lg font-bold text-primary">Role Requisition Approval</h3>
-              <Link href="/admin" className="font-bold text-label-bold text-primary hover:underline">
+              <Link href="/admin/jobs" className="font-bold text-label-bold text-primary hover:underline">
                 View Governance Queue
               </Link>
             </div>
@@ -251,7 +317,7 @@ export function AdminDashboardPage() {
           <div className="professional-card overflow-hidden rounded-xl shadow-sm">
             <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest p-6">
               <h3 className="text-body-lg font-bold text-primary">Corporate Verifications</h3>
-              <Link href="/admin" className="font-bold text-label-bold text-primary hover:underline">
+              <Link href="/admin/companies" className="font-bold text-label-bold text-primary hover:underline">
                 Compliance Portal
               </Link>
             </div>
@@ -297,9 +363,8 @@ export function AdminDashboardPage() {
             </div>
           </div>
         </section>
-      </div>
-
-      <SiteFooter variant="light" className="mt-20" />
-    </AdminShell>
+      </AdminPageCanvas>
+      <SiteFooter variant="dark" className="mt-20" />
+    </RecruiterAdminShell>
   );
 }

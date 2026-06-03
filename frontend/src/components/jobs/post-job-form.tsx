@@ -1,10 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
+import { signInPath } from "@/lib/auth/portal";
 import { createJob } from "@/lib/api/jobs";
 import { CompanyAutocomplete } from "@/components/companies/company-autocomplete";
 import { JobListingMediaUploader } from "@/components/jobs/job-listing-media-uploader";
@@ -187,8 +188,15 @@ function ChipGroup<T extends string>({
   );
 }
 
-export function PostJobForm() {
+type PostJobFormProps = {
+  mode?: "employer" | "admin";
+};
+
+export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isAdmin = mode === "admin";
+  const signInUrl = signInPath(isAdmin ? "admin" : "employer", pathname);
   const [form, setForm] = useState<PostJobFormValues>(DEFAULT_POST_JOB_VALUES);
   const [activeStep, setActiveStep] = useState<string>(FORM_SECTIONS[0].id);
   const [error, setError] = useState<string | null>(null);
@@ -288,7 +296,7 @@ export function PostJobForm() {
 
   const handleSubmit = async (publish: boolean) => {
     if (!getAccessToken()) {
-      router.push("/auth/sign-in");
+      router.push(signInUrl);
       return;
     }
     const validationError = validate();
@@ -300,10 +308,14 @@ export function PostJobForm() {
     setSubmitting(true);
     try {
       const job = await createJob(buildPayload(publish));
-      router.push(publish ? `/jobs/${job.slug}` : "/employer");
+      if (isAdmin) {
+        router.push(publish ? "/admin/jobs" : "/admin/jobs/new");
+      } else {
+        router.push(publish ? `/jobs/${job.slug}` : "/employer");
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        router.push("/auth/sign-in");
+        router.push(signInUrl);
         return;
       }
       setError(err instanceof ApiError ? err.message : "Failed to save job listing.");
@@ -403,6 +415,7 @@ export function PostJobForm() {
             }
             onClear={() => patch({ companyId: "" })}
             required
+            createHref={isAdmin ? "/admin/companies" : "/employer/companies/new"}
           />
           <div className="space-y-2">
             <label className={labelClass} htmlFor="recruiter-role">
@@ -735,7 +748,7 @@ export function PostJobForm() {
               onClick={() => handleSubmit(true)}
               className="rounded-lg bg-primary px-10 py-3 font-label-bold text-on-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
             >
-              {submitting ? "Submitting…" : "Submit for review"}
+              {submitting ? "Submitting…" : isAdmin ? "Publish listing" : "Submit for review"}
             </button>
           </div>
         </div>

@@ -84,6 +84,10 @@ export type Job = {
   requiredSkills?: string[];
   niceToHaveSkills?: string[];
   isFeatured: boolean;
+  status?: string;
+  jobSourceType?: string | null;
+  verificationLevel?: string | null;
+  createdAt?: string;
   publishedAt?: string | null;
   applicationDeadline?: string | null;
   vacancyArtworkUrl?: string | null;

@@ -27,6 +27,16 @@ export class AdminController {
     return this.jobsService.listPending();
   }
 
+  @Get('jobs/government')
+  governmentJobs() {
+    return this.jobsService.listGovernmentJobs();
+  }
+
+  @Get('jobs/:id')
+  jobForReview(@Param('id') id: string) {
+    return this.jobsService.findByIdForModeration(id);
+  }
+
   @Patch('jobs/:id/approve')
   approve(@Param('id') id: string) {
     return this.jobsService.moderate(id, 'approve');

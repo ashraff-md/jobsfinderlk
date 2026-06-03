@@ -126,13 +126,83 @@ export const ROUTE_META: Record<
     phase: "M2",
   },
   "/admin": {
-    title: "Admin Management Hub",
-    reference: "References/16_admin_management_hub/code.html",
-    phase: "M1",
-  },
-  "/admin/dashboard": {
     title: "Admin Dashboard",
     reference: "References/17_admin_dashboard_executive_theme/code.html",
+    phase: "M1",
+  },
+  "/admin/jobs": {
+    title: "Ad Approval Queue",
+    reference: "references2/admin_ad_job_post_approval_hub/code.html",
+    phase: "M1",
+  },
+  "/admin/jobs/new": {
+    title: "Post a Job",
+    reference: "References/8_post_a_job_executive_theme/code.html",
+    phase: "M1",
+  },
+  "/admin/jobs/[id]/review": {
+    title: "Ad Compliance Review",
+    reference: "references2/admin_ad_review_compliance_detail/code.html",
+    phase: "M1",
+  },
+  "/admin/jobs/government": {
+    title: "Government Postings",
+    reference: "references2/government_job_posting_form/code.html",
+    phase: "M1",
+  },
+  "/admin/jobs/government/new": {
+    title: "Government Job Posting",
+    reference: "references2/government_job_posting_form/code.html",
+    phase: "M1",
+  },
+  "/admin/companies": {
+    title: "Company Onboarding",
+    reference: "references2/admin_company_onboarding_approval/code.html",
+    phase: "M1",
+  },
+  "/admin/companies/[id]": {
+    title: "Company Onboarding Detail",
+    reference: "references2/admin_company_onboarding_detail/code.html",
+    phase: "M1",
+  },
+  "/admin/verifications": {
+    title: "Recruiter Verifications",
+    reference: "references2/admin_recruiter_verification_updates/code.html",
+    phase: "M1",
+  },
+  "/admin/verifications/[id]": {
+    title: "Recruiter Verification Detail",
+    reference: "references2/admin_recruiter_verification_detail/code.html",
+    phase: "M1",
+  },
+  "/admin/talent": {
+    title: "Executive Talent Pool",
+    reference: "references2/admin_talent_pool_management/code.html",
+    phase: "M1–M2",
+  },
+  "/admin/partners": {
+    title: "Partner Management",
+    reference: "references2/admin_partner_management/code.html",
+    phase: "M1–M2",
+  },
+  "/admin/revenue": {
+    title: "Revenue & Financials",
+    reference: "references2/admin_revenue_financials/code.html",
+    phase: "M1–M2",
+  },
+  "/admin/analytics": {
+    title: "AI Performance Analytics",
+    reference: "references2/admin_ai_performance_analytics/code.html",
+    phase: "M1–M2",
+  },
+  "/admin/settings": {
+    title: "Admin Profile",
+    reference: "references2/recruiter_settings/code.html",
+    phase: "M1",
+  },
+  "/admin/governance": {
+    title: "Governance & Security",
+    reference: "references2/admin_platform_governance_security/code.html",
     phase: "M1–M2",
   },
   "/legal/[policy]": {

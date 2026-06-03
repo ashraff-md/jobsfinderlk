@@ -6,6 +6,14 @@ export async function getPendingJobs() {
   return apiFetch<Job[]>("/admin/jobs/pending", { token: getAccessToken() });
 }
 
+export async function getGovernmentJobs() {
+  return apiFetch<Job[]>("/admin/jobs/government", { token: getAccessToken() });
+}
+
+export async function getAdminJob(id: string) {
+  return apiFetch<Job>(`/admin/jobs/${id}`, { token: getAccessToken() });
+}
+
 export async function approveJob(id: string) {
   return apiFetch<Job>(`/admin/jobs/${id}/approve`, {
     method: "PATCH",

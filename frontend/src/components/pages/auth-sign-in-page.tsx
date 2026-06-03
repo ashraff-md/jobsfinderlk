@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ApiError } from "@/lib/api/client";
 import { dashboardPath, login } from "@/lib/api/auth";
+import { authRoleFromSignInParam, isSafeReturnUrl } from "@/lib/auth/portal";
 import { LOGO_URL } from "@/lib/assets";
 import { cn } from "@/lib/utils";
 
@@ -82,11 +83,16 @@ function AuthBrandingPanel({ imageRef }: { imageRef: React.RefObject<HTMLImageEl
 
 export function AuthSignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [role, setRole] = useState<AuthRole>("seeker");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const boardroomRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    setRole(authRoleFromSignInParam(searchParams.get("role")));
+  }, [searchParams]);
 
   useEffect(() => {
     const img = boardroomRef.current;
@@ -110,7 +116,12 @@ export function AuthSignInPage() {
 
     try {
       const data = await login(email, password);
-      router.push(dashboardPath(data.user.role));
+      const returnUrl = searchParams.get("returnUrl");
+      if (returnUrl && isSafeReturnUrl(returnUrl, data.user.role)) {
+        router.push(returnUrl);
+      } else {
+        router.push(dashboardPath(data.user.role));
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Sign in failed. Please try again.");
     } finally {

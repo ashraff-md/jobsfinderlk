@@ -1,13 +1,5 @@
-import type { Metadata } from "next";
-import { AdminDashboardPage } from "@/components/pages/admin-dashboard-page";
-import { ROUTE_META } from "@/lib/routes";
+import { redirect } from "next/navigation";
 
-const meta = ROUTE_META["/admin/dashboard"];
-
-export const metadata: Metadata = {
-  title: meta.title,
-};
-
-export default function AdminDashboardRoute() {
-  return <AdminDashboardPage />;
+export default function AdminDashboardRedirect() {
+  redirect("/admin");
 }

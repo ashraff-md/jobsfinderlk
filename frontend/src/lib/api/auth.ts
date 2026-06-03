@@ -51,8 +51,58 @@ export async function register(input: {
   return data;
 }
 
+export type UserProfile = {
+  id: string;
+  email: string;
+  role: UserRole;
+  emailVerified: boolean;
+  createdAt: string;
+  adminProfile?: {
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    contactNo?: string | null;
+  } | null;
+};
+
+export async function getProfile() {
+  return apiFetch<UserProfile>("/auth/me", { token: getAccessToken() });
+}
+
+export async function updateAdminProfile(input: {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  contactNo?: string;
+}) {
+  return apiFetch<{
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    contactNo?: string | null;
+  }>("/auth/admin-profile", {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(input),
+  });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  return apiFetch<{ message: string }>("/auth/password", {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 export function dashboardPath(role: UserRole) {
   if (role === "EMPLOYER") return "/employer";
   if (role === "ADMIN" || role === "MODERATOR") return "/admin";
   return "/dashboard";
+}
+
+export function portalProfilePath(role: UserRole) {
+  if (role === "EMPLOYER") return "/employer/settings";
+  if (role === "ADMIN" || role === "MODERATOR") return "/admin/settings";
+  return "/dashboard/profile";
 }

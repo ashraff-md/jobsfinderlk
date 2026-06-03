@@ -212,6 +212,16 @@ export class CreateJobDto {
   @IsOptional()
   @IsBoolean()
   publish?: boolean;
+
+  @ApiPropertyOptional({ example: 'GOVERNMENT' })
+  @IsOptional()
+  @IsString()
+  jobSourceType?: string;
+
+  @ApiPropertyOptional({ example: 'GOVT_CERTIFIED' })
+  @IsOptional()
+  @IsString()
+  verificationLevel?: string;
 }
 
 export class JobQueryDto {

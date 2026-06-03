@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MatchBadge } from "@/components/companies/company-autocomplete";
 import { LifeAtCompanyUploader } from "@/components/companies/life-at-company-uploader";
@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
+import { signInPath } from "@/lib/auth/portal";
 import {
   checkCompanyDuplicates,
   createCompanyRequest,
@@ -32,6 +33,7 @@ const labelClass = "font-label-bold text-on-surface-variant";
 
 export function RegisterCompanyPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [companyName, setCompanyName] = useState(searchParams.get("name") ?? "");
   const [industry, setIndustry] = useState("");
@@ -109,7 +111,7 @@ export function RegisterCompanyPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!getAccessToken()) {
-      router.push("/auth/sign-in");
+      router.push(signInPath("employer", pathname));
       return;
     }
     if (!companyName.trim() || !industry.trim() || !location.trim()) {

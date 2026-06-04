@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
@@ -364,7 +363,6 @@ export function AdminDashboardPage() {
           </div>
         </section>
       </AdminPageCanvas>
-      <SiteFooter variant="dark" className="mt-20" />
     </RecruiterAdminShell>
   );
 }

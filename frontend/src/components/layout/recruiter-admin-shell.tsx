@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AdminPostJobTypeDialog } from "@/components/admin/admin-post-job-type-dialog";
 import { LogoutLink } from "@/components/auth/logout-link";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
 import { getAccessToken, getProfile, getStoredUser } from "@/lib/api/auth";
 import { LOGO_URL } from "@/lib/assets";
@@ -20,6 +21,12 @@ const ADMIN_NAV = [
     key: "government",
   },
   { href: "/admin/verifications", icon: "group", label: "Recruiters", key: "verifications" },
+  {
+    href: "/admin/platform-ads",
+    icon: "campaign",
+    label: "Platform Ads",
+    key: "platform-ads",
+  },
   { href: "/admin/companies", icon: "business", label: "Companies", key: "companies" },
   { href: "/admin/talent", icon: "person_search", label: "Talent Pool", key: "talent" },
   { href: "/admin/partners", icon: "handshake", label: "Partners", key: "partners" },
@@ -37,6 +44,7 @@ type RecruiterAdminShellProps = {
   userName?: string;
   userTitle?: string;
   userAvatar?: string;
+  showFooter?: boolean;
 };
 
 function isNavActive(pathname: string, key: string, href: string) {
@@ -50,6 +58,7 @@ function isNavActive(pathname: string, key: string, href: string) {
   if (key === "government") return pathname.startsWith("/admin/jobs/government");
   if (key === "companies") return pathname.startsWith("/admin/companies");
   if (key === "verifications") return pathname.startsWith("/admin/verifications");
+  if (key === "platform-ads") return pathname.startsWith("/admin/platform-ads");
   if (key === "talent") return pathname.startsWith("/admin/talent");
   if (key === "settings") return pathname.startsWith("/admin/settings");
   if (key === "governance") return pathname.startsWith("/admin/governance");
@@ -62,6 +71,7 @@ export function RecruiterAdminShell({
   userName = "Admin User",
   userTitle = "Platform Administrator",
   userAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuBaui6OWDLzyR9wMBIBJUPcVrfygLZxud54Wb44qPIFKyLSyQIvPYrjfY2ksr8lillY3oVON4LoxLMGWxXAmH7lG3HU1j5ZvC2GrVYjGq_j_NiKNS4CrWOwKEXdzJ-iMDvXdLQK9KmpR3GXO00YMj8tAh2HSPzrgT51eZyY-4-qjzB5tMiDIODB4o_J06FIeQU50zlOIkGXqXnNd3s1J6A9fIh6fTX2lbEAp2qKg7UejY4W0aiM98ztub_YGzt-b5NkxAqnmMIov6JC",
+  showFooter = true,
 }: RecruiterAdminShellProps) {
   const pathname = usePathname();
   const [postDialogOpen, setPostDialogOpen] = useState(false);
@@ -197,8 +207,9 @@ export function RecruiterAdminShell({
           </div>
         </header>
 
-        <main className="custom-scrollbar min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background">
-          {children}
+        <main className="custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto bg-background">
+          <div className="min-w-0 flex-1">{children}</div>
+          {showFooter && <SiteFooter variant="dark" className="mt-20 shrink-0" />}
         </main>
       </div>
 

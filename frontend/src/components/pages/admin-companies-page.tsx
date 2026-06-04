@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
@@ -10,16 +10,19 @@ import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
 import {
   approveCompanyRequest,
-  getPendingCompanyRequests,
-  mergeCompanyRequest,
+  getCompanyRequests,
   rejectCompanyRequest,
 } from "@/lib/api/admin";
 import type { CompanyRequest } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
-const MOCK_COMPANIES = [
-  { id: "mock-1", initials: "NT", name: "NexGen Tech", location: "San Francisco, CA", industry: "Information Technology", reg: "REG-2024-00129", date: "Oct 24, 2023" },
-  { id: "mock-2", initials: "AP", name: "Apex Partners", location: "Colombo, LK", industry: "Financial Services", reg: "REG-2024-00130", date: "Oct 23, 2023" },
-];
+const STATUS_FILTERS = [
+  { value: "all", label: "All statuses" },
+  { value: "PENDING", label: "Pending review" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "MERGED", label: "Merged" },
+  { value: "REJECTED", label: "Rejected" },
+] as const;
 
 function companyInitials(name: string) {
   return name
@@ -30,12 +33,50 @@ function companyInitials(name: string) {
     .toUpperCase();
 }
 
+function statusLabel(status: CompanyRequest["status"]) {
+  switch (status) {
+    case "PENDING":
+      return "Pending review";
+    case "APPROVED":
+      return "Approved";
+    case "MERGED":
+      return "Merged";
+    case "REJECTED":
+      return "Rejected";
+    default:
+      return status;
+  }
+}
+
+function statusBadgeClass(status: CompanyRequest["status"]) {
+  switch (status) {
+    case "PENDING":
+      return "bg-amber-100 text-amber-800";
+    case "APPROVED":
+      return "bg-green-100 text-green-700";
+    case "MERGED":
+      return "bg-blue-100 text-blue-800";
+    case "REJECTED":
+      return "bg-red-100 text-red-700";
+    default:
+      return "bg-surface-container-high text-on-surface-variant";
+  }
+}
+
 export function AdminCompaniesPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<CompanyRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
-  const [mergeTargetId, setMergeTargetId] = useState<Record<string, string>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
   const load = useCallback(async () => {
     if (!getAccessToken()) {
@@ -43,140 +84,199 @@ export function AdminCompaniesPage() {
       return;
     }
     setLoading(true);
+    setError(null);
     try {
-      setRequests(await getPendingCompanyRequests());
+      setRequests(
+        await getCompanyRequests({
+          status: statusFilter,
+          q: debouncedSearch,
+        }),
+      );
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) router.push(signInPath("admin"));
+      if (err instanceof ApiError && err.status === 401) {
+        router.push(signInPath("admin"));
+        return;
+      }
+      setRequests([]);
+      setError(err instanceof ApiError ? err.message : "Failed to load company requests.");
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, statusFilter, debouncedSearch]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  const handleAction = async (id: string, action: "approve" | "reject" | "merge") => {
+  const handleAction = async (id: string, action: "approve" | "reject") => {
     setActionId(id);
     try {
       if (action === "approve") await approveCompanyRequest(id);
-      else if (action === "reject") await rejectCompanyRequest(id);
-      else {
-        const companyId = mergeTargetId[id];
-        if (!companyId) return;
-        await mergeCompanyRequest(id, companyId);
-      }
-      setRequests((prev) => prev.filter((r) => r.id !== id));
+      else await rejectCompanyRequest(id);
+      await load();
     } finally {
       setActionId(null);
     }
   };
 
-  const count = requests.length || 12;
+  const pendingCount = useMemo(
+    () => requests.filter((r) => r.status === "PENDING").length,
+    [requests],
+  );
+
+  const hasActiveFilters = useMemo(
+    () => statusFilter !== "all" || debouncedSearch.trim().length > 0,
+    [statusFilter, debouncedSearch],
+  );
 
   return (
     <RecruiterAdminShell activeNav="companies">
       <AdminPageCanvas className="space-y-stack-lg md:px-margin-desktop">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-headline-xl text-on-surface">Company Onboarding</h1>
-            <p className="mt-2 text-body-lg text-on-surface-variant">
-              Manage pending registrations and official entity creation.
-            </p>
-          </div>
-          <div className="flex gap-4">
-            <button type="button" className="flex items-center gap-2 rounded-lg border border-primary px-6 py-2.5 font-label-bold text-primary hover:bg-primary-fixed-dim/10">
-              <Icon name="filter_list" className="text-sm" />
-              Filters
-            </button>
-            <button type="button" className="rounded-lg bg-primary px-6 py-2.5 font-label-bold text-on-primary shadow-sm hover:opacity-90">
-              Download Report
-            </button>
-          </div>
+        <div>
+          <h1 className="text-headline-xl text-on-surface">Company Onboarding</h1>
+          <p className="mt-2 text-body-lg text-on-surface-variant">
+            Review registration requests and track onboarding outcomes.
+          </p>
         </div>
 
-        <div className="grid grid-cols-12 gap-gutter">
-          <div className="col-span-12 space-y-gutter lg:col-span-8">
-            <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-              <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low px-stack-lg py-stack-md">
-                <h3 className="text-headline-md text-on-surface">Pending Applications</h3>
-                <span className="rounded-full bg-secondary-container px-3 py-1 text-label-sm font-label-bold text-on-secondary">
-                  {loading ? "…" : `${count} Pending`}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="bg-surface-container-low/50">
-                      {["Company Name", "Industry", "Reg. Number", "Submission Date", "Actions"].map((h) => (
-                        <th key={h} className="px-stack-lg py-4 font-label-bold uppercase tracking-wider text-outline">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant">
-                    {loading && (
-                      <tr>
-                        <td colSpan={5} className="px-stack-lg py-8 text-on-surface-variant">
-                          Loading company requests…
-                        </td>
-                      </tr>
-                    )}
-                    {!loading && requests.length === 0 &&
-                      MOCK_COMPANIES.map((c) => (
-                        <tr key={c.id} className="transition-colors hover:bg-tertiary-fixed/30">
-                          <td className="px-stack-lg py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded bg-surface-container-high font-bold text-secondary">
-                                {c.initials}
-                              </div>
-                              <div>
-                                <p className="font-label-bold text-on-surface">{c.name}</p>
-                                <p className="text-label-sm text-outline">{c.location}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-stack-lg py-4">
-                            <span className="rounded bg-surface-container-highest px-2 py-1 text-label-sm text-on-surface-variant">
-                              {c.industry}
-                            </span>
-                          </td>
-                          <td className="px-stack-lg py-4 text-body-md">{c.reg}</td>
-                          <td className="px-stack-lg py-4 text-body-md">{c.date}</td>
-                          <td className="px-stack-lg py-4 text-right">
-                            <Link href={`/admin/companies/${c.id}`} className="font-label-bold text-secondary hover:underline">
-                              Review
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    {requests.map((request) => (
-                      <tr key={request.id} className="transition-colors hover:bg-tertiary-fixed/30">
-                        <td className="px-stack-lg py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded bg-surface-container-high font-bold text-secondary">
-                              {companyInitials(request.companyName)}
-                            </div>
-                            <div>
-                              <p className="font-label-bold">{request.companyName}</p>
-                              <p className="text-label-sm text-outline">
-                                {request.location ?? "—"} • {request.companyType ?? "—"}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-stack-lg py-4">
-                          <span className="rounded bg-surface-container-highest px-2 py-1 text-label-sm">
-                            {request.industry ?? "—"}
-                          </span>
-                        </td>
-                        <td className="px-stack-lg py-4 text-body-md">{request.emailDomain ?? "—"}</td>
-                        <td className="px-stack-lg py-4 text-body-md">
-                          {new Date(request.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-stack-lg py-4">
-                          <div className="flex justify-end gap-2">
+        {error && (
+          <div className="rounded-lg border border-error/30 bg-error-container/20 px-4 py-3 text-error">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-stack-lg sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="min-w-[200px] flex-1 space-y-2">
+            <label htmlFor="company-search" className="font-label-bold text-label-sm text-on-surface-variant">
+              Search
+            </label>
+            <div className="relative">
+              <Icon
+                name="search"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+              />
+              <input
+                id="company-search"
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Company, industry, domain, city…"
+                className="w-full rounded-lg border border-outline-variant py-2.5 pl-10 pr-4 font-body-md outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+          <div className="min-w-[180px] space-y-2">
+            <label htmlFor="company-status" className="font-label-bold text-label-sm text-on-surface-variant">
+              Status
+            </label>
+            <select
+              id="company-status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full rounded-lg border border-outline-variant px-4 py-2.5 font-body-md outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              {STATUS_FILTERS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+              }}
+              className="rounded-lg border border-outline-variant px-4 py-2.5 font-label-bold text-on-surface-variant hover:bg-surface-container-low"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-stack-lg py-stack-md">
+            <h3 className="text-headline-md text-on-surface">Company applications</h3>
+            <span className="rounded-full bg-secondary-container px-3 py-1 text-label-sm font-label-bold text-on-secondary">
+              {loading ? "…" : `${requests.length} shown`}
+              {!loading && statusFilter === "all" && pendingCount > 0
+                ? ` · ${pendingCount} pending`
+                : ""}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-surface-container-low/50">
+                  {["Company Name", "Industry", "City", "Status", "Submission Date", "Actions"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="px-stack-lg py-4 font-label-bold uppercase tracking-wider text-outline"
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {loading && (
+                  <tr>
+                    <td colSpan={6} className="px-stack-lg py-8 text-on-surface-variant">
+                      Loading company requests…
+                    </td>
+                  </tr>
+                )}
+                {!loading && requests.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-stack-lg py-8 text-on-surface-variant">
+                      {hasActiveFilters
+                        ? "No company requests match your filters."
+                        : "No company requests yet."}
+                    </td>
+                  </tr>
+                )}
+                {requests.map((request) => (
+                  <tr key={request.id} className="transition-colors hover:bg-tertiary-fixed/30">
+                    <td className="px-stack-lg py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-container-high font-bold text-secondary">
+                          {request.logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img alt="" src={request.logoUrl} className="h-full w-full object-cover" />
+                          ) : (
+                            companyInitials(request.companyName)
+                          )}
+                        </div>
+                        <p className="font-label-bold">{request.companyName}</p>
+                      </div>
+                    </td>
+                    <td className="px-stack-lg py-4">
+                      <span className="rounded bg-surface-container-highest px-2 py-1 text-label-sm">
+                        {request.industry ?? "—"}
+                      </span>
+                    </td>
+                    <td className="px-stack-lg py-4 text-body-md">{request.city ?? "—"}</td>
+                    <td className="px-stack-lg py-4">
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-label-sm font-label-bold",
+                          statusBadgeClass(request.status),
+                        )}
+                      >
+                        {statusLabel(request.status)}
+                      </span>
+                    </td>
+                    <td className="px-stack-lg py-4 text-body-md">
+                      {new Date(request.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-stack-lg py-4">
+                      <div className="flex justify-end gap-2">
+                        {request.status === "PENDING" && (
+                          <>
                             <button
                               type="button"
                               disabled={actionId === request.id}
@@ -193,78 +293,20 @@ export function AdminCompaniesPage() {
                             >
                               Approve
                             </button>
-                            <Link
-                              href={`/admin/companies/${request.id}`}
-                              className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
-                            >
-                              Details
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {requests.map((request) =>
-              request.similarCompanies && request.similarCompanies.length > 0 ? (
-                <div key={`merge-${request.id}`} className="rounded-lg bg-surface-container-low p-4">
-                  <p className="font-label-bold">Similar companies — {request.companyName}</p>
-                  <div className="mt-3 space-y-2">
-                    {request.similarCompanies.map((company) => (
-                      <label
-                        key={company.id}
-                        className="flex cursor-pointer items-center justify-between gap-3 rounded-lg bg-white px-3 py-2"
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="radio"
-                            name={`merge-${request.id}`}
-                            checked={mergeTargetId[request.id] === company.id}
-                            onChange={() =>
-                              setMergeTargetId((prev) => ({ ...prev, [request.id]: company.id }))
-                            }
-                          />
-                          <div>
-                            <p className="font-label-bold">{company.name}</p>
-                            <p className="text-label-sm text-on-surface-variant">
-                              {Math.round(company.score * 100)}% match
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={actionId === request.id || mergeTargetId[request.id] !== company.id}
-                          onClick={() => handleAction(request.id, "merge")}
-                          className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold disabled:opacity-50"
+                          </>
+                        )}
+                        <Link
+                          href={`/admin/companies/${request.id}`}
+                          className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
                         >
-                          Merge
-                        </button>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ) : null,
-            )}
-          </div>
-
-          <div className="col-span-12 lg:col-span-4">
-            <div className="glass-card rounded-xl p-6">
-              <h3 className="mb-4 font-label-bold text-primary">Onboarding Velocity</h3>
-              <p className="text-headline-md text-primary">+18.2%</p>
-              <p className="mt-2 text-label-sm text-on-surface-variant">Faster than last quarter average</p>
-              <div className="mt-6 flex h-24 items-end gap-1">
-                {[40, 55, 45, 70, 85, 100].map((h, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 rounded-t-sm ${i === 5 ? "bg-primary" : "bg-surface-container"}`}
-                    style={{ height: `${h}%` }}
-                  />
+                          Details
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
         </div>
       </AdminPageCanvas>

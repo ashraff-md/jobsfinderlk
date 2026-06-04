@@ -180,6 +180,11 @@ export const ROUTE_META: Record<
     reference: "references2/admin_recruiter_verification_detail/code.html",
     phase: "M1",
   },
+  "/admin/platform-ads": {
+    title: "Platform Ads",
+    reference: "references2/admin_platform_ads/code.html",
+    phase: "M1",
+  },
   "/admin/talent": {
     title: "Executive Talent Pool",
     reference: "references2/admin_talent_pool_management/code.html",

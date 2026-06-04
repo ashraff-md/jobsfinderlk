@@ -102,6 +102,66 @@ export class ImageStorageService implements OnModuleInit {
     );
   }
 
+  /** Keep an existing upload (path or public URL) or persist a new data URL. */
+  async saveOrKeepImage(
+    folder: ImageUploadFolder,
+    input?: string | null,
+  ): Promise<string | null> {
+    if (!input?.trim()) return null;
+
+    const trimmed = input.trim();
+    if (isImageDataUrl(trimmed)) {
+      return this.saveDataUrl(folder, trimmed);
+    }
+
+    const existing = this.extractStoredPath(trimmed);
+    if (existing) return existing;
+
+    return null;
+  }
+
+  async saveOrKeepCompanyLogo(input?: string | null): Promise<string | null> {
+    return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.companyLogos, input);
+  }
+
+  async savePlatformBannerImage(input?: string | null): Promise<string | null> {
+    return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.platformBanners, input);
+  }
+
+  async saveOrKeepLifeAtCompanyImages(
+    inputs?: string[] | null,
+  ): Promise<string[]> {
+    if (!inputs?.length) return [];
+
+    const paths: string[] = [];
+    for (const item of inputs.slice(0, MAX_LIFE_AT_IMAGES)) {
+      const path = await this.saveOrKeepImage(
+        IMAGE_UPLOAD_FOLDERS.lifeAtCompany,
+        item,
+      );
+      if (path) paths.push(path);
+    }
+    return paths;
+  }
+
+  extractStoredPath(input: string): string | null {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    if (this.isStoredPath(trimmed)) return trimmed.replace(/^\//, '');
+
+    const publicPrefix = `${this.publicBaseUrl}${this.publicPath}/`;
+    if (trimmed.startsWith(publicPrefix)) {
+      return trimmed.slice(publicPrefix.length);
+    }
+
+    const pathPrefix = `${this.publicPath}/`;
+    if (trimmed.startsWith(pathPrefix)) {
+      return trimmed.slice(pathPrefix.length);
+    }
+
+    return null;
+  }
+
   resolvePublicUrl(storedPath?: string | null): string | null {
     if (!storedPath?.trim()) return null;
 

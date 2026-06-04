@@ -308,7 +308,7 @@ export class JobsService {
     });
   }
 
-  async listForAdmin(filters?: {
+  private buildAdminJobsWhere(filters?: {
     status?: JobStatus;
     q?: string;
     source?: string;
@@ -338,14 +338,62 @@ export class JobsService {
       ];
     }
 
-    return this.prisma.job.findMany({
-      where,
-      include: {
-        company: true,
-        _count: { select: { applications: true } },
+    return where;
+  }
+
+  async adminJobStats() {
+    const [total, pending, published] = await Promise.all([
+      this.prisma.job.count(),
+      this.prisma.job.count({ where: { status: JobStatus.PENDING_REVIEW } }),
+      this.prisma.job.count({ where: { status: JobStatus.PUBLISHED } }),
+    ]);
+    return { total, pending, published };
+  }
+
+  async listForAdmin(filters?: {
+    status?: JobStatus;
+    q?: string;
+    source?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const where = this.buildAdminJobsWhere(filters);
+    const page = Math.max(filters?.page ?? 1, 1);
+    const limit = Math.min(Math.max(filters?.limit ?? 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const include = {
+      company: true,
+      _count: { select: { applications: true } },
+      reviewedBy: {
+        select: {
+          id: true,
+          email: true,
+          adminProfile: {
+            select: { firstName: true, lastName: true },
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    } as const;
+
+    const [items, total] = await Promise.all([
+      this.prisma.job.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.job.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      pages: total > 0 ? Math.ceil(total / limit) : 1,
+    };
   }
 
   async listGovernmentJobs() {
@@ -365,9 +413,18 @@ export class JobsService {
     return job;
   }
 
-  async moderate(jobId: string, action: 'approve' | 'reject') {
+  async moderate(
+    jobId: string,
+    action: 'approve' | 'reject',
+    reviewerId?: string,
+  ) {
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
     if (!job) throw new NotFoundException('Job not found');
+
+    const reviewedAt = new Date();
+    const reviewMeta = reviewerId
+      ? { reviewedById: reviewerId, reviewedAt }
+      : { reviewedAt };
 
     if (action === 'approve') {
       return this.prisma.job.update({
@@ -375,15 +432,41 @@ export class JobsService {
         data: {
           status: JobStatus.PUBLISHED,
           publishedAt: new Date(),
+          ...reviewMeta,
         },
-        include: { company: true },
+        include: {
+          company: true,
+          reviewedBy: {
+            select: {
+              id: true,
+              email: true,
+              adminProfile: {
+                select: { firstName: true, lastName: true },
+              },
+            },
+          },
+        },
       });
     }
 
     return this.prisma.job.update({
       where: { id: jobId },
-      data: { status: JobStatus.REJECTED },
-      include: { company: true },
+      data: {
+        status: JobStatus.REJECTED,
+        ...reviewMeta,
+      },
+      include: {
+        company: true,
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            adminProfile: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+        },
+      },
     });
   }
 

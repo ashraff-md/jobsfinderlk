@@ -1,9 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
+import { JobDetailTallBanners } from "@/components/home/job-detail-tall-banners";
 import { ApplyButton } from "@/components/jobs/apply-button";
+import { JobDetailCompanyReviews } from "@/components/jobs/job-detail-company-reviews";
 import { JobArtworkBanner } from "@/components/jobs/job-artwork-banner";
 import { Icon } from "@/components/ui/icon";
 import { formatSalary } from "@/lib/api/jobs";
+import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
 import type { Job } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +72,9 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
   const niceToHaveSkills = job.niceToHaveSkills ?? [];
   const postedLabel = preview ? "Pending publish" : `Posted ${timeAgo(job.publishedAt ?? job.createdAt)}`;
   const locationLabel = job.location ?? job.city ?? "Sri Lanka";
+  const closingLabel = job.applicationDeadline
+    ? `Closes ${formatJobClosingDate(job.applicationDeadline)}`
+    : formatJobClosingDate(null);
 
   const metaTags = [
     job.employmentType,
@@ -79,84 +86,86 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
 
   return (
     <div className={cn("bg-background text-on-surface", className)}>
-      <div className="mb-12">
-        <div className="mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-          <div className="flex-1">
-            {preview && (
-              <span className="mb-3 inline-flex items-center gap-1.5 rounded-xl border border-secondary/30 bg-secondary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-secondary">
-                <Icon name="visibility" className="text-[14px]" />
-                Public preview
-              </span>
+      <div className="flex flex-col gap-gutter lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">
+          {preview && (
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-xl border border-secondary/30 bg-secondary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-secondary">
+              <Icon name="visibility" className="text-[14px]" />
+              Public preview
+            </span>
+          )}
+          <h1
+            className={cn(
+              "mb-3 font-extrabold tracking-tight text-navy-deep",
+              preview
+                ? "text-xl leading-snug md:text-2xl"
+                : "text-3xl leading-[1.15] md:text-4xl lg:text-[44px]",
             )}
-            <h1
-              className={cn(
-                "mb-3 font-extrabold tracking-tight text-navy-deep",
-                preview
-                  ? "text-xl leading-snug md:text-2xl"
-                  : "text-4xl leading-[1.1] md:text-5xl lg:text-[56px]",
-              )}
-            >
-              {job.title}
-            </h1>
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              {company.verified && (
-                <div className="flex items-center gap-1.5 rounded-xl bg-secondary/10 px-3 py-1 font-label-sm text-secondary">
-                  <Icon name="verified" className="text-[16px]" filled />
-                  Verified Employer
-                </div>
-              )}
-              <span className="text-label-sm text-on-surface-variant">{postedLabel}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-6 text-on-surface-variant">
-              <div className="flex items-center gap-2">
-                <Icon name="corporate_fare" className="text-navy-deep" />
-                <span className="font-body-md font-semibold text-on-surface">{company.name}</span>
+          >
+            {job.title}
+          </h1>
+
+          <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
+            {company.verified && (
+              <div className="flex items-center gap-1.5 rounded-xl bg-secondary/10 px-3 py-1 font-label-sm text-secondary">
+                <Icon name="verified" className="text-[16px]" filled />
+                Verified Employer
               </div>
-              <div className="flex items-center gap-2">
-                <Icon name="location_on" className="text-navy-deep" />
-                <span className="font-body-md">{locationLabel}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Icon name="payments" className="text-navy-deep" />
-                <span className="font-body-md">{formatSalary(job.salaryMin, job.salaryMax)} / mo</span>
-              </div>
-            </div>
-            {metaTags.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {metaTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-surface-container-low px-3 py-1 text-[11px] font-bold text-primary"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
+            )}
+            <span className="text-label-sm text-on-surface-variant">{postedLabel}</span>
+            {!preview && (
+              <>
+                <button
+                  type="button"
+                  className="rounded-lg border border-outline-variant p-2 transition-colors hover:bg-surface-container-low"
+                  aria-label="Save job"
+                >
+                  <Icon name="bookmark" className="text-[18px] text-on-surface-variant" />
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-outline-variant p-2 transition-colors hover:bg-surface-container-low"
+                  aria-label="Share job"
+                >
+                  <Icon name="share" className="text-[18px] text-on-surface-variant" />
+                </button>
+              </>
             )}
           </div>
-          {!preview && (
-            <div className="flex gap-3">
-              <button
-                type="button"
-                className="rounded-xl border border-outline-variant p-3 transition-colors hover:bg-surface-container-low"
-                aria-label="Save job"
-              >
-                <Icon name="bookmark" className="text-on-surface-variant" />
-              </button>
-              <button
-                type="button"
-                className="rounded-xl border border-outline-variant p-3 transition-colors hover:bg-surface-container-low"
-                aria-label="Share job"
-              >
-                <Icon name="share" className="text-on-surface-variant" />
-              </button>
+
+          <div className="mb-6 flex flex-wrap items-center gap-6 text-on-surface-variant">
+            <div className="flex items-center gap-2">
+              <Icon name="corporate_fare" className="text-navy-deep" />
+              <span className="font-body-md font-semibold text-on-surface">{company.name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Icon name="location_on" className="text-navy-deep" />
+              <span className="font-body-md">{locationLabel}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Icon name="payments" className="text-navy-deep" />
+              <span className="font-body-md">{formatSalary(job.salaryMin, job.salaryMax)} / mo</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Icon name="event" className="text-navy-deep" />
+              <span className="font-body-md">{closingLabel}</span>
+            </div>
+          </div>
+
+          {metaTags.length > 0 && (
+            <div className="mb-10 flex flex-wrap gap-2">
+              {metaTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-surface-container-low px-3 py-1 text-[11px] font-bold text-primary"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
-        <div className={cn("space-y-12", preview ? "lg:col-span-12" : "lg:col-span-8")}>
+          <div className={cn("space-y-12", metaTags.length === 0 && "mt-10")}>
           <section>
             <SectionHeading>About this role</SectionHeading>
             <p className="mb-6 whitespace-pre-wrap font-body-lg leading-relaxed text-on-surface-variant">
@@ -173,23 +182,22 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
 
           {requirements.length > 0 && (
             <section>
-              <SectionHeading>Minimum Requirements</SectionHeading>
-              <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-                {requirements.map((req, i) => (
-                  <div
-                    key={req}
-                    className={cn(
-                      "flex items-center gap-4 p-6",
-                      i < requirements.length - 1 && "border-b border-outline-variant",
-                    )}
-                  >
-                    <Icon name="check_circle" className="text-navy-deep" />
-                    <span className="font-label-bold">{req}</span>
-                  </div>
-                ))}
-              </div>
+              <SectionHeading>Requirements</SectionHeading>
+              <BulletList items={requirements} />
             </section>
           )}
+
+          <section>
+            <JobArtworkBanner
+              artworkUrl={artworkUrl}
+              title={job.title}
+              companyName={company.name}
+              showOverlay={!job.vacancyArtworkUrl}
+              imageClassName="h-96 w-full"
+            />
+          </section>
+
+          {!preview && <JobDetailCompanyReviews />}
 
           {(requiredSkills.length > 0 || niceToHaveSkills.length > 0) && (
             <section>
@@ -226,11 +234,40 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
               )}
             </section>
           )}
+          </div>
         </div>
 
         {!preview && (
-          <aside className="lg:col-span-4">
-            <div className="space-y-gutter lg:sticky lg:top-24">
+          <aside className="w-full shrink-0 lg:w-[min(100%,320px)]">
+            <div className="space-y-4 lg:sticky lg:top-24">
+              <div className="rounded-xl border border-outline-variant bg-white p-6 shadow-sm">
+                <div className="mb-6 flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-container text-2xl font-bold text-primary">
+                    {company.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="" className="h-full w-full object-cover" src={company.logoUrl} />
+                    ) : (
+                      company.name.charAt(0)
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-extrabold text-on-surface">{company.name}</h4>
+                    <p className="font-label-sm text-on-surface-variant">
+                      {job.industry ?? "Enterprise"} • {job.employmentType ?? "Full-time"}
+                    </p>
+                  </div>
+                </div>
+                {company.description && (
+                  <p className="mb-6 line-clamp-3 font-body-md text-on-surface-variant">{company.description}</p>
+                )}
+                <Link
+                  href={`/companies/${company.slug}`}
+                  className="block w-full rounded-xl border border-navy-deep py-3 text-center font-bold text-navy-deep transition-all hover:bg-navy-deep/5"
+                >
+                  View Company
+                </Link>
+              </div>
+
               <div className="relative overflow-hidden rounded-xl bg-navy-deep p-8 text-white shadow-xl">
                 <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
                 <div className="relative z-10">
@@ -266,69 +303,17 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
                 </div>
               </div>
 
-              <div className="rounded-xl border border-outline-variant bg-white p-6 shadow-sm">
-                <h4 className="mb-6 border-l-4 border-secondary pl-3 text-lg font-extrabold text-navy-deep">
-                  Salary Insights
-                </h4>
-                <div className="mb-4 flex h-32 items-end gap-3">
-                  <div className="h-[40%] flex-1 rounded-t-xl bg-surface-container-high" />
-                  <div className="h-[85%] flex-1 rounded-t-xl bg-navy-deep" />
-                  <div className="h-[95%] flex-1 rounded-t-xl bg-secondary-container" />
-                </div>
-                <p className="font-label-sm text-on-surface-variant">
-                  {job.salaryMin != null || job.salaryMax != null ? (
-                    <>
-                      Listed range:{" "}
-                      <span className="font-bold text-secondary">{formatSalary(job.salaryMin, job.salaryMax)}</span>
-                    </>
-                  ) : (
-                    "Salary details will appear once a range is provided."
-                  )}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-outline-variant bg-white p-6 shadow-sm">
-                <div className="mb-6 flex items-center gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-container text-2xl font-bold text-primary">
-                    {company.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img alt="" className="h-full w-full object-cover" src={company.logoUrl} />
-                    ) : (
-                      company.name.charAt(0)
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-extrabold text-on-surface">{company.name}</h4>
-                    <p className="font-label-sm text-on-surface-variant">
-                      {job.industry ?? "Enterprise"} • {job.employmentType ?? "Full-time"}
-                    </p>
-                  </div>
-                </div>
-                {company.description && (
-                  <p className="mb-6 line-clamp-3 font-body-md text-on-surface-variant">{company.description}</p>
-                )}
-                <Link
-                  href={`/companies/${company.slug}`}
-                  className="block w-full rounded-xl border border-navy-deep py-3 text-center font-bold text-navy-deep transition-all hover:bg-navy-deep/5"
-                >
-                  View Company
-                </Link>
-              </div>
+              <JobDetailTallBanners />
             </div>
           </aside>
         )}
       </div>
 
-      <div className="mt-12 grid grid-cols-1 gap-gutter lg:grid-cols-12">
-        <div className={cn(preview ? "lg:col-span-12" : "lg:col-span-8")}>
-          <JobArtworkBanner
-            artworkUrl={artworkUrl}
-            title={job.title}
-            companyName={company.name}
-            showOverlay={!job.vacancyArtworkUrl}
-          />
-        </div>
-      </div>
+      {!preview && (
+        <section className="mt-8" aria-label="Featured opportunities">
+          <HomeBannerAdsGrid columns={2} />
+        </section>
+      )}
     </div>
   );
 }

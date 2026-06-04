@@ -1,130 +1,304 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
+import { ApiError } from "@/lib/api/client";
+import { getAccessToken } from "@/lib/api/auth";
+import { signInPath } from "@/lib/auth/portal";
+import { getAdminRecruiters } from "@/lib/api/admin";
+import type { AdminRecruiter } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
-const RECRUITERS = [
-  { id: "1", initials: "HS", name: "Harshana Silva", role: "Senior Tech Recruiter", company: "Virtusa (Pvt) Ltd", status: "Under Review", statusClass: "bg-yellow-100 text-yellow-800" },
-  { id: "2", name: "Amara Perera", role: "Talent Acquisition Lead", company: "IFS", status: "Documents Missing", statusClass: "bg-error-container text-on-error-container", avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBpx0jhkrNuOPdsad2M9zWOPH-8rrlfbJtMCqC8WjN9BjM2ndc1UisQCBsA0w_SlyWq7wNmtaaVmHGbASplBlUwz5YRtsBmgZFR-gdtXTbQHOW-O-RFJi7DaASheocaHSpZaFoFrBcJIVYJHSWMGOVCR0nNTq1wgwFL-OSguuvyvslrih-fTOrRafeGAa-mYkBWom29hjmf6B-Uo3r_TG1oD7dNzmhKKTxfAXKRphiLYVU9wxvKhbPgqrWQuGyZ-TiTZlo8DrJH_jYX" },
-  { id: "3", initials: "RK", name: "Rohan Kumar", role: "HR Business Partner", company: "John Keells Holdings", status: "Verified", statusClass: "bg-secondary-fixed text-on-secondary-fixed" },
-];
+const STATUS_FILTERS = [
+  { value: "all", label: "All statuses" },
+  { value: "PENDING", label: "Pending review" },
+  { value: "VERIFIED", label: "Verified" },
+  { value: "UNLINKED", label: "Unlinked" },
+] as const;
+
+function recruiterInitials(recruiter: AdminRecruiter) {
+  const source = recruiter.fullName?.trim() || recruiter.email;
+  return source
+    .split(/[\s@]+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function statusLabel(status: AdminRecruiter["verificationStatus"]) {
+  switch (status) {
+    case "VERIFIED":
+      return "Verified";
+    case "PENDING":
+      return "Pending review";
+    case "UNLINKED":
+      return "Unlinked";
+    default:
+      return status;
+  }
+}
+
+function statusBadgeClass(status: AdminRecruiter["verificationStatus"]) {
+  switch (status) {
+    case "VERIFIED":
+      return "bg-green-100 text-green-700";
+    case "PENDING":
+      return "bg-amber-100 text-amber-800";
+    case "UNLINKED":
+      return "bg-surface-container-high text-on-surface-variant";
+    default:
+      return "bg-surface-container-high text-on-surface-variant";
+  }
+}
 
 export function AdminVerificationsPage() {
+  const router = useRouter();
+  const [recruiters, setRecruiters] = useState<AdminRecruiter[]>([]);
+  const [stats, setStats] = useState({ total: 0, pending: 0, verified: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const all = await getAdminRecruiters();
+      setStats({
+        total: all.length,
+        pending: all.filter((r) => r.verificationStatus === "PENDING").length,
+        verified: all.filter((r) => r.verificationStatus === "VERIFIED").length,
+      });
+    } catch {
+      /* stats are non-blocking */
+    }
+  }, []);
+
+  const loadRecruiters = useCallback(async () => {
+    if (!getAccessToken()) {
+      router.push(signInPath("admin"));
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      setRecruiters(
+        await getAdminRecruiters({
+          status: statusFilter,
+          q: debouncedSearch,
+        }),
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push(signInPath("admin"));
+        return;
+      }
+      setRecruiters([]);
+      setError(err instanceof ApiError ? err.message : "Failed to load recruiters.");
+    } finally {
+      setLoading(false);
+    }
+  }, [router, statusFilter, debouncedSearch]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    void loadRecruiters();
+  }, [loadRecruiters]);
+
+  const hasActiveFilters = useMemo(
+    () => statusFilter !== "all" || debouncedSearch.trim().length > 0,
+    [statusFilter, debouncedSearch],
+  );
+
   return (
     <RecruiterAdminShell activeNav="verifications">
       <AdminPageCanvas className="md:px-margin-desktop">
-        <div className="mb-stack-lg flex items-end justify-between">
-          <div>
-            <h1 className="text-headline-lg text-on-background">Approval Queue</h1>
-            <p className="text-body-md text-on-surface-variant">
-              Manage pending recruiter verifications and profile update requests.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button type="button" className="flex items-center gap-2 rounded-lg bg-surface-container-highest px-4 py-2 font-label-bold">
-              <Icon name="filter_list" />
-              Filter
-            </button>
-            <button type="button" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label-bold text-on-primary">
-              <Icon name="download" />
-              Export Log
-            </button>
-          </div>
+        <div className="mb-stack-lg">
+          <h1 className="text-headline-lg text-on-background">Recruiters</h1>
+          <p className="text-body-md text-on-surface-variant">
+            Manage employer accounts and verification status across the platform.
+          </p>
         </div>
 
-        <div className="bento-grid mb-stack-lg">
-          <section className="col-span-12 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest lg:col-span-8">
+        {error && (
+          <div className="mb-6 rounded-lg border border-error/30 bg-error-container/20 px-4 py-3 text-error">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-gutter">
+          <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
+            {[
+              {
+                icon: "group",
+                label: "Total recruiters",
+                value: String(stats.total),
+                trend: "Platform",
+                trendClass: "text-on-surface-variant",
+              },
+              {
+                icon: "pending_actions",
+                label: "Pending review",
+                value: String(stats.pending),
+                trend: stats.pending > 0 ? "Action needed" : "Clear",
+                trendClass: stats.pending > 0 ? "text-error" : "text-secondary",
+              },
+              {
+                icon: "verified_user",
+                label: "Verified",
+                value: String(stats.verified),
+                trend: "Active",
+                trendClass: "text-secondary",
+              },
+            ].map((stat) => (
+              <div key={stat.label} className="glass-card flex flex-col justify-between rounded-xl p-6">
+                <div className="flex items-start justify-between">
+                  <Icon
+                    name={stat.icon}
+                    className="rounded-lg bg-secondary-container/20 p-2 text-secondary"
+                  />
+                  <span className={cn("font-label-bold", stat.trendClass)}>{stat.trend}</span>
+                </div>
+                <div className="mt-4">
+                  <p className="font-label-bold text-on-surface-variant">{stat.label}</p>
+                  <h3 className="text-headline-md">{stat.value}</h3>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-nowrap items-center gap-3 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+            <div className="relative min-w-[min(100%,280px)] flex-1">
+              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name, email, company…"
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 font-body-md outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
+            >
+              {STATUS_FILTERS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                }}
+                className="shrink-0 font-label-bold text-secondary hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
             <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low p-stack-md">
-              <h2 className="text-headline-md">Recruiter Verification</h2>
-              <span className="rounded-full bg-secondary-container/10 px-3 py-1 font-label-bold text-label-sm text-secondary">
-                24 Pending
+              <h3 className="font-label-bold">All recruiters</h3>
+              <span className="rounded-full bg-secondary-container/20 px-3 py-1 text-label-sm font-label-bold text-secondary">
+                {loading ? "…" : `${recruiters.length} shown`}
               </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="border-b border-outline-variant bg-surface-container-low">
                   <tr>
-                    {["Recruiter", "Company", "Verification", "Status", "Actions"].map((h) => (
-                      <th key={h} className="px-stack-md py-4 font-label-bold text-on-surface-variant">
+                    {["Recruiter", "Company", "Email", "Status", "Joined", "Actions"].map((h) => (
+                      <th
+                        key={h}
+                        className="px-stack-md py-4 font-label-bold text-on-surface-variant"
+                      >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
-                  {RECRUITERS.map((r) => (
-                    <tr key={r.id} className="transition-colors hover:bg-surface-container">
+                  {loading && (
+                    <tr>
+                      <td colSpan={6} className="px-stack-md py-8 text-on-surface-variant">
+                        Loading recruiters…
+                      </td>
+                    </tr>
+                  )}
+                  {!loading && recruiters.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-stack-md py-8 text-center text-on-surface-variant">
+                        {hasActiveFilters
+                          ? "No recruiters match your filters."
+                          : "No recruiters yet."}
+                      </td>
+                    </tr>
+                  )}
+                  {recruiters.map((recruiter) => (
+                    <tr key={recruiter.userId} className="transition-colors hover:bg-surface-container">
                       <td className="px-stack-md py-4">
                         <div className="flex items-center gap-3">
-                          {r.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img alt="" className="h-10 w-10 rounded-full object-cover" src={r.avatar} />
-                          ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-fixed font-bold text-secondary">
-                              {r.initials}
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-label-bold">{r.name}</p>
-                            <p className="text-[12px] text-on-surface-variant">{r.role}</p>
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-fixed font-bold text-secondary">
+                            {recruiterInitials(recruiter)}
                           </div>
+                          <p className="font-label-bold">
+                            {recruiter.fullName?.trim() || recruiter.email}
+                          </p>
                         </div>
                       </td>
                       <td className="px-stack-md py-4">
                         <div className="flex items-center gap-2">
                           <Icon name="business_center" className="text-[18px] text-on-surface-variant" />
-                          <span>{r.company}</span>
+                          <span>{recruiter.companyName ?? "—"}</span>
                         </div>
                       </td>
+                      <td className="px-stack-md py-4 text-body-md">{recruiter.email}</td>
                       <td className="px-stack-md py-4">
-                        <div className="flex gap-2">
-                          <span className="flex items-center gap-1 font-label-bold text-label-sm text-secondary">
-                            <Icon name="link" className="text-[14px]" />
-                            LinkedIn
-                          </span>
-                          <span className="flex items-center gap-1 font-label-bold text-label-sm text-secondary">
-                            <Icon name="description" className="text-[14px]" />
-                            Doc
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-stack-md py-4">
-                        <span className={`rounded px-2 py-1 text-[11px] font-extrabold uppercase ${r.statusClass}`}>
-                          {r.status}
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-label-sm font-label-bold",
+                            statusBadgeClass(recruiter.verificationStatus),
+                          )}
+                        >
+                          {statusLabel(recruiter.verificationStatus)}
                         </span>
                       </td>
+                      <td className="px-stack-md py-4 text-body-md">
+                        {new Date(recruiter.createdAt).toLocaleDateString()}
+                      </td>
                       <td className="px-stack-md py-4">
-                        <div className="flex gap-2">
-                          <Link href={`/admin/verifications/${r.id}`} className="font-label-bold text-secondary hover:underline">
-                            Review
-                          </Link>
-                          <button type="button" className="text-secondary">
-                            <Icon name="check_circle" filled />
-                          </button>
-                          <button type="button" className="text-error">
-                            <Icon name="cancel" />
-                          </button>
-                        </div>
+                        <Link
+                          href={`/admin/verifications/${recruiter.userId}`}
+                          className="font-label-bold text-secondary hover:underline"
+                        >
+                          Review
+                        </Link>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </section>
-
-          <aside className="col-span-12 space-y-4 lg:col-span-4">
-            <div className="glass-card rounded-xl p-6">
-              <h3 className="font-label-bold text-primary">Verification SLA</h3>
-              <p className="mt-2 text-headline-md text-primary">4.2h</p>
-              <p className="text-label-sm text-on-surface-variant">Average review time</p>
-            </div>
-            <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6">
-              <h3 className="font-label-bold">Flagged Updates</h3>
-              <p className="mt-2 text-label-sm text-on-surface-variant">3 profile changes require tier-2 review</p>
-            </div>
-          </aside>
+          </div>
         </div>
       </AdminPageCanvas>
     </RecruiterAdminShell>

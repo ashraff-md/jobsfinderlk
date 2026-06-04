@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
 import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
 import { JobSearchBar } from "@/components/jobs/job-search-bar";
 import { JobSearchResultCard } from "@/components/jobs/job-search-result-card";
@@ -10,7 +11,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
 import { searchJobs, searchPublishedJobs } from "@/lib/api/jobs";
-import { jobToSponsoredCardItem } from "@/lib/jobs/map-job-to-featured-card";
+import { loadSponsoredJobCards } from "@/lib/platform-ads/load-sponsored";
 import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
 import {
   buildJobSearchParams,
@@ -20,6 +21,8 @@ import {
 } from "@/lib/jobs/job-search-filters";
 import type { Job } from "@/lib/api/types";
 
+const JOBS_PER_PAGE_OPTIONS = [10, 20, 50] as const;
+
 export function JobsSearchPage() {
   const urlSearchParams = useSearchParams();
   const [filters, setFilters] = useState<JobSearchFilters>(DEFAULT_JOB_SEARCH_FILTERS);
@@ -27,6 +30,9 @@ export function JobsSearchPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [sponsoredJobs, setSponsoredJobs] = useState<FeaturedJobCardItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [jobsPerPage, setJobsPerPage] = useState<(typeof JOBS_PER_PAGE_OPTIONS)[number]>(10);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +44,7 @@ export function JobsSearchPage() {
       categories = [legacyIndustry];
     }
     if (!q && !cities.length && !categories.length) return;
+    setPage(1);
     setFilters((prev) => ({
       ...prev,
       ...(q ? { q } : {}),
@@ -53,19 +60,58 @@ export function JobsSearchPage() {
   }, [filters.q]);
 
   const searchParams = useMemo(
-    () => buildJobSearchParams({ ...filters, q: debouncedQ }, { limit: 20 }),
-    [filters, debouncedQ],
+    () => buildJobSearchParams({ ...filters, q: debouncedQ }, { page, limit: jobsPerPage }),
+    [filters, debouncedQ, page, jobsPerPage],
   );
 
   const patchFilters = useCallback((patch: Partial<JobSearchFilters>) => {
+    setPage(1);
     setFilters((prev) => ({ ...prev, ...patch }));
   }, []);
 
   const resetFilters = useCallback(() => {
+    setPage(1);
     setFilters(DEFAULT_JOB_SEARCH_FILTERS);
   }, []);
 
   const filtersSummary = useMemo(() => formatActiveFiltersSummary(filters), [filters]);
+
+  const resultsRangeLabel = useMemo(() => {
+    if (loading || total === 0) return null;
+    const start = (page - 1) * jobsPerPage + 1;
+    const end = Math.min(page * jobsPerPage, total);
+    return `${start}–${end} of ${total}`;
+  }, [loading, total, page, jobsPerPage]);
+
+  const handleJobsPerPageChange = useCallback((value: string) => {
+    const next = Number(value);
+    if (!JOBS_PER_PAGE_OPTIONS.includes(next as (typeof JOBS_PER_PAGE_OPTIONS)[number])) return;
+    setJobsPerPage(next as (typeof JOBS_PER_PAGE_OPTIONS)[number]);
+    setPage(1);
+  }, []);
+
+  const goToPage = useCallback((nextPage: number) => {
+    setPage(Math.max(1, Math.min(nextPage, pages)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [pages]);
+
+  const paginationItems = useMemo(() => {
+    if (pages <= 1) return [];
+    if (pages <= 9) {
+      return Array.from({ length: pages }, (_, index) => index + 1);
+    }
+
+    const pageSet = new Set([1, pages, page - 1, page, page + 1]);
+    const sorted = [...pageSet].filter((p) => p >= 1 && p <= pages).sort((a, b) => a - b);
+    const result: (number | "ellipsis")[] = [];
+
+    sorted.forEach((p, index) => {
+      if (index > 0 && p - sorted[index - 1] > 1) result.push("ellipsis");
+      result.push(p);
+    });
+
+    return result;
+  }, [page, pages]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +122,7 @@ export function JobsSearchPage() {
         if (!cancelled) {
           setJobs(data.items);
           setTotal(data.total);
+          setPages(data.pages);
         }
       } catch {
         if (!cancelled) {
@@ -94,26 +141,8 @@ export function JobsSearchPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const featured = await searchPublishedJobs({ featured: true, limit: 3 });
-        let items = featured.items;
-        if (items.length < 3) {
-          const fallback = await searchPublishedJobs({ limit: 3 });
-          const seen = new Set(items.map((j) => j.id));
-          for (const job of fallback.items) {
-            if (items.length >= 3) break;
-            if (!seen.has(job.id)) {
-              items = [...items, job];
-              seen.add(job.id);
-            }
-          }
-        }
-        if (!cancelled) {
-          setSponsoredJobs(items.slice(0, 3).map((job) => jobToSponsoredCardItem(job)));
-        }
-      } catch {
-        if (!cancelled) setSponsoredJobs([]);
-      }
+      const items = await loadSponsoredJobCards(3);
+      if (!cancelled) setSponsoredJobs(items);
     })();
     return () => {
       cancelled = true;
@@ -151,6 +180,8 @@ export function JobsSearchPage() {
               </div>
               <div className="absolute -bottom-4 -right-4 h-32 w-32 rounded-full bg-white/5 blur-2xl transition-all duration-700 group-hover:bg-white/10" />
             </div>
+
+            <HomeBannerAdsGrid variant="tall" />
           </div>
         </aside>
 
@@ -173,17 +204,38 @@ export function JobsSearchPage() {
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-headline-md font-bold text-primary">
-                {loading ? "Loading jobs…" : `Showing ${total} Job${total === 1 ? "" : "s"}`}
+                {loading
+                  ? "Loading jobs…"
+                  : total === 0
+                    ? "No jobs found"
+                    : `Showing ${resultsRangeLabel} job${total === 1 ? "" : "s"}`}
               </h2>
               <p className="text-label-sm text-outline">Based on your filters: {filtersSummary}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="whitespace-nowrap text-label-sm text-outline">Sort by:</span>
-              <select className="rounded border-outline-variant bg-surface-container-low px-4 py-2 text-label-sm font-bold text-primary focus:border-primary focus:ring-primary">
-                <option>Most Relevant</option>
-                <option>Newest First</option>
-                <option>Highest Salary</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              <div className="flex items-center gap-2">
+                <span className="whitespace-nowrap text-label-sm text-outline">Sort by:</span>
+                <select className="rounded border-outline-variant bg-surface-container-low px-4 py-2 text-label-sm font-bold text-primary focus:border-primary focus:ring-primary">
+                  <option>Most Relevant</option>
+                  <option>Newest First</option>
+                  <option>Highest Salary</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="whitespace-nowrap text-label-sm text-outline">Jobs per page:</span>
+                <select
+                  value={jobsPerPage}
+                  onChange={(e) => handleJobsPerPageChange(e.target.value)}
+                  className="rounded border-outline-variant bg-surface-container-low px-4 py-2 text-label-sm font-bold text-primary focus:border-primary focus:ring-primary"
+                  aria-label="Jobs per page"
+                >
+                  {JOBS_PER_PAGE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -198,17 +250,67 @@ export function JobsSearchPage() {
             </p>
           )}
           {!loading && jobs.length > 0 && (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {jobs.map((job) => (
-                <JobSearchResultCard key={job.slug} job={job} />
-              ))}
-            </div>
-          )}
+            <>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {jobs.map((job) => (
+                  <JobSearchResultCard key={job.slug} job={job} />
+                ))}
+              </div>
 
-          {!loading && jobs.length > 0 && (
-            <div className="flex justify-center py-16">
-              <p className="text-label-sm font-medium text-outline">End of results</p>
-            </div>
+              {pages > 1 && (
+                <nav
+                  className="flex flex-wrap items-center justify-center gap-2 pt-8"
+                  aria-label="Job results pagination"
+                >
+                  <button
+                    type="button"
+                    aria-label="Previous page"
+                    disabled={page <= 1}
+                    onClick={() => goToPage(page - 1)}
+                    className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Icon name="chevron_left" />
+                  </button>
+                  {paginationItems.map((item, index) =>
+                    item === "ellipsis" ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-1 text-label-sm text-outline"
+                        aria-hidden
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        aria-label={`Page ${item}`}
+                        aria-current={page === item ? "page" : undefined}
+                        onClick={() => goToPage(item)}
+                        className={`flex h-10 min-w-10 items-center justify-center rounded px-2 font-label-bold transition-colors ${
+                          page === item
+                            ? "bg-primary text-on-primary"
+                            : "border border-outline-variant hover:bg-surface-container"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Next page"
+                    disabled={page >= pages}
+                    onClick={() => goToPage(page + 1)}
+                    className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Icon name="chevron_right" />
+                  </button>
+                </nav>
+              )}
+
+              <HomeBannerAdsGrid columns={2} className="w-full pt-4" />
+            </>
           )}
         </section>
       </main>

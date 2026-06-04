@@ -2,12 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 
 type JobArtworkBannerProps = {
   artworkUrl: string;
   title: string;
   companyName: string;
   showOverlay: boolean;
+  className?: string;
+  /** Fixed image area height (e.g. when widening without changing vertical size) */
+  imageClassName?: string;
 };
 
 export function JobArtworkBanner({
@@ -15,6 +19,8 @@ export function JobArtworkBanner({
   title,
   companyName,
   showOverlay,
+  className,
+  imageClassName = "aspect-[3/2] w-full",
 }: JobArtworkBannerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -41,10 +47,13 @@ export function JobArtworkBanner({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="group relative block w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest text-left shadow-sm transition-all hover:border-primary hover:shadow-md"
+        className={cn(
+          "group relative block w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest text-left shadow-sm transition-all hover:border-primary hover:shadow-md",
+          className,
+        )}
         aria-label={`View full artwork for ${title}`}
       >
-        <div className="relative h-44 w-full bg-surface-container-low sm:h-48">
+        <div className={cn("relative bg-surface-container-low", imageClassName)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             alt={`${title} artwork`}

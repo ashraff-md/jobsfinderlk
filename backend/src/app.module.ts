@@ -9,6 +9,7 @@ import { CompaniesModule } from './modules/companies/companies.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PlatformAdsModule } from './modules/platform-ads/platform-ads.module';
 import { ImageStorageModule } from './common/storage/image-storage.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { ImageStorageModule } from './common/storage/image-storage.module';
     JobsModule,
     ApplicationsModule,
     AdminModule,
+    PlatformAdsModule,
   ],
   providers: [
     {

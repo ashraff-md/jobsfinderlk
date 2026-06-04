@@ -8,7 +8,8 @@ import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
-import { approveJob, getAdminJobs, rejectJob } from "@/lib/api/admin";
+import { approveJob, getAdminJobStats, getAdminJobs, rejectJob } from "@/lib/api/admin";
+import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
 import type { Job } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -28,14 +29,23 @@ const SOURCE_FILTERS = [
   { value: "GOVERNMENT", label: "Government" },
 ] as const;
 
-function companyInitials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
+const JOBS_PER_PAGE_OPTIONS = [10, 20, 50, 100] as const;
+
+const TABLE_COLUMNS = [
+  "Job Title",
+  "Company",
+  "City",
+  "Status",
+  "Closing Date",
+  "Approved Admin",
+  "Actions",
+] as const;
+
+const stickyActionHeaderClass =
+  "sticky right-0 z-20 min-w-[220px] bg-surface-container-low/50 px-stack-lg py-4 text-right font-label-bold uppercase tracking-wider text-outline shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.12)]";
+
+const stickyActionCellClass =
+  "sticky right-0 z-10 min-w-[220px] bg-surface-container-lowest px-stack-lg py-4 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.08)] group-hover:bg-tertiary-fixed/30";
 
 function reviewHref(job: Job) {
   return `/admin/jobs/${job.id}/review`;
@@ -75,19 +85,24 @@ function statusBadgeClass(status?: string) {
   }
 }
 
-function timeAgo(dateStr?: string | null) {
-  if (!dateStr) return "Recently";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "Today";
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
+function formatApprovedAdmin(job: Job) {
+  if (!job.reviewedBy) return "—";
+  const full = [job.reviewedBy.adminProfile?.firstName, job.reviewedBy.adminProfile?.lastName]
+    .filter(Boolean)
+    .join(" ");
+  if (full) return full;
+  return job.reviewedBy.email.split("@")[0] ?? job.reviewedBy.email;
 }
 
 export function AdminJobsApprovalPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, published: 0 });
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [jobsPerPage, setJobsPerPage] =
+    useState<(typeof JOBS_PER_PAGE_OPTIONS)[number]>(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -101,14 +116,13 @@ export function AdminJobsApprovalPage() {
     return () => window.clearTimeout(timer);
   }, [searchQuery]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, debouncedSearch, sourceFilter]);
+
   const loadStats = useCallback(async () => {
     try {
-      const all = await getAdminJobs();
-      setStats({
-        total: all.length,
-        pending: all.filter((j) => j.status === "PENDING_REVIEW").length,
-        published: all.filter((j) => j.status === "PUBLISHED").length,
-      });
+      setStats(await getAdminJobStats());
     } catch {
       /* stats are non-blocking */
     }
@@ -126,19 +140,29 @@ export function AdminJobsApprovalPage() {
         status: statusFilter,
         q: debouncedSearch,
         source: sourceFilter,
+        page,
+        limit: jobsPerPage,
       });
-      setJobs(data);
+      setJobs(data.items);
+      setTotal(data.total);
+      setPages(data.pages);
+      if (data.total > 0 && page > data.pages) {
+        setPage(data.pages);
+        return;
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push(signInPath("admin"));
         return;
       }
       setJobs([]);
+      setTotal(0);
+      setPages(1);
       setError(err instanceof ApiError ? err.message : "Failed to load jobs.");
     } finally {
       setLoading(false);
     }
-  }, [router, statusFilter, debouncedSearch, sourceFilter]);
+  }, [router, statusFilter, debouncedSearch, sourceFilter, page, jobsPerPage]);
 
   useEffect(() => {
     void loadStats();
@@ -163,6 +187,47 @@ export function AdminJobsApprovalPage() {
     () => statusFilter !== "all" || sourceFilter !== "all" || debouncedSearch.trim().length > 0,
     [statusFilter, sourceFilter, debouncedSearch],
   );
+
+  const resultsRangeLabel = useMemo(() => {
+    if (loading || total === 0) return null;
+    const start = (page - 1) * jobsPerPage + 1;
+    const end = Math.min(page * jobsPerPage, total);
+    return `${start}–${end} of ${total}`;
+  }, [loading, total, page, jobsPerPage]);
+
+  const handleJobsPerPageChange = useCallback((value: string) => {
+    const next = Number(value);
+    if (!JOBS_PER_PAGE_OPTIONS.includes(next as (typeof JOBS_PER_PAGE_OPTIONS)[number])) {
+      return;
+    }
+    setJobsPerPage(next as (typeof JOBS_PER_PAGE_OPTIONS)[number]);
+    setPage(1);
+  }, []);
+
+  const goToPage = useCallback(
+    (nextPage: number) => {
+      setPage(Math.max(1, Math.min(nextPage, pages)));
+    },
+    [pages],
+  );
+
+  const paginationItems = useMemo(() => {
+    if (pages <= 1) return [];
+    if (pages <= 9) {
+      return Array.from({ length: pages }, (_, index) => index + 1);
+    }
+
+    const pageSet = new Set([1, pages, page - 1, page, page + 1]);
+    const sorted = [...pageSet].filter((p) => p >= 1 && p <= pages).sort((a, b) => a - b);
+    const result: (number | "ellipsis")[] = [];
+
+    sorted.forEach((p, index) => {
+      if (index > 0 && p - sorted[index - 1] > 1) result.push("ellipsis");
+      result.push(p);
+    });
+
+    return result;
+  }, [page, pages]);
 
   return (
     <RecruiterAdminShell activeNav="jobs">
@@ -244,6 +309,21 @@ export function AdminJobsApprovalPage() {
                   </option>
                 ))}
               </select>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="whitespace-nowrap text-label-sm text-outline">Jobs per page:</span>
+                <select
+                  value={jobsPerPage}
+                  onChange={(e) => handleJobsPerPageChange(e.target.value)}
+                  className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
+                  aria-label="Jobs per page"
+                >
+                  {JOBS_PER_PAGE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {hasActiveFilters && (
                 <button
                   type="button"
@@ -259,92 +339,181 @@ export function AdminJobsApprovalPage() {
               )}
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-              <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low p-stack-md">
-                <h3 className="font-label-bold">All job listings</h3>
-                <span className="rounded-full bg-secondary-container/20 px-3 py-1 text-label-sm font-label-bold text-secondary">
-                  {loading ? "…" : `${jobs.length} shown`}
+            <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-stack-lg py-stack-md">
+                <h3 className="text-headline-md text-on-surface">Job listings</h3>
+                <span className="rounded-full bg-secondary-container px-3 py-1 text-label-sm font-label-bold text-on-secondary">
+                  {loading
+                    ? "…"
+                    : resultsRangeLabel
+                      ? `Showing ${resultsRangeLabel}`
+                      : "No jobs"}
                 </span>
               </div>
-              <div className="divide-y divide-outline-variant">
-                {loading && (
-                  <p className="p-stack-md text-on-surface-variant">Loading jobs…</p>
-                )}
-                {!loading && jobs.length === 0 && (
-                  <p className="p-stack-md text-center text-on-surface-variant">
-                    {hasActiveFilters
-                      ? "No jobs match your filters."
-                      : "No job listings yet."}
-                  </p>
-                )}
-                {jobs.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group flex items-center gap-6 p-stack-md transition-colors hover:bg-surface-container"
-                  >
-                    <Link
-                      href={reviewHref(item)}
-                      className="flex h-20 w-32 shrink-0 items-center justify-center rounded-lg border border-outline-variant bg-surface-variant font-bold text-primary transition-colors group-hover:border-secondary"
-                    >
-                      {companyInitials(item.company.name)}
-                    </Link>
-                    <Link href={reviewHref(item)} className="min-w-0 flex-1">
-                      <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <span
-                          className={cn(
-                            "rounded px-2 py-0.5 text-[10px] font-bold uppercase",
-                            statusBadgeClass(item.status),
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] border-collapse text-left">
+                  <thead>
+                    <tr className="bg-surface-container-low/50">
+                      {TABLE_COLUMNS.map((h) => (
+                        <th
+                          key={h}
+                          className={
+                            h === "Actions"
+                              ? stickyActionHeaderClass
+                              : "px-stack-lg py-4 font-label-bold uppercase tracking-wider text-outline"
+                          }
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {loading && (
+                      <tr>
+                        <td colSpan={7} className="px-stack-lg py-8 text-on-surface-variant">
+                          Loading jobs…
+                        </td>
+                      </tr>
+                    )}
+                    {!loading && jobs.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-stack-lg py-8 text-on-surface-variant">
+                          {hasActiveFilters
+                            ? "No jobs match your filters."
+                            : "No job listings yet."}
+                        </td>
+                      </tr>
+                    )}
+                    {jobs.map((item) => (
+                      <tr key={item.id} className="group transition-colors hover:bg-tertiary-fixed/30">
+                        <td className="max-w-[280px] px-stack-lg py-4">
+                          <p className="line-clamp-3 font-label-bold" title={item.title}>
+                            {item.title}
+                          </p>
+                          {item.jobSourceType === "GOVERNMENT" && (
+                            <span className="mt-1 inline-block rounded bg-surface-container-highest px-2 py-0.5 text-[10px] font-bold uppercase text-on-surface-variant">
+                              Government
+                            </span>
                           )}
-                        >
-                          {statusLabel(item.status)}
-                        </span>
-                        {item.jobSourceType === "GOVERNMENT" && (
-                          <span className="rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-bold uppercase text-on-surface-variant">
-                            Government
+                        </td>
+                        <td className="px-stack-lg py-4 font-label-bold">{item.company.name}</td>
+                        <td className="px-stack-lg py-4 text-body-md">
+                          {item.city ?? item.location ?? "—"}
+                        </td>
+                        <td className="px-stack-lg py-4">
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-1 text-label-sm font-label-bold",
+                              statusBadgeClass(item.status),
+                            )}
+                          >
+                            {statusLabel(item.status)}
                           </span>
-                        )}
-                      </div>
-                      <h4 className="font-label-bold group-hover:text-secondary">{item.company.name}</h4>
-                      <p className="text-body-md">{item.title}</p>
-                      <p className="mt-2 text-label-sm text-outline">
-                        {item.location ?? item.city ?? "—"} • {timeAgo(item.createdAt)}
-                        {item._count?.applications != null && (
-                          <> • {item._count.applications} applicant{item._count.applications === 1 ? "" : "s"}</>
-                        )}
-                      </p>
-                    </Link>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {item.status === "PENDING_REVIEW" && (
-                        <button
-                          type="button"
-                          disabled={actionId === item.id}
-                          onClick={() => handleModerate(item.id, "reject")}
-                          className="rounded-lg p-2 text-error transition-colors hover:bg-error-container disabled:opacity-50"
-                          aria-label="Reject"
-                        >
-                          <Icon name="block" />
-                        </button>
-                      )}
-                      {item.status === "PUBLISHED" && (
-                        <Link
-                          href={`/jobs/${item.slug}`}
-                          target="_blank"
-                          className="rounded-lg border border-outline-variant p-2 text-on-surface-variant transition-colors hover:text-secondary"
-                          aria-label="View live"
-                        >
-                          <Icon name="open_in_new" />
-                        </Link>
-                      )}
-                      <Link
-                        href={reviewHref(item)}
-                        className="rounded-lg bg-secondary px-4 py-2 font-label-bold text-on-secondary transition-transform hover:scale-95"
-                      >
-                        {item.status === "PENDING_REVIEW" ? "Review" : "View"}
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="px-stack-lg py-4 text-body-md">
+                          {item.applicationDeadline
+                            ? formatJobClosingDate(item.applicationDeadline)
+                            : formatJobClosingDate(null)}
+                        </td>
+                        <td className="px-stack-lg py-4 text-body-md">
+                          {formatApprovedAdmin(item)}
+                        </td>
+                        <td className={stickyActionCellClass}>
+                          <div className="flex justify-end gap-2">
+                            {item.status === "PENDING_REVIEW" && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={actionId === item.id}
+                                  onClick={() => handleModerate(item.id, "reject")}
+                                  className="rounded px-3 py-1.5 text-label-sm font-label-bold text-error hover:bg-error-container disabled:opacity-50"
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={actionId === item.id}
+                                  onClick={() => handleModerate(item.id, "approve")}
+                                  className="rounded bg-secondary px-3 py-1.5 text-label-sm font-label-bold text-on-secondary disabled:opacity-50"
+                                >
+                                  Approve
+                                </button>
+                              </>
+                            )}
+                            {item.status === "PUBLISHED" && (
+                              <Link
+                                href={`/jobs/${item.slug}`}
+                                target="_blank"
+                                className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
+                              >
+                                Live
+                              </Link>
+                            )}
+                            <Link
+                              href={reviewHref(item)}
+                              className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
+                            >
+                              {item.status === "PENDING_REVIEW" ? "Review" : "Details"}
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              {!loading && pages > 1 && (
+                <nav
+                  className="flex flex-wrap items-center justify-center gap-2 border-t border-outline-variant px-stack-lg py-stack-md"
+                  aria-label="Job listings pagination"
+                >
+                  <button
+                    type="button"
+                    aria-label="Previous page"
+                    disabled={page <= 1}
+                    onClick={() => goToPage(page - 1)}
+                    className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Icon name="chevron_left" />
+                  </button>
+                  {paginationItems.map((item, index) =>
+                    item === "ellipsis" ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-1 text-label-sm text-outline"
+                        aria-hidden
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        aria-label={`Page ${item}`}
+                        aria-current={page === item ? "page" : undefined}
+                        onClick={() => goToPage(item)}
+                        className={`flex h-10 min-w-10 items-center justify-center rounded px-2 font-label-bold transition-colors ${
+                          page === item
+                            ? "bg-primary text-on-primary"
+                            : "border border-outline-variant hover:bg-surface-container"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Next page"
+                    disabled={page >= pages}
+                    onClick={() => goToPage(page + 1)}
+                    className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Icon name="chevron_right" />
+                  </button>
+                </nav>
+              )}
             </div>
         </div>
       </AdminPageCanvas>

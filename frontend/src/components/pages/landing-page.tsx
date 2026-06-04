@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
+import { HomeBannerAdsSection } from "@/components/home/home-banner-ads-section";
 import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
@@ -22,6 +24,9 @@ const MARQUEE_COMPANIES = [
 ];
 
 const PREMIUM_SECTORS = ["Banking", "Technology", "Manufacturing", "FMCG"];
+
+const HOME_OPPORTUNITIES_CARDS_PER_SLIDE = 6;
+const HOME_OPPORTUNITIES_SLIDE_COUNT = 3;
 
 const JOB_CATEGORIES = [
   { name: "Information Technology", icon: "computer", count: "1,240", href: "/jobs?q=Information+Technology" },
@@ -83,9 +88,18 @@ export function LandingPage() {
     (async () => {
       setJobsLoading(true);
       try {
-        const data = await searchPublishedJobs({ limit: 24 });
+        const data = await searchPublishedJobs({
+          limit: HOME_OPPORTUNITIES_CARDS_PER_SLIDE * HOME_OPPORTUNITIES_SLIDE_COUNT,
+        });
         if (!cancelled) {
-          setJobSlides(buildJobCardSlides(data.items, 8));
+          setJobSlides(
+            buildJobCardSlides(
+              data.items,
+              HOME_OPPORTUNITIES_CARDS_PER_SLIDE,
+              HOME_OPPORTUNITIES_SLIDE_COUNT,
+              { badgeStyle: "featured-only" },
+            ),
+          );
           setJobSlide(0);
         }
       } catch {
@@ -211,112 +225,124 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Vacancies */}
-        <section className="w-full bg-background px-margin-mobile py-24 md:px-margin-desktop">
-          <div className="mx-auto max-w-container-max">
-            <div className="mb-16 flex flex-col items-baseline justify-between gap-4 md:flex-row">
-              <div className="space-y-2">
-                <h2 className="font-headline-xl text-primary">
-                  High-Caliber <span className="text-secondary">Opportunities</span>
-                </h2>
-                <p className="font-body-md text-on-surface-variant">
-                  Curated roles for established professionals.
-                </p>
-              </div>
-              <Link
-                href="/jobs"
-                className="flex items-center gap-2 font-label-bold text-primary hover:underline"
-              >
-                Explore all executive roles
-                <Icon name="arrow_forward" className="text-[18px]" />
-              </Link>
-            </div>
-
-            {jobsLoading ? (
-              <div className="flex justify-center py-16">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-surface-container border-t-primary" />
-              </div>
-            ) : jobSlides.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-outline-variant py-12 text-center text-on-surface-variant">
-                No published roles yet. Check back soon or{" "}
-                <Link href="/jobs" className="font-label-bold text-secondary hover:underline">
-                  browse all jobs
+        {/* Vacancies + tall promo */}
+        <div className="w-full overflow-x-hidden bg-background px-margin-mobile py-24 md:px-margin-desktop">
+          <div className="mx-auto flex max-w-container-max flex-col items-start gap-8 lg:flex-row">
+            <section className="min-w-0 flex-1">
+              <div className="mb-8 flex flex-col items-baseline justify-between gap-4 md:flex-row">
+                <div className="space-y-2">
+                  <h2 className="font-headline-xl text-primary">
+                    High-Caliber <span className="text-secondary">Opportunities</span>
+                  </h2>
+                  <p className="font-body-md text-on-surface-variant">
+                    Curated roles for established professionals.
+                  </p>
+                </div>
+                <Link
+                  href="/jobs"
+                  className="flex shrink-0 items-center gap-2 font-label-bold text-primary hover:underline"
+                >
+                  Explore all executive roles
+                  <Icon name="arrow_forward" className="text-[18px]" />
                 </Link>
-                .
-              </p>
-            ) : (
-              <div
-                onMouseEnter={() => setJobCarouselPaused(true)}
-                onMouseLeave={() => setJobCarouselPaused(false)}
-              >
-                <div className="overflow-hidden">
-                  <div
-                    className="flex transition-transform duration-500 ease-out"
-                    style={{ transform: `translateX(-${jobSlide * 100}%)` }}
-                  >
-                    {jobSlides.map((slide, slideIndex) => (
-                      <div
-                        key={slideIndex}
-                        className="grid w-full shrink-0 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+              </div>
+
+              {jobsLoading ? (
+                <div className="flex justify-center py-16">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-surface-container border-t-primary" />
+                </div>
+              ) : jobSlides.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-outline-variant py-12 text-center text-on-surface-variant">
+                  No published roles yet. Check back soon or{" "}
+                  <Link href="/jobs" className="font-label-bold text-secondary hover:underline">
+                    browse all jobs
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <div
+                  className="w-full"
+                  onMouseEnter={() => setJobCarouselPaused(true)}
+                  onMouseLeave={() => setJobCarouselPaused(false)}
+                >
+                  <div className="w-full overflow-hidden">
+                    <div
+                      className="flex w-full transition-transform duration-500 ease-out"
+                      style={{ transform: `translateX(-${jobSlide * 100}%)` }}
+                    >
+                      {jobSlides.map((slide, slideIndex) => (
+                        <div
+                          key={slideIndex}
+                          className="grid w-full min-w-full max-w-full shrink-0 basis-full grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3"
+                        >
+                          {slide.map((job) => (
+                            <FeaturedJobCard
+                              key={job.href ?? `${job.title}-${slideIndex}`}
+                              job={job}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {jobSlides.length > 1 && (
+                    <div className="mt-10 flex items-center justify-center gap-4">
+                      <button
+                        type="button"
+                        aria-label="Previous jobs"
+                        onClick={() =>
+                          setJobSlide(
+                            (current) => (current - 1 + jobSlides.length) % jobSlides.length,
+                          )
+                        }
+                        className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
                       >
-                        {slide.map((job) => (
-                          <FeaturedJobCard
-                            key={job.href ?? `${job.title}-${slideIndex}`}
-                            job={job}
+                        <Icon name="chevron_left" />
+                      </button>
+                      <div className="flex items-center gap-2">
+                        {jobSlides.map((_, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            aria-label={`Go to slide ${index + 1}`}
+                            aria-current={jobSlide === index ? "true" : undefined}
+                            onClick={() => setJobSlide(index)}
+                            className={`h-2.5 rounded-full transition-all ${
+                              jobSlide === index
+                                ? "w-8 bg-primary"
+                                : "w-2.5 bg-outline-variant/60 hover:bg-primary/40"
+                            }`}
                           />
                         ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {jobSlides.length > 1 && (
-                  <div className="mt-10 flex items-center justify-center gap-4">
-                    <button
-                      type="button"
-                      aria-label="Previous jobs"
-                      onClick={() =>
-                        setJobSlide(
-                          (current) => (current - 1 + jobSlides.length) % jobSlides.length,
-                        )
-                      }
-                      className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
-                    >
-                      <Icon name="chevron_left" />
-                    </button>
-                    <div className="flex items-center gap-2">
-                      {jobSlides.map((_, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          aria-label={`Go to slide ${index + 1}`}
-                          aria-current={jobSlide === index ? "true" : undefined}
-                          onClick={() => setJobSlide(index)}
-                          className={`h-2.5 rounded-full transition-all ${
-                            jobSlide === index
-                              ? "w-8 bg-primary"
-                              : "w-2.5 bg-outline-variant/60 hover:bg-primary/40"
-                          }`}
-                        />
-                      ))}
+                      <button
+                        type="button"
+                        aria-label="Next jobs"
+                        onClick={() => setJobSlide((current) => (current + 1) % jobSlides.length)}
+                        className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
+                      >
+                        <Icon name="chevron_right" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      aria-label="Next jobs"
-                      onClick={() => setJobSlide((current) => (current + 1) % jobSlides.length)}
-                      className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
-                    >
-                      <Icon name="chevron_right" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </section>
+
+            <aside
+              className="mx-auto w-full max-w-[260px] shrink-0 lg:mx-0 lg:w-[min(100%,260px)]"
+              aria-label="Featured promotion"
+            >
+              <HomeBannerAdsGrid variant="tall" />
+            </aside>
           </div>
-        </section>
+        </div>
+
+        <HomeBannerAdsSection />
 
         {/* Categories */}
-        <section className="w-full bg-surface-container-low px-margin-mobile py-24 md:px-margin-desktop">
+        <section className="w-full bg-surface-container-low px-margin-mobile pb-24 pt-8 md:px-margin-desktop">
           <div className="mx-auto max-w-container-max">
             <div className="mb-12 flex flex-col items-baseline justify-between gap-4 md:flex-row">
               <div className="space-y-2">
@@ -384,80 +410,6 @@ export function LandingPage() {
                 ))}
               </div>
             ))}
-          </div>
-        </section>
-
-        {/* Industry Framework */}
-        <section className="w-full bg-background px-margin-mobile py-24 md:px-margin-desktop">
-          <div className="mx-auto max-w-container-max">
-            <div className="mb-20 space-y-4 text-center">
-              <h2 className="font-headline-xl text-primary">
-                Strategic <span className="text-secondary">Ecosystems</span>
-              </h2>
-              <p className="mx-auto max-w-2xl font-body-md text-on-surface-variant">
-                Precision-targeted talent acquisition across fundamental growth sectors.
-              </p>
-            </div>
-            <div className="grid h-auto grid-cols-1 gap-8 md:h-[500px] md:grid-cols-12">
-              <div className="group relative executive-shadow cursor-pointer overflow-hidden rounded-xl bg-primary p-12 text-on-primary md:col-span-7">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt="Professional workstation"
-                  className="absolute inset-0 h-full w-full object-cover opacity-20 transition-transform duration-1000 group-hover:scale-105"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRYq9D7y8isAmQf4a_-bA1wy61pxxx-Qk1C4sUyF0HqT8zB-aIfwEpFJI2Mo53hN2tjYltcqh-LCry9krgWU5DxEXpgMEVQOUNpX3LzpBT-jVSgPRGzqaS5cNnZuzxrGnesQTQ0Y8ldIHOTMZyqbNVpPyUivdV5dLN8ZBQEJhfKKGb1l8oiffgDN_yraSX_TKdhJL8ix4v144m1b5-xEYiajHG4zHMplU_rFkOXJCeFsFl0FkpBLMry-G7nBTsnwm8HPDOx7feH8o1"
-                />
-                <div className="relative z-10 flex h-full flex-col justify-between">
-                  <div className="max-w-md space-y-6">
-                    <Icon name="terminal" className="text-5xl text-secondary-fixed" />
-                    <h3 className="text-headline-lg font-headline-xl font-extrabold tracking-tight">
-                      Information & Global Technology
-                    </h3>
-                    <p className="font-body-lg text-white/70">
-                      Powering the next decade of digital innovation with the world&apos;s most
-                      capable engineers and visionary tech leaders.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 font-label-bold text-secondary-fixed">
-                    <span>Explore Tech Portfolio</span>
-                    <Icon name="north_east" />
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-rows-2 gap-8 md:col-span-5">
-                <div className="group flex cursor-pointer flex-col justify-between rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-8 transition-all hover:border-primary">
-                  <div className="flex items-start justify-between">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary/5 text-primary">
-                      <Icon name="account_balance" className="text-3xl" />
-                    </div>
-                    <span className="text-sm font-label-bold text-primary/40">450+ Active Briefs</span>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 font-headline-md text-primary">
-                      Banking & Financial Services
-                    </h3>
-                    <p className="text-sm text-on-surface-variant">
-                      Institutional banking, Fintech, and Investment management.
-                    </p>
-                  </div>
-                </div>
-                <div className="group flex cursor-pointer flex-col justify-between rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-8 transition-all hover:border-primary">
-                  <div className="flex items-start justify-between">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary/5 text-primary">
-                      <Icon name="medical_services" className="text-3xl" />
-                    </div>
-                    <span className="text-sm font-label-bold text-primary/40">180+ Active Briefs</span>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 font-headline-md text-primary">
-                      Healthcare & Life Sciences
-                    </h3>
-                    <p className="text-sm text-on-surface-variant">
-                      Senior medical leadership and pharmaceutical excellence.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 

@@ -10,8 +10,10 @@ import {
   CreateCompanyRequestDto,
   MergeCompanyRequestDto,
   RejectCompanyRequestDto,
+  UpdateCompanyRequestDto,
 } from './dto/company-request.dto';
 import { ImageStorageService } from '../../common/storage/image-storage.service';
+import { reviewedByAdminSelect } from '../../common/utils/reviewed-by-admin.select';
 
 function formatCompanyLocation(address?: string, city?: string): string | null {
   const parts = [address?.trim(), city?.trim()].filter(Boolean);
@@ -25,6 +27,24 @@ export class CompanyRequestsService {
     private readonly companiesService: CompaniesService,
     private readonly imageStorage: ImageStorageService,
   ) {}
+
+  private reviewMeta(reviewerId?: string) {
+    const reviewedAt = new Date();
+    return reviewerId
+      ? { reviewedById: reviewerId, reviewedAt }
+      : { reviewedAt };
+  }
+
+  private async markRecruiterReviewed(
+    recruiterUserId: string,
+    reviewerId?: string,
+  ) {
+    if (!reviewerId) return;
+    await this.prisma.user.update({
+      where: { id: recruiterUserId },
+      data: this.reviewMeta(reviewerId),
+    });
+  }
 
   async create(userId: string, dto: CreateCompanyRequestDto) {
     const duplicates = await this.companiesService.findSimilar({
@@ -93,6 +113,67 @@ export class CompanyRequestsService {
     return rows.map((row) => this.imageStorage.withPublicUrls(row));
   }
 
+  async findByIdForAdmin(id: string) {
+    const request = await this.prisma.companyRequest.findUnique({
+      where: { id },
+      include: {
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            createdAt: true,
+            employerUsers: {
+              include: { company: { select: { id: true, name: true, verified: true } } },
+            },
+          },
+        },
+        mergedInto: { select: { id: true, name: true, slug: true, verified: true } },
+        reviewedBy: reviewedByAdminSelect,
+      },
+    });
+    if (!request) throw new NotFoundException('Company request not found');
+
+    return {
+      ...this.imageStorage.withPublicUrls(request),
+      similarCompanies: await this.companiesService.findSimilar({
+        name: request.companyName,
+        website: request.website,
+        emailDomain: request.emailDomain,
+      }),
+    };
+  }
+
+  async listForAdmin(filters?: { status?: CompanyRequestStatus; q?: string }) {
+    const q = filters?.q?.trim();
+    const requests = await this.prisma.companyRequest.findMany({
+      where: {
+        ...(filters?.status ? { status: filters.status } : {}),
+        ...(q
+          ? {
+              OR: [
+                { companyName: { contains: q, mode: 'insensitive' } },
+                { industry: { contains: q, mode: 'insensitive' } },
+                { emailDomain: { contains: q, mode: 'insensitive' } },
+                { city: { contains: q, mode: 'insensitive' } },
+                { location: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        requestedBy: {
+          select: { id: true, email: true },
+        },
+        mergedInto: { select: { id: true, name: true, slug: true, verified: true } },
+        reviewedBy: reviewedByAdminSelect,
+      },
+    });
+
+    return requests.map((request) => this.imageStorage.withPublicUrls(request));
+  }
+
   async listPending() {
     const requests = await this.prisma.companyRequest.findMany({
       where: { status: CompanyRequestStatus.PENDING },
@@ -125,7 +206,76 @@ export class CompanyRequestsService {
     );
   }
 
-  async approve(id: string) {
+  async updateForAdmin(id: string, dto: UpdateCompanyRequestDto) {
+    const request = await this.prisma.companyRequest.findUnique({
+      where: { id },
+    });
+    if (!request) throw new NotFoundException('Company request not found');
+    if (request.status !== CompanyRequestStatus.PENDING) {
+      throw new BadRequestException('Only pending requests can be edited');
+    }
+
+    const address =
+      dto.address !== undefined ? dto.address?.trim() || null : request.address;
+    const city =
+      dto.city !== undefined ? dto.city?.trim() || null : request.city;
+
+    const data: Parameters<typeof this.prisma.companyRequest.update>[0]['data'] =
+      {};
+
+    if (dto.companyName !== undefined) {
+      data.companyName = dto.companyName.trim();
+    }
+    if (dto.industry !== undefined) {
+      data.industry = dto.industry.trim() || null;
+    }
+    if (dto.website !== undefined) {
+      data.website = dto.website?.trim() || null;
+    }
+    if (dto.emailDomain !== undefined) {
+      data.emailDomain = dto.emailDomain?.trim().toLowerCase() || null;
+    }
+    if (dto.address !== undefined) {
+      data.address = address;
+    }
+    if (dto.city !== undefined) {
+      data.city = city;
+    }
+    if (dto.address !== undefined || dto.city !== undefined) {
+      data.location = formatCompanyLocation(
+        address ?? undefined,
+        city ?? undefined,
+      );
+    }
+    if (dto.companyType !== undefined) {
+      data.companyType = dto.companyType?.trim() || null;
+    }
+    if (dto.description !== undefined) {
+      data.description = dto.description?.trim() || null;
+    }
+    if (dto.logoUrl !== undefined) {
+      data.logoUrl = await this.imageStorage.saveOrKeepCompanyLogo(dto.logoUrl);
+    }
+    if (dto.lifeAtCompanyImages !== undefined) {
+      data.lifeAtCompanyImages =
+        await this.imageStorage.saveOrKeepLifeAtCompanyImages(
+          dto.lifeAtCompanyImages,
+        );
+    }
+
+    if (Object.keys(data).length === 0) {
+      return this.findByIdForAdmin(id);
+    }
+
+    await this.prisma.companyRequest.update({
+      where: { id },
+      data,
+    });
+
+    return this.findByIdForAdmin(id);
+  }
+
+  async approve(id: string, reviewerId?: string) {
     const request = await this.prisma.companyRequest.findUnique({
       where: { id },
     });
@@ -152,15 +302,19 @@ export class CompanyRequestsService {
       },
     );
 
+    await this.markRecruiterReviewed(request.requestedById, reviewerId);
+
     const updated = await this.prisma.companyRequest.update({
       where: { id },
       data: {
         status: CompanyRequestStatus.APPROVED,
         mergedIntoId: company.id,
+        ...this.reviewMeta(reviewerId),
       },
       include: {
         mergedInto: true,
         requestedBy: { select: { id: true, email: true } },
+        reviewedBy: reviewedByAdminSelect,
       },
     });
     return {
@@ -171,7 +325,7 @@ export class CompanyRequestsService {
     };
   }
 
-  async merge(id: string, dto: MergeCompanyRequestDto) {
+  async merge(id: string, dto: MergeCompanyRequestDto, reviewerId?: string) {
     const request = await this.prisma.companyRequest.findUnique({
       where: { id },
     });
@@ -190,21 +344,25 @@ export class CompanyRequestsService {
       company.id,
     );
 
+    await this.markRecruiterReviewed(request.requestedById, reviewerId);
+
     return this.prisma.companyRequest.update({
       where: { id },
       data: {
         status: CompanyRequestStatus.MERGED,
         mergedIntoId: company.id,
         reviewNotes: dto.reviewNotes?.trim() || null,
+        ...this.reviewMeta(reviewerId),
       },
       include: {
         mergedInto: true,
         requestedBy: { select: { id: true, email: true } },
+        reviewedBy: reviewedByAdminSelect,
       },
     });
   }
 
-  async reject(id: string, dto: RejectCompanyRequestDto) {
+  async reject(id: string, dto: RejectCompanyRequestDto, reviewerId?: string) {
     const request = await this.prisma.companyRequest.findUnique({
       where: { id },
     });
@@ -213,14 +371,18 @@ export class CompanyRequestsService {
       throw new BadRequestException('Only pending requests can be rejected');
     }
 
+    await this.markRecruiterReviewed(request.requestedById, reviewerId);
+
     return this.prisma.companyRequest.update({
       where: { id },
       data: {
         status: CompanyRequestStatus.REJECTED,
         reviewNotes: dto.reviewNotes?.trim() || null,
+        ...this.reviewMeta(reviewerId),
       },
       include: {
         requestedBy: { select: { id: true, email: true } },
+        reviewedBy: reviewedByAdminSelect,
       },
     });
   }

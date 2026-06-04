@@ -1,5 +1,7 @@
 export type UserRole = "SEEKER" | "EMPLOYER" | "ADMIN" | "MODERATOR";
 
+export type BannerAspectRatio = "RATIO_3_2" | "RATIO_2_5";
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -36,6 +38,15 @@ export type CompanySuggestion = Company & {
   matchType: "exact" | "fuzzy" | "phonetic" | "domain";
 };
 
+export type ReviewedByAdmin = {
+  id: string;
+  email: string;
+  adminProfile?: {
+    firstName?: string | null;
+    lastName?: string | null;
+  } | null;
+};
+
 export type CompanyRequest = {
   id: string;
   companyName: string;
@@ -51,6 +62,8 @@ export type CompanyRequest = {
   lifeAtCompanyImages?: string[];
   status: "PENDING" | "APPROVED" | "REJECTED" | "MERGED";
   reviewNotes?: string | null;
+  reviewedAt?: string | null;
+  reviewedBy?: ReviewedByAdmin | null;
   createdAt: string;
   mergedInto?: Pick<Company, "id" | "name" | "slug" | "verified"> | null;
   requestedBy?: {
@@ -63,6 +76,24 @@ export type CompanyRequest = {
     }>;
   };
   similarCompanies?: CompanySuggestion[];
+};
+
+export type AdminRecruiter = {
+  id: string;
+  userId: string;
+  email: string;
+  fullName?: string | null;
+  title?: string | null;
+  contactNo?: string | null;
+  companyName?: string | null;
+  companyId?: string | null;
+  companyLogoUrl?: string | null;
+  companyVerified: boolean;
+  emailVerified: boolean;
+  verificationStatus: "VERIFIED" | "PENDING" | "UNLINKED";
+  reviewedAt?: string | null;
+  reviewedBy?: ReviewedByAdmin | null;
+  createdAt: string;
 };
 
 export type CompanyDetail = Company & {
@@ -102,8 +133,10 @@ export type Job = {
   createdAt?: string;
   publishedAt?: string | null;
   applicationDeadline?: string | null;
+  reviewedAt?: string | null;
   vacancyArtworkUrl?: string | null;
   company: Company;
+  reviewedBy?: ReviewedByAdmin | null;
   _count?: { applications: number };
 };
 

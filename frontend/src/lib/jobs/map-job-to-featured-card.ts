@@ -6,9 +6,15 @@ import {
   type FeaturedJobCardItem,
 } from "@/lib/jobs/featured-jobs";
 
+export type FeaturedJobCardBadgeStyle = "default" | "featured-only";
+
 export function jobToFeaturedCardItem(
   job: Job,
-  options?: { badge?: string; badgeClass?: string },
+  options?: {
+    badge?: string;
+    badgeClass?: string;
+    badgeStyle?: FeaturedJobCardBadgeStyle;
+  },
 ): FeaturedJobCardItem {
   const location = [job.location, job.city].filter(Boolean).join(" • ");
   const companyLine = location ? `${job.company.name} • ${location}` : job.company.name;
@@ -19,12 +25,19 @@ export function jobToFeaturedCardItem(
     salaryLabel !== "Salary negotiable" ? salaryLabel : null,
   ].filter(Boolean) as string[];
 
+  const badgeStyle = options?.badgeStyle ?? "default";
   const badge =
     options?.badge ??
-    (job.isFeatured ? "Featured" : "Open role");
+    (badgeStyle === "featured-only"
+      ? "Featured"
+      : job.isFeatured
+        ? "Featured"
+        : "Open role");
   const badgeClass =
     options?.badgeClass ??
-    (job.isFeatured ? FEATURED_JOB_BADGE.sponsored : FEATURED_JOB_BADGE.new);
+    (badgeStyle === "featured-only" || job.isFeatured
+      ? FEATURED_JOB_BADGE.sponsored
+      : FEATURED_JOB_BADGE.new);
 
   return {
     badge,
@@ -40,11 +53,18 @@ export function jobToFeaturedCardItem(
 export function buildJobCardSlides(
   jobs: Job[],
   cardsPerSlide = 8,
+  maxSlides?: number,
+  options?: { badgeStyle?: FeaturedJobCardBadgeStyle },
 ): FeaturedJobCardItem[][] {
   if (!jobs.length) return [];
 
-  const cards = jobs.map((job) => jobToFeaturedCardItem(job));
-  const slideCount = Math.max(1, Math.ceil(cards.length / cardsPerSlide));
+  const cardLimit = maxSlides ? maxSlides * cardsPerSlide : jobs.length;
+  const cards = jobs
+    .slice(0, cardLimit)
+    .map((job) => jobToFeaturedCardItem(job, { badgeStyle: options?.badgeStyle }));
+  const slideCount = maxSlides
+    ? Math.min(maxSlides, Math.max(1, Math.ceil(cards.length / cardsPerSlide)))
+    : Math.max(1, Math.ceil(cards.length / cardsPerSlide));
 
   return Array.from({ length: slideCount }, (_, index) =>
     cards.slice(index * cardsPerSlide, index * cardsPerSlide + cardsPerSlide),

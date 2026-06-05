@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
+import { getVerificationStatus } from "@/lib/api/verification";
+import { CompleteRecruiterProfilePrompt } from "@/components/auth/complete-recruiter-profile-prompt";
 import { signInPath } from "@/lib/auth/portal";
 import { createJob } from "@/lib/api/jobs";
 import { CompanyAutocomplete } from "@/components/companies/company-autocomplete";
+import { RecruiterVerificationPanel } from "@/components/auth/recruiter-verification-panel";
 import { JobListingPreview } from "@/components/jobs/job-listing-preview";
 import { JobListingMediaUploader } from "@/components/jobs/job-listing-media-uploader";
 import type { CompanySuggestion } from "@/lib/api/types";
@@ -145,21 +148,69 @@ type PostJobFormProps = {
 export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isAdmin = mode === "admin";
   const signInUrl = signInPath(isAdmin ? "admin" : "employer", pathname);
   const [form, setForm] = useState<PostJobFormValues>(DEFAULT_POST_JOB_VALUES);
   const [selectedCompany, setSelectedCompany] = useState<Pick<
     CompanySuggestion,
-    "logoUrl" | "verified"
+    "logoUrl" | "verified" | "pendingReview"
   > | null>(null);
   const [activeStep, setActiveStep] = useState<string>(FORM_SECTIONS[0].id);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<{ title: string } | null>(null);
+  const [readinessLoading, setReadinessLoading] = useState(!isAdmin);
+  const [profileComplete, setProfileComplete] = useState(isAdmin);
+  const [missingProfileFields, setMissingProfileFields] = useState<
+    Array<"fullName" | "title" | "contactNo" | "company">
+  >([]);
+  const [canPostJobs, setCanPostJobs] = useState(isAdmin);
 
   const patch = useCallback((partial: Partial<PostJobFormValues>) => {
     setForm((prev) => ({ ...prev, ...partial }));
   }, []);
+
+  const companyCreateHref = useMemo(() => {
+    const base = isAdmin ? "/admin/companies" : "/employer/companies/new";
+    const returnTo = encodeURIComponent(pathname);
+    return `${base}?returnTo=${returnTo}`;
+  }, [isAdmin, pathname]);
+
+  useEffect(() => {
+    const companyId = searchParams.get("companyId");
+    const companyName = searchParams.get("companyName");
+    const companyPending = searchParams.get("companyPending") === "1";
+    if (!companyId || !companyName) return;
+    patch({ companyId, companySearch: companyName });
+    setSelectedCompany({
+      logoUrl: null,
+      verified: false,
+      pendingReview: companyPending,
+    });
+  }, [searchParams, patch]);
+
+  useEffect(() => {
+    if (isAdmin) return;
+
+    const token = getAccessToken();
+    if (!token) {
+      setReadinessLoading(false);
+      return;
+    }
+
+    getVerificationStatus(token)
+      .then((status) => {
+        setProfileComplete(status.profileComplete);
+        setMissingProfileFields(status.missingProfileFields);
+        setCanPostJobs(status.canPostJobs);
+      })
+      .catch(() => {
+        setProfileComplete(false);
+        setMissingProfileFields(["fullName", "title", "contactNo"]);
+      })
+      .finally(() => setReadinessLoading(false));
+  }, [isAdmin]);
 
   const scrollToSection = (id: string) => {
     setActiveStep(id);
@@ -253,6 +304,14 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
       router.push(signInUrl);
       return;
     }
+    if (!isAdmin && !profileComplete) {
+      setError("Complete your recruiter profile before posting a vacancy.");
+      return;
+    }
+    if (!isAdmin && !canPostJobs) {
+      setError("Verify your email and phone before posting a vacancy.");
+      return;
+    }
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -323,10 +382,35 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     );
   }
 
+  if (!isAdmin && readinessLoading) {
+    return (
+      <div className="rounded-lg border border-outline-variant bg-surface-container-low p-6 text-body-md text-on-surface-variant">
+        Checking your profile…
+      </div>
+    );
+  }
+
+  if (!isAdmin && !profileComplete) {
+    return <CompleteRecruiterProfilePrompt missingFields={missingProfileFields} />;
+  }
+
   return (
     <div className="flex flex-col gap-gutter lg:flex-row">
+      {!isAdmin && profileComplete ? (
+        <div className="w-full lg:hidden">
+          <RecruiterVerificationPanel
+            compact
+            onVerified={() => setCanPostJobs(true)}
+          />
+        </div>
+      ) : null}
       <aside className="lg:w-1/4">
         <div className="sticky top-28 space-y-6">
+          {!isAdmin && profileComplete ? (
+            <div className="hidden lg:block">
+              <RecruiterVerificationPanel onVerified={() => setCanPostJobs(true)} />
+            </div>
+          ) : null}
           <div>
             <h1 className="text-headline-lg text-primary">Create Job Listing</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
@@ -393,15 +477,25 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
         )}
 
         <Section id="company" icon="corporate_fare" title="1. Company">
+          {selectedCompany?.pendingReview && (
+            <div className="rounded-lg border border-tertiary/30 bg-tertiary-container/30 px-4 py-3 text-body-sm text-on-surface">
+              <p className="font-label-bold text-on-surface">Company pending review</p>
+              <p className="mt-1 text-on-surface-variant">
+                You can continue creating your vacancy while we review the company information.
+              </p>
+            </div>
+          )}
           <CompanyAutocomplete
             value={form.companySearch}
             selectedCompanyId={form.companyId || undefined}
+            selectedPendingReview={Boolean(selectedCompany?.pendingReview)}
             onQueryChange={(companySearch) => patch({ companySearch })}
             onSelect={(company) => {
               patch({ companyId: company.id, companySearch: company.name });
               setSelectedCompany({
                 logoUrl: company.logoUrl,
                 verified: company.verified,
+                pendingReview: company.pendingReview ?? !company.verified,
               });
             }}
             onClear={() => {
@@ -409,7 +503,7 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
               setSelectedCompany(null);
             }}
             required
-            createHref={isAdmin ? "/admin/companies" : "/employer/companies/new"}
+            createHref={companyCreateHref}
           />
           <div className="space-y-2">
             <label className={labelClass} htmlFor="recruiter-role">
@@ -725,7 +819,7 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-outline-variant pt-8">
           <button
             type="button"
-            disabled={submitting}
+            disabled={submitting || (!isAdmin && !canPostJobs)}
             onClick={() => handleSubmit(false)}
             className="rounded-lg px-6 py-3 font-label-bold text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:opacity-60"
           >
@@ -734,7 +828,7 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || (!isAdmin && !canPostJobs)}
               onClick={() => handleSubmit(true)}
               className="rounded-lg bg-primary px-10 py-3 font-label-bold text-on-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
             >

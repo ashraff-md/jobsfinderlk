@@ -2,7 +2,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { JobStatus, Prisma } from '@prisma/client';
+import { JobStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompaniesService } from '../companies/companies.service';
 import {
@@ -12,6 +12,7 @@ import {
 import { detectScamContent, slugify, uniqueSlug } from '../../common/utils/slug.util';
 import { assertValidApplicationDeadline } from '../../common/utils/application-deadline.util';
 import { ImageStorageService } from '../../common/storage/image-storage.service';
+import { VerificationService } from '../auth/verification.service';
 import { CreateJobDto, JobQueryDto } from './dto/job.dto';
 
 function buildJobSlug(
@@ -72,6 +73,7 @@ export class JobsService {
     private readonly prisma: PrismaService,
     private readonly companiesService: CompaniesService,
     private readonly imageStorage: ImageStorageService,
+    private readonly verification: VerificationService,
   ) {}
 
   private mapJobForPublic<
@@ -215,12 +217,20 @@ export class JobsService {
     return this.mapJobForPublic(job);
   }
 
-  async create(userId: string, dto: CreateJobDto) {
+  async create(userId: string, dto: CreateJobDto, userRole?: UserRole) {
     assertValidApplicationDeadline(dto.applicationDeadline);
 
-    const company = await this.companiesService.resolveForJob(userId, {
-      companyId: dto.companyId,
-    });
+    if (userRole === UserRole.EMPLOYER) {
+      await this.verification.assertRecruiterCanPostJobs(userId);
+    }
+
+    const company = await this.companiesService.resolveForJob(
+      userId,
+      {
+        companyId: dto.companyId,
+      },
+      userRole,
+    );
 
     const bodyText = [
       dto.title,
@@ -330,12 +340,16 @@ export class JobsService {
 
     const q = filters?.q?.trim();
     if (q) {
-      where.OR = [
+      const or: Array<Record<string, unknown>> = [
         { title: { contains: q, mode: 'insensitive' } },
         { location: { contains: q, mode: 'insensitive' } },
         { city: { contains: q, mode: 'insensitive' } },
         { company: { name: { contains: q, mode: 'insensitive' } } },
       ];
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) {
+        or.push({ id: q });
+      }
+      where.OR = or;
     }
 
     return where;

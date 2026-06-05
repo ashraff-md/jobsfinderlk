@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { HomeBannerCardCarousel } from "@/components/home/home-banner-card-carousel";
-import {
-  HOME_BANNER_AD,
-  HOME_BANNER_ADS_WIDE,
-  type HomeBannerCard,
-} from "@/lib/home/home-banner-ads";
+import type { HomeBannerCard } from "@/lib/home/home-banner-ads";
 import { loadBannerCards } from "@/lib/platform-ads/load-banners";
 import { cn } from "@/lib/utils";
 
@@ -25,17 +21,6 @@ const ASPECT_BY_VARIANT = {
   tall: "aspect-[2/5]",
 } as const;
 
-const STATIC_FALLBACK: Record<string, readonly HomeBannerCard[]> = {
-  "wide-1": [HOME_BANNER_AD],
-  "wide-2": HOME_BANNER_ADS_WIDE,
-  "tall-1": [HOME_BANNER_AD],
-};
-
-function staticFallback(variant: "wide" | "tall", columns: 1 | 2) {
-  const key = `${variant}-${columns}`;
-  return STATIC_FALLBACK[key] ?? STATIC_FALLBACK["wide-1"];
-}
-
 export function HomeBannerAdsGrid({
   className,
   variant = "wide",
@@ -44,7 +29,7 @@ export function HomeBannerAdsGrid({
 }: HomeBannerAdsGridProps) {
   const aspectClassName = ASPECT_BY_VARIANT[variant];
   const [cards, setCards] = useState<readonly HomeBannerCard[]>(
-    () => cardsProp ?? staticFallback(variant, columns),
+    () => cardsProp ?? [],
   );
 
   useEffect(() => {
@@ -54,13 +39,19 @@ export function HomeBannerAdsGrid({
     }
     let cancelled = false;
     (async () => {
-      const loaded = await loadBannerCards({ variant, columns });
-      if (!cancelled) setCards(loaded);
+      try {
+        const loaded = await loadBannerCards({ variant, columns });
+        if (!cancelled) setCards(loaded);
+      } catch {
+        if (!cancelled) setCards([]);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [variant, columns, cardsProp]);
+
+  if (cards.length === 0) return null;
 
   return (
     <div

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  HOME_BANNER_SLIDE_INTERVAL_MS,
-  type HomeBannerCard,
-} from "@/lib/home/home-banner-ads";
+  BANNER_SLIDE_INTERVAL_MS,
+  BANNER_SLIDES_PER_POSITION,
+} from "@/lib/platform-ads/banner-rotation";
+import type { HomeBannerCard } from "@/lib/home/home-banner-ads";
 import { cn } from "@/lib/utils";
 
 type HomeBannerCardCarouselProps = {
@@ -17,25 +18,32 @@ export function HomeBannerCardCarousel({
   card,
   aspectClassName = "aspect-[3/2]",
 }: HomeBannerCardCarouselProps) {
-  const { slides } = card;
+  const slides = card.slides.slice(0, BANNER_SLIDES_PER_POSITION);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [slides[0]?.imageUrl, slides[1]?.imageUrl, slides[2]?.imageUrl]);
 
   useEffect(() => {
     if (paused || slides.length <= 1) return;
 
     const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % slides.length);
-    }, HOME_BANNER_SLIDE_INTERVAL_MS);
+    }, BANNER_SLIDE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
   }, [paused, slides.length]);
 
-  const active = slides[index];
+  if (slides.length === 0) return null;
+
+  const active = slides[index] ?? slides[0];
 
   return (
     <Link
       href={active.href}
+      aria-label={active.alt}
       className={cn(
         "group relative block w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-sm transition-all hover:border-secondary/50 hover:shadow-md",
         aspectClassName,
@@ -45,6 +53,9 @@ export function HomeBannerCardCarousel({
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
+      <span className="sr-only" aria-live="polite">
+        {active.alt}
+      </span>
       {slides.map((slide, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -74,7 +85,6 @@ export function HomeBannerCardCarousel({
           />
         ))}
       </div>
-      <span className="sr-only">{active.alt}</span>
     </Link>
   );
 }

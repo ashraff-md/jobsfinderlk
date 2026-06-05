@@ -2,10 +2,11 @@ import { apiFetch } from "./client";
 import { getAccessToken } from "./auth";
 import type { Company, CompanyRequest, CompanySuggestion } from "./types";
 
-export async function suggestCompanies(q: string) {
+export async function suggestCompanies(q: string, signal?: AbortSignal) {
   if (!q.trim()) return [] as CompanySuggestion[];
   return apiFetch<CompanySuggestion[]>(
     `/companies/suggest?q=${encodeURIComponent(q.trim())}`,
+    { token: getAccessToken(), signal },
   );
 }
 

@@ -4,8 +4,11 @@ import { mkdir, writeFile } from 'fs/promises';
 import { join, posix } from 'path';
 import { randomUUID } from 'crypto';
 import {
+  BANNER_IMAGE_LIMITS,
+  DEFAULT_IMAGE_LIMITS,
   IMAGE_UPLOAD_FOLDERS,
   MAX_LIFE_AT_IMAGES,
+  type ImageDataLimits,
   type ImageUploadFolder,
 } from './image-storage.constants';
 import { isImageDataUrl, parseImageDataUrl } from './image-data.util';
@@ -53,16 +56,17 @@ export class ImageStorageService implements OnModuleInit {
   async saveDataUrl(
     folder: ImageUploadFolder,
     input?: string | null,
+    limits: ImageDataLimits = DEFAULT_IMAGE_LIMITS,
   ): Promise<string | null> {
     if (!input?.trim()) return null;
 
     const trimmed = input.trim();
-    if (!isImageDataUrl(trimmed)) {
+    if (!isImageDataUrl(trimmed, limits)) {
       if (this.isStoredPath(trimmed)) return trimmed.replace(/^\//, '');
       return null;
     }
 
-    const parsed = parseImageDataUrl(trimmed);
+    const parsed = parseImageDataUrl(trimmed, limits);
     if (!parsed) return null;
 
     const filename = `${randomUUID()}.${parsed.ext}`;
@@ -106,12 +110,13 @@ export class ImageStorageService implements OnModuleInit {
   async saveOrKeepImage(
     folder: ImageUploadFolder,
     input?: string | null,
+    limits: ImageDataLimits = DEFAULT_IMAGE_LIMITS,
   ): Promise<string | null> {
     if (!input?.trim()) return null;
 
     const trimmed = input.trim();
-    if (isImageDataUrl(trimmed)) {
-      return this.saveDataUrl(folder, trimmed);
+    if (isImageDataUrl(trimmed, limits)) {
+      return this.saveDataUrl(folder, trimmed, limits);
     }
 
     const existing = this.extractStoredPath(trimmed);
@@ -124,8 +129,16 @@ export class ImageStorageService implements OnModuleInit {
     return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.companyLogos, input);
   }
 
+  async saveOrKeepRecruiterPhoto(input?: string | null): Promise<string | null> {
+    return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.recruiterPhotos, input);
+  }
+
   async savePlatformBannerImage(input?: string | null): Promise<string | null> {
-    return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.platformBanners, input);
+    return this.saveOrKeepImage(
+      IMAGE_UPLOAD_FOLDERS.platformBanners,
+      input,
+      BANNER_IMAGE_LIMITS,
+    );
   }
 
   async saveOrKeepLifeAtCompanyImages(

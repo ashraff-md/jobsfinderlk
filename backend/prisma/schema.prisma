@@ -35,6 +35,11 @@ enum BannerAspectRatio {
   RATIO_2_5
 }
 
+enum VerificationTokenType {
+  EMAIL
+  PHONE
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -55,6 +60,7 @@ model User {
   reviewedAt    DateTime? @map("reviewed_at")
   reviewedBy    User?     @relation("RecruiterReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
   moderatedRecruiters User[] @relation("RecruiterReviewedBy")
+  verificationTokens VerificationToken[]
 
   @@map("users")
 }
@@ -108,25 +114,44 @@ model Company {
 
   employerUsers   EmployerUser[]
   jobs            Job[]
-  mergedRequests  CompanyRequest[]
+  mergedRequests     CompanyRequest[] @relation("CompanyRequestMerged")
+  placeholderRequest CompanyRequest?  @relation("CompanyRequestPlaceholder")
 
   @@map("companies")
 }
 
 model EmployerUser {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  companyId String   @map("company_id")
-  fullName  String?  @map("full_name")
-  title     String?
-  contactNo String?  @map("contact_no")
-  createdAt DateTime @default(now()) @map("created_at")
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  companyId       String    @map("company_id")
+  fullName        String?   @map("full_name")
+  title           String?
+  contactNo       String?   @map("contact_no")
+  photoUrl        String?   @map("photo_url")
+  phoneVerified   Boolean   @default(false) @map("phone_verified")
+  phoneVerifiedAt DateTime? @map("phone_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, companyId])
   @@map("employer_users")
+}
+
+model VerificationToken {
+  id        String                @id @default(uuid())
+  userId    String                @map("user_id")
+  type      VerificationTokenType
+  target    String
+  codeHash  String                @map("code_hash")
+  expiresAt DateTime              @map("expires_at")
+  createdAt DateTime              @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("verification_tokens")
 }
 
 model CompanyRequest {
@@ -143,17 +168,19 @@ model CompanyRequest {
   logoUrl       String?              @map("logo_url")
   lifeAtCompanyImages String[]       @default([]) @map("life_at_company_images")
   requestedById String               @map("requested_by")
-  status        CompanyRequestStatus @default(PENDING)
-  mergedIntoId  String?              @map("merged_into_id")
-  reviewNotes   String?              @map("review_notes")
-  reviewedById  String?              @map("reviewed_by_id")
-  reviewedAt    DateTime?            @map("reviewed_at")
-  createdAt     DateTime             @default(now()) @map("created_at")
-  updatedAt     DateTime             @updatedAt @map("updated_at")
+  status               CompanyRequestStatus @default(PENDING)
+  placeholderCompanyId String?              @unique @map("placeholder_company_id")
+  mergedIntoId         String?              @map("merged_into_id")
+  reviewNotes            String?              @map("review_notes")
+  reviewedById           String?              @map("reviewed_by_id")
+  reviewedAt             DateTime?            @map("reviewed_at")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
 
-  requestedBy User     @relation(fields: [requestedById], references: [id], onDelete: Cascade)
-  mergedInto  Company? @relation(fields: [mergedIntoId], references: [id], onDelete: SetNull)
-  reviewedBy  User?    @relation("CompanyRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  requestedBy        User     @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  placeholderCompany Company? @relation("CompanyRequestPlaceholder", fields: [placeholderCompanyId], references: [id], onDelete: SetNull)
+  mergedInto         Company? @relation("CompanyRequestMerged", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  reviewedBy         User?    @relation("CompanyRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@map("company_requests")
 }
@@ -237,6 +264,8 @@ model PlatformBannerSlot {
   label       String
   aspectRatio BannerAspectRatio @map("aspect_ratio")
   active      Boolean           @default(true)
+  startsAt    DateTime          @map("starts_at")
+  endsAt      DateTime          @map("ends_at")
   sortOrder   Int               @default(0) @map("sort_order")
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
@@ -262,11 +291,32 @@ model PlatformBannerSlide {
   @@map("platform_banner_slides")
 }
 
+model PlatformBannerCampaign {
+  id          String            @id @default(uuid())
+  label       String
+  aspectRatio BannerAspectRatio @map("aspect_ratio")
+  href        String            @default("/jobs")
+  imageUrl    String?           @map("image_url")
+  alt         String            @default("")
+  active      Boolean           @default(true)
+  startsAt    DateTime          @map("starts_at")
+  endsAt      DateTime          @map("ends_at")
+  sortOrder   Int               @default(0) @map("sort_order")
+  viewCount   Int               @default(0) @map("view_count")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@map("platform_banner_campaigns")
+}
+
 model SponsoredAd {
   id        String   @id @default(uuid())
   jobId     String   @unique @map("job_id")
   sortOrder Int      @default(0) @map("sort_order")
   active    Boolean  @default(true)
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  viewCount Int      @default(0) @map("view_count")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

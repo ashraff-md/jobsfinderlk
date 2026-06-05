@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "platform_banner_slots" ADD COLUMN "starts_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "platform_banner_slots" ADD COLUMN "ends_at" TIMESTAMP(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days');

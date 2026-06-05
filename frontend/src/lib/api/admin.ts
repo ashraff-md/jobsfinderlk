@@ -203,8 +203,44 @@ export type AdminBannerSlot = {
   label: string;
   aspectRatio: BannerAspectRatio;
   active: boolean;
+  startsAt: string;
+  endsAt: string;
   sortOrder: number;
   slides: AdminBannerSlide[];
+};
+
+export type AdminBannerCampaign = {
+  id: string;
+  label: string;
+  aspectRatio: BannerAspectRatio;
+  href: string;
+  imageUrl?: string | null;
+  alt: string;
+  active: boolean;
+  startsAt: string;
+  endsAt: string;
+  sortOrder: number;
+  viewCount: number;
+};
+
+export type CreateAdminBannerCampaignBody = {
+  aspectRatio: BannerAspectRatio;
+  label?: string;
+  href: string;
+  imageUrl: string;
+  alt?: string;
+  startsAt: string;
+  promotionDays: PromotionPeriodDays;
+};
+
+export type UpdateAdminBannerCampaignBody = {
+  label?: string;
+  href?: string;
+  imageUrl?: string;
+  alt?: string;
+  startsAt?: string;
+  promotionDays?: PromotionPeriodDays;
+  active?: boolean;
 };
 
 export type AdminSponsoredAd = {
@@ -212,7 +248,24 @@ export type AdminSponsoredAd = {
   jobId: string;
   sortOrder: number;
   active: boolean;
+  viewCount: number;
+  startsAt: string;
+  endsAt: string;
   job: Job;
+};
+
+export type PromotionPeriodDays = 3 | 5 | 7 | 14 | 30;
+
+export type CreateAdminSponsoredAdBody = {
+  jobId: string;
+  startsAt: string;
+  promotionDays: PromotionPeriodDays;
+};
+
+export type UpdateAdminSponsoredAdBody = {
+  startsAt?: string;
+  promotionDays?: PromotionPeriodDays;
+  active?: boolean;
 };
 
 export async function getAdminBannerSlots(aspectRatio?: BannerAspectRatio) {
@@ -224,12 +277,57 @@ export async function getAdminBannerSlots(aspectRatio?: BannerAspectRatio) {
 
 export async function updateAdminBannerSlot(
   id: string,
-  body: { label?: string; active?: boolean; slides?: AdminBannerSlide[] },
+  body: {
+    label?: string;
+    active?: boolean;
+    startsAt?: string;
+    promotionDays?: PromotionPeriodDays;
+    slides?: AdminBannerSlide[];
+  },
 ) {
   return apiFetch<AdminBannerSlot>(`/admin/platform-ads/banner-slots/${id}`, {
     method: "PATCH",
     token: getAccessToken(),
     body: JSON.stringify(body),
+  });
+}
+
+export async function getAdminBannerCampaigns(aspectRatio?: BannerAspectRatio) {
+  const query = aspectRatio ? `?aspectRatio=${aspectRatio}` : "";
+  return apiFetch<AdminBannerCampaign[]>(`/admin/platform-ads/banner-campaigns${query}`, {
+    token: getAccessToken(),
+  });
+}
+
+export async function getAdminBannerCampaign(id: string) {
+  return apiFetch<AdminBannerCampaign>(`/admin/platform-ads/banner-campaigns/${id}`, {
+    token: getAccessToken(),
+  });
+}
+
+export async function createAdminBannerCampaign(body: CreateAdminBannerCampaignBody) {
+  return apiFetch<AdminBannerCampaign[]>("/admin/platform-ads/banner-campaigns", {
+    method: "POST",
+    token: getAccessToken(),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateAdminBannerCampaign(
+  id: string,
+  body: UpdateAdminBannerCampaignBody,
+) {
+  return apiFetch<AdminBannerCampaign>(`/admin/platform-ads/banner-campaigns/${id}`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteAdminBannerCampaign(id: string) {
+  return apiFetch<AdminBannerCampaign[]>(`/admin/platform-ads/banner-campaigns/${id}`, {
+    method: "DELETE",
+    token: getAccessToken(),
   });
 }
 
@@ -239,11 +337,11 @@ export async function getAdminSponsoredAds() {
   });
 }
 
-export async function createAdminSponsoredAd(jobId: string) {
+export async function createAdminSponsoredAd(body: CreateAdminSponsoredAdBody) {
   return apiFetch<AdminSponsoredAd[]>("/admin/platform-ads/sponsored", {
     method: "POST",
     token: getAccessToken(),
-    body: JSON.stringify({ jobId }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -255,11 +353,11 @@ export async function reorderAdminSponsoredAds(jobIds: string[]) {
   });
 }
 
-export async function patchAdminSponsoredAd(id: string, active: boolean) {
+export async function updateAdminSponsoredAd(id: string, body: UpdateAdminSponsoredAdBody) {
   return apiFetch<AdminSponsoredAd[]>(`/admin/platform-ads/sponsored/${id}`, {
     method: "PATCH",
     token: getAccessToken(),
-    body: JSON.stringify({ active }),
+    body: JSON.stringify(body),
   });
 }
 

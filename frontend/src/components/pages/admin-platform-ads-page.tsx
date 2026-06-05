@@ -1,242 +1,192 @@
 "use client";
 
-import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminAdTypeModal } from "@/components/admin/platform-ads/admin-ad-type-modal";
+import { CampaignStatusBadge } from "@/components/admin/platform-ads/campaign-status-badge";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import {
-  createAdminSponsoredAd,
-  deleteAdminSponsoredAd,
-  getAdminBannerSlots,
-  getAdminJobs,
+  getAdminBannerCampaigns,
   getAdminSponsoredAds,
-  patchAdminSponsoredAd,
-  reorderAdminSponsoredAds,
-  updateAdminBannerSlot,
-  type AdminBannerSlot,
-  type AdminBannerSlide,
+  type AdminBannerCampaign,
   type AdminSponsoredAd,
 } from "@/lib/api/admin";
-import type { BannerAspectRatio, Job } from "@/lib/api/types";
-import { buildCompanyLogoDraft } from "@/lib/companies/company-logo";
+import type { CampaignStatus, PlatformCampaignRow } from "@/lib/platform-ads/admin-config";
+import {
+  formatPromotionEndDate,
+  formatScheduleRange,
+  sponsoredScheduleStatus,
+} from "@/lib/platform-ads/sponsored-schedule";
 import { cn } from "@/lib/utils";
 
-type AdsTab = "wide" | "tall" | "sponsored";
-
-const TAB_ASPECT: Record<Exclude<AdsTab, "sponsored">, BannerAspectRatio> = {
-  wide: "RATIO_3_2",
-  tall: "RATIO_2_5",
-};
-
-const TAB_LABELS: Record<AdsTab, string> = {
-  wide: "Banner ads (3:2)",
-  tall: "Banner ads (2:5)",
-  sponsored: "Sponsored jobs",
-};
-
-function emptySlide(): AdminBannerSlide {
-  return { href: "/jobs", alt: "", imageUrl: "" };
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
-function normalizeSlides(slides: AdminBannerSlide[]): AdminBannerSlide[] {
-  const sorted = [...slides].sort((a, b) => (a as { sortOrder?: number }).sortOrder ?? 0);
-  while (sorted.length < 3) sorted.push(emptySlide());
-  return sorted.slice(0, 3);
+function formatViews(count: number) {
+  return count.toLocaleString();
 }
+
+function buildCampaignRows(
+  bannerCampaigns: AdminBannerCampaign[],
+  sponsored: AdminSponsoredAd[],
+): PlatformCampaignRow[] {
+  const bannerRows: PlatformCampaignRow[] = bannerCampaigns.map((campaign) => ({
+    id: campaign.id,
+    advertiser: campaign.label,
+    sublabel: campaign.alt || "Banner campaign",
+    initials: initials(campaign.label),
+    adType: campaign.aspectRatio === "RATIO_3_2" ? "Banner 3x2" : "Banner 2x5",
+    status: sponsoredScheduleStatus(campaign.startsAt, campaign.endsAt, campaign.active),
+    timeline: formatScheduleRange(campaign.startsAt, campaign.endsAt),
+    promotionEndDate: formatPromotionEndDate(campaign.endsAt),
+    views: campaign.viewCount ?? 0,
+    ctr: "—",
+    editHref: `/admin/platform-ads/new?type=${campaign.aspectRatio === "RATIO_3_2" ? "wide" : "tall"}&bannerCampaignId=${campaign.id}`,
+  }));
+
+  const sponsoredRows: PlatformCampaignRow[] = sponsored.map((ad) => ({
+    id: ad.id,
+    advertiser: ad.job.company.name,
+    sublabel: `Job · ${ad.job.title.slice(0, 40)}${ad.job.title.length > 40 ? "…" : ""}`,
+    initials: initials(ad.job.company.name),
+    adType: "Sponsored",
+    status: sponsoredScheduleStatus(ad.startsAt, ad.endsAt, ad.active),
+    timeline: formatScheduleRange(ad.startsAt, ad.endsAt),
+    promotionEndDate: formatPromotionEndDate(ad.endsAt),
+    views: ad.viewCount ?? 0,
+    ctr: "—",
+    editHref: `/admin/platform-ads/new?type=sponsored&sponsoredId=${ad.id}&jobId=${ad.jobId}`,
+  }));
+
+  return [...sponsoredRows, ...bannerRows];
+}
+
+const AD_TYPE_FILTERS = [
+  { value: "all", label: "All ad types" },
+  { value: "Banner 3x2", label: "Banner 3×2" },
+  { value: "Banner 2x5", label: "Banner 2×5" },
+  { value: "Sponsored", label: "Sponsored" },
+] as const;
+
+const STATUS_FILTERS = [
+  { value: "all", label: "All statuses" },
+  { value: "Active", label: "Active" },
+  { value: "Scheduled", label: "Scheduled" },
+  { value: "Inactive", label: "Inactive" },
+] as const;
+
+const STAT_CARDS = [
+  { icon: "campaign", iconClass: "bg-secondary-container text-white", label: "Active campaigns" },
+  { icon: "visibility", iconClass: "bg-surface-container text-secondary", label: "Total impressions", sub: "Past 30 days" },
+  { icon: "ads_click", iconClass: "bg-surface-container text-secondary", label: "Average CTR", sub: "Standard performance" },
+  { icon: "payments", iconClass: "bg-primary-container text-white", label: "Revenue (LKR)", sub: "Projected: 28K" },
+] as const;
+
+const TABLE_COLUMNS = [
+  "Advertiser",
+  "Ad Type",
+  "Status",
+  "Timeline",
+  "Promotion end",
+  "Views",
+  "CTR",
+  "",
+] as const;
 
 export function AdminPlatformAdsPage() {
-  const [tab, setTab] = useState<AdsTab>("wide");
-  const [slots, setSlots] = useState<AdminBannerSlot[]>([]);
+  const [bannerCampaigns, setBannerCampaigns] = useState<AdminBannerCampaign[]>([]);
   const [sponsored, setSponsored] = useState<AdminSponsoredAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
-  const [draftSlides, setDraftSlides] = useState<AdminBannerSlide[]>([]);
-  const [savingSlot, setSavingSlot] = useState(false);
-  const [jobQuery, setJobQuery] = useState("");
-  const [jobResults, setJobResults] = useState<Job[]>([]);
-  const [jobSearchLoading, setJobSearchLoading] = useState(false);
-  const [sponsoredBusy, setSponsoredBusy] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [adTypeFilter, setAdTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [adTypeModalOpen, setAdTypeModalOpen] = useState(false);
 
-  const loadBanners = useCallback(async (aspect: BannerAspectRatio) => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getAdminBannerSlots(aspect);
-      setSlots(data);
+      const [banners, ads] = await Promise.all([
+        getAdminBannerCampaigns(),
+        getAdminSponsoredAds(),
+      ]);
+      setBannerCampaigns(banners);
+      setSponsored(ads);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load banner slots");
-      setSlots([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadSponsored = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getAdminSponsoredAds();
-      setSponsored(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load sponsored ads");
-      setSponsored([]);
+      setError(e instanceof Error ? e.message : "Failed to load platform ads");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (tab === "sponsored") {
-      void loadSponsored();
-      return;
-    }
-    void loadBanners(TAB_ASPECT[tab]);
-  }, [tab, loadBanners, loadSponsored]);
+    void loadAll();
+  }, [loadAll]);
 
-  const startEditSlot = (slot: AdminBannerSlot) => {
-    setEditingSlotId(slot.id);
-    setDraftSlides(normalizeSlides(slot.slides));
-  };
+  const campaigns = useMemo(
+    () => buildCampaignRows(bannerCampaigns, sponsored),
+    [bannerCampaigns, sponsored],
+  );
 
-  const saveSlot = async (slot: AdminBannerSlot) => {
-    setSavingSlot(true);
-    setError(null);
-    try {
-      const updated = await updateAdminBannerSlot(slot.id, {
-        slides: draftSlides.map((slide) => ({
-          href: slide.href,
-          alt: slide.alt,
-          imageUrl: slide.imageUrl ?? undefined,
-        })),
-      });
-      setSlots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-      setEditingSlotId(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save banner");
-    } finally {
-      setSavingSlot(false);
-    }
-  };
+  const filteredCampaigns = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return campaigns.filter((c) => {
+      if (adTypeFilter !== "all" && c.adType !== adTypeFilter) return false;
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        c.advertiser.toLowerCase().includes(q) ||
+        c.sublabel.toLowerCase().includes(q) ||
+        c.adType.toLowerCase().includes(q) ||
+        c.promotionEndDate.toLowerCase().includes(q)
+      );
+    });
+  }, [campaigns, searchQuery, adTypeFilter, statusFilter]);
 
-  const toggleSlotActive = async (slot: AdminBannerSlot) => {
-    try {
-      const updated = await updateAdminBannerSlot(slot.id, { active: !slot.active });
-      setSlots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update slot");
-    }
-  };
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 || adTypeFilter !== "all" || statusFilter !== "all";
 
-  const onSlideImage = async (index: number, file: File) => {
-    try {
-      const draft = await buildCompanyLogoDraft(file);
-      setDraftSlides((prev) => {
-        const next = [...prev];
-        next[index] = { ...next[index], imageUrl: draft.dataUrl };
-        return next;
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Invalid image");
-    }
-  };
-
-  const searchJobs = async () => {
-    const q = jobQuery.trim();
-    if (q.length < 2) return;
-    setJobSearchLoading(true);
-    try {
-      const res = await getAdminJobs({ q, status: "PUBLISHED", limit: 8 });
-      const sponsoredIds = new Set(sponsored.map((a) => a.jobId));
-      setJobResults(res.items.filter((j) => !sponsoredIds.has(j.id)));
-    } catch {
-      setJobResults([]);
-    } finally {
-      setJobSearchLoading(false);
-    }
-  };
-
-  const addSponsored = async (jobId: string) => {
-    setSponsoredBusy(true);
-    setError(null);
-    try {
-      const list = await createAdminSponsoredAd(jobId);
-      setSponsored(list);
-      setJobResults((prev) => prev.filter((j) => j.id !== jobId));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not add sponsored job");
-    } finally {
-      setSponsoredBusy(false);
-    }
-  };
-
-  const moveSponsored = async (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= sponsored.length) return;
-    const jobIds = sponsored.map((a) => a.jobId);
-    [jobIds[index], jobIds[target]] = [jobIds[target], jobIds[index]];
-    setSponsoredBusy(true);
-    try {
-      const list = await reorderAdminSponsoredAds(jobIds);
-      setSponsored(list);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not reorder");
-    } finally {
-      setSponsoredBusy(false);
-    }
-  };
-
-  const toggleSponsoredActive = async (ad: AdminSponsoredAd) => {
-    setSponsoredBusy(true);
-    try {
-      const list = await patchAdminSponsoredAd(ad.id, !ad.active);
-      setSponsored(list);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update sponsored ad");
-    } finally {
-      setSponsoredBusy(false);
-    }
-  };
-
-  const removeSponsored = async (id: string) => {
-    setSponsoredBusy(true);
-    try {
-      const list = await deleteAdminSponsoredAd(id);
-      setSponsored(list);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not remove sponsored ad");
-    } finally {
-      setSponsoredBusy(false);
-    }
-  };
+  const activeCount = campaigns.filter((c) => c.status === "Active").length;
+  const totalViews = campaigns.reduce((sum, c) => sum + c.views, 0);
 
   return (
     <RecruiterAdminShell activeNav="platform-ads">
+      <AdminAdTypeModal open={adTypeModalOpen} onClose={() => setAdTypeModalOpen(false)} />
       <AdminPageCanvas className="md:px-margin-desktop">
-        <div className="mb-stack-lg">
-          <h1 className="text-headline-lg tracking-tight text-primary">Platform Ads</h1>
-          <p className="mt-1 text-body-md text-on-surface-variant">
-            Manage homepage and jobs page banner carousels (3 slides each) and sponsored job
-            placements.
-          </p>
-        </div>
-
-        <div className="mb-stack-md flex flex-wrap gap-2 border-b border-outline-variant pb-4">
-          {(Object.keys(TAB_LABELS) as AdsTab[]).map((key) => (
+        <div className="mb-stack-lg flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h1 className="text-headline-lg tracking-tight text-on-surface">
+              Ads Performance Overview
+            </h1>
+            <p className="mt-1 text-body-md text-on-surface-variant">
+              Real-time metrics for current advertising inventory.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              key={key}
               type="button"
-              onClick={() => setTab(key)}
-              className={cn(
-                "rounded-lg px-4 py-2 text-label-sm font-bold transition-colors",
-                tab === key
-                  ? "bg-primary text-on-primary"
-                  : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container",
-              )}
+              className="rounded-lg border border-secondary bg-surface-container-lowest px-6 py-2.5 font-label-bold text-secondary transition-colors hover:bg-surface-container"
             >
-              {TAB_LABELS[key]}
+              Generate Revenue Report
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setAdTypeModalOpen(true)}
+              className="flex items-center rounded-lg bg-secondary px-6 py-2.5 font-label-bold text-on-secondary shadow-sm transition-opacity hover:opacity-90"
+            >
+              <Icon name="add" className="mr-2 text-[18px]" />
+              Create New Ad Campaign
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -245,289 +195,184 @@ export function AdminPlatformAdsPage() {
           </p>
         )}
 
-        {loading ? (
-          <p className="text-body-md text-on-surface-variant">Loading…</p>
-        ) : tab === "sponsored" ? (
-          <div className="space-y-stack-lg">
-            <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6">
-              <h2 className="mb-4 text-title-md text-primary">Add sponsored job</h2>
-              <div className="flex flex-wrap gap-3">
-                <input
-                  type="search"
-                  value={jobQuery}
-                  onChange={(e) => setJobQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void searchJobs()}
-                  placeholder="Search published jobs by title…"
-                  className="min-w-[240px] flex-1 rounded-lg border border-outline-variant bg-surface-bright px-4 py-2 text-body-md"
-                />
-                <button
-                  type="button"
-                  disabled={jobSearchLoading}
-                  onClick={() => void searchJobs()}
-                  className="rounded-lg bg-primary px-5 py-2 font-label-bold text-on-primary disabled:opacity-50"
-                >
-                  Search
-                </button>
+        <div className="mb-4 grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-4">
+          {STAT_CARDS.map((card, index) => (
+            <div
+              key={card.label}
+              className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-colors hover:border-secondary"
+            >
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg">
+                <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", card.iconClass)}>
+                  <Icon name={card.icon} className="text-[22px]" />
+                </div>
               </div>
-              {jobResults.length > 0 && (
-                <ul className="mt-4 divide-y divide-outline-variant rounded-lg border border-outline-variant">
-                  {jobResults.map((job) => (
-                    <li
-                      key={job.id}
-                      className="flex items-center justify-between gap-4 px-4 py-3"
-                    >
-                      <div>
-                        <p className="font-label-bold text-primary">{job.title}</p>
-                        <p className="text-label-sm text-on-surface-variant">
-                          {job.company.name}
-                          {job.city ? ` · ${job.city}` : ""}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={sponsoredBusy}
-                        onClick={() => void addSponsored(job.id)}
-                        className="rounded-lg border border-primary px-3 py-1.5 text-label-sm font-bold text-primary hover:bg-primary/5 disabled:opacity-50"
-                      >
-                        Add
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              <p className="text-[11px] font-label-bold uppercase tracking-wider text-on-surface-variant">
+                {card.label}
+              </p>
+              <h3 className="text-headline-md font-bold text-on-surface">
+                {index === 0
+                  ? String(activeCount)
+                  : index === 1
+                    ? formatViews(totalViews)
+                    : index === 2
+                      ? "4.2%"
+                      : "24,500"}
+              </h3>
+              {"sub" in card && card.sub && (
+                <p className="mt-2 text-label-sm italic text-on-surface-variant">{card.sub}</p>
               )}
             </div>
+          ))}
+        </div>
 
-            <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-outline-variant bg-surface-container-low">
-                    {["Job", "Company", "Order", "Active", "Actions"].map((h) => (
-                      <th
-                        key={h}
-                        className="px-6 py-4 text-label-sm uppercase tracking-widest text-on-surface-variant"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant">
-                  {sponsored.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-body-md text-on-surface-variant">
-                        No sponsored jobs yet. Search above to add published listings.
-                      </td>
-                    </tr>
-                  ) : (
-                    sponsored.map((ad, index) => (
-                      <tr key={ad.id} className="hover:bg-surface-container-low">
-                        <td className="px-6 py-4 font-label-bold text-primary">{ad.job.title}</td>
-                        <td className="px-6 py-4 text-body-sm">{ad.job.company.name}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              disabled={sponsoredBusy || index === 0}
-                              onClick={() => void moveSponsored(index, -1)}
-                              className="rounded p-1 hover:bg-surface-container disabled:opacity-30"
-                              aria-label="Move up"
-                            >
-                              <Icon name="arrow_upward" className="text-[18px]" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={sponsoredBusy || index === sponsored.length - 1}
-                              onClick={() => void moveSponsored(index, 1)}
-                              className="rounded p-1 hover:bg-surface-container disabled:opacity-30"
-                              aria-label="Move down"
-                            >
-                              <Icon name="arrow_downward" className="text-[18px]" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            type="button"
-                            disabled={sponsoredBusy}
-                            onClick={() => void toggleSponsoredActive(ad)}
-                            className={cn(
-                              "rounded-full px-3 py-1 text-label-sm font-bold",
-                              ad.active
-                                ? "bg-secondary/15 text-secondary"
-                                : "bg-surface-container text-on-surface-variant",
-                            )}
-                          >
-                            {ad.active ? "On" : "Off"}
-                          </button>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            type="button"
-                            disabled={sponsoredBusy}
-                            onClick={() => void removeSponsored(ad.id)}
-                            className="text-label-sm font-bold text-error hover:underline disabled:opacity-50"
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+        <div className="mb-gutter flex flex-nowrap items-center gap-3 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+          <div className="relative min-w-[min(100%,280px)] flex-1">
+            <Icon
+              name="search"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-outline"
+            />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search campaigns, advertisers…"
+              className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 font-body-md outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+            />
+          </div>
+          <select
+            value={adTypeFilter}
+            onChange={(e) => setAdTypeFilter(e.target.value)}
+            className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
+            aria-label="Filter by ad type"
+          >
+            {AD_TYPE_FILTERS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
+            aria-label="Filter by status"
+          >
+            {STATUS_FILTERS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setAdTypeFilter("all");
+                setStatusFilter("all");
+              }}
+              className="shrink-0 font-label-bold text-secondary hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+          <div className="flex items-center justify-between border-b border-outline-variant p-6">
+            <h2 className="text-xl font-bold text-on-surface">Campaign Management</h2>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-secondary-container/20 px-3 py-1 text-label-sm font-label-bold text-secondary">
+                {loading ? "…" : `${filteredCampaigns.length} shown`}
+              </span>
+              <button type="button" className="rounded-lg p-2 hover:bg-surface-container" aria-label="Export">
+                <Icon name="download" className="text-on-surface-variant" />
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {slots.map((slot) => (
-              <div
-                key={slot.id}
-                className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6"
-              >
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-title-md text-primary">{slot.label}</h2>
-                    <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                      {slot.key}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void toggleSlotActive(slot)}
-                      className={cn(
-                        "rounded-full px-3 py-1 text-label-sm font-bold",
-                        slot.active
-                          ? "bg-secondary/15 text-secondary"
-                          : "bg-surface-container text-on-surface-variant",
-                      )}
-                    >
-                      {slot.active ? "Slot active" : "Slot inactive"}
-                    </button>
-                    {editingSlotId !== slot.id ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-surface-container-low text-xs font-label-bold uppercase tracking-wider text-on-surface-variant">
+                <tr>
+                  {TABLE_COLUMNS.map((h) => (
+                    <th key={h || "actions"} className="px-6 py-4">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {loading ? (
+                  <tr>
+                    <td colSpan={TABLE_COLUMNS.length} className="px-6 py-10 text-on-surface-variant">
+                      Loading campaigns…
+                    </td>
+                  </tr>
+                ) : filteredCampaigns.length === 0 ? (
+                  <tr>
+                    <td colSpan={TABLE_COLUMNS.length} className="px-6 py-10 text-on-surface-variant">
+                      No campaigns match your filters.{" "}
                       <button
                         type="button"
-                        onClick={() => startEditSlot(slot)}
-                        className="rounded-lg bg-primary px-4 py-2 font-label-bold text-on-primary"
+                        onClick={() => setAdTypeModalOpen(true)}
+                        className="font-label-bold text-secondary hover:underline"
                       >
-                        Edit slides
+                        Create one
                       </button>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          disabled={savingSlot}
-                          onClick={() => void saveSlot(slot)}
-                          className="rounded-lg bg-primary px-4 py-2 font-label-bold text-on-primary disabled:opacity-50"
-                        >
-                          {savingSlot ? "Saving…" : "Save"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingSlotId(null)}
-                          className="rounded-lg border border-outline-variant px-4 py-2 font-label-bold"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {editingSlotId === slot.id ? (
-                  <div className="grid gap-6 md:grid-cols-3">
-                    {draftSlides.map((slide, slideIndex) => (
-                      <div
-                        key={slideIndex}
-                        className="space-y-3 rounded-lg border border-outline-variant p-4"
-                      >
-                        <p className="text-label-sm font-bold uppercase text-on-surface-variant">
-                          Slide {slideIndex + 1}
-                        </p>
-                        {slide.imageUrl ? (
-                          <div className="relative aspect-[3/2] overflow-hidden rounded-lg bg-surface-container">
-                            <Image
-                              src={slide.imageUrl}
-                              alt=""
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex aspect-[3/2] items-center justify-center rounded-lg bg-surface-container text-label-sm text-on-surface-variant">
-                            No image
-                          </div>
-                        )}
-                        <label className="block">
-                          <span className="text-label-sm text-on-surface-variant">Image</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="mt-1 block w-full text-label-sm"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) void onSlideImage(slideIndex, file);
-                            }}
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-label-sm text-on-surface-variant">Link (href)</span>
-                          <input
-                            value={slide.href}
-                            onChange={(e) =>
-                              setDraftSlides((prev) => {
-                                const next = [...prev];
-                                next[slideIndex] = { ...next[slideIndex], href: e.target.value };
-                                return next;
-                              })
-                            }
-                            className="mt-1 w-full rounded border border-outline-variant px-3 py-2 text-body-sm"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-label-sm text-on-surface-variant">Alt text</span>
-                          <input
-                            value={slide.alt}
-                            onChange={(e) =>
-                              setDraftSlides((prev) => {
-                                const next = [...prev];
-                                next[slideIndex] = { ...next[slideIndex], alt: e.target.value };
-                                return next;
-                              })
-                            }
-                            className="mt-1 w-full rounded border border-outline-variant px-3 py-2 text-body-sm"
-                          />
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                      .
+                    </td>
+                  </tr>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    {normalizeSlides(slot.slides).map((slide, i) => (
-                      <div key={i} className="overflow-hidden rounded-lg border border-outline-variant">
-                        {slide.imageUrl ? (
-                          <div className="relative aspect-[3/2]">
-                            <Image
-                              src={slide.imageUrl}
-                              alt={slide.alt}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
+                  filteredCampaigns.map((row) => (
+                    <tr key={row.id} className="group transition-colors hover:bg-surface-container-low">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="mr-3 flex h-8 w-8 items-center justify-center rounded bg-surface-container text-xs font-bold text-secondary">
+                            {row.initials}
                           </div>
-                        ) : (
-                          <div className="aspect-[3/2] bg-surface-container" />
-                        )}
-                        <p className="truncate px-3 py-2 text-label-sm">{slide.alt || slide.href}</p>
-                      </div>
-                    ))}
-                  </div>
+                          <div>
+                            <p className="font-label-bold text-on-surface">{row.advertiser}</p>
+                            <p className="text-[10px] text-on-surface-variant">{row.sublabel}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm">{row.adType}</td>
+                      <td className="px-6 py-4">
+                        <CampaignStatusBadge status={row.status} />
+                      </td>
+                      <td className="px-6 py-4 text-xs text-on-surface-variant">{row.timeline}</td>
+                      <td className="px-6 py-4 text-sm font-label-bold text-on-surface">
+                        {row.promotionEndDate}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-label-bold tabular-nums text-on-surface">
+                        {formatViews(row.views)}
+                      </td>
+                      <td className="px-6 py-4 font-label-bold">{row.ctr}</td>
+                      <td className="px-6 py-4 text-right">
+                        <Link
+                          href={row.editHref}
+                          className="inline-flex rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-secondary"
+                          aria-label={`Edit ${row.advertiser}`}
+                        >
+                          <Icon name="edit" className="text-[20px]" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </div>
-            ))}
+              </tbody>
+            </table>
           </div>
-        )}
+          <div className="flex justify-center border-t border-outline-variant bg-surface-container-lowest p-4">
+            <button
+              type="button"
+              onClick={() => setAdTypeModalOpen(true)}
+              className="text-sm font-label-bold text-secondary hover:underline"
+            >
+              Create New Campaign
+            </button>
+          </div>
+        </div>
       </AdminPageCanvas>
     </RecruiterAdminShell>
   );

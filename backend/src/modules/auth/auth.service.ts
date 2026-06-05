@@ -1,14 +1,17 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { UserRole } from '@prisma/client';
+import { UserRole, VerificationTokenType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ImageStorageService } from '../../common/storage/image-storage.service';
 import {
   ChangePasswordDto,
   LoginDto,
@@ -17,6 +20,7 @@ import {
   UpdateEmployerProfileDto,
 } from './dto/auth.dto';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
+import { VerificationService } from './verification.service';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +28,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly verification: VerificationService,
+    private readonly imageStorage: ImageStorageService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -52,6 +58,10 @@ export class AuthService {
       await this.prisma.seekerProfile.create({
         data: { userId: user.id, fullName: dto.fullName ?? null },
       });
+    }
+
+    if (dto.role === UserRole.EMPLOYER) {
+      await this.verification.sendEmailVerification(user.id);
     }
 
     return {
@@ -123,7 +133,14 @@ export class AuthService {
       },
     });
     if (!user) throw new UnauthorizedException();
-    return user;
+    return {
+      ...user,
+      employerUsers: user.employerUsers.map((link) => ({
+        ...link,
+        photoUrl: this.imageStorage.resolvePublicUrl(link.photoUrl),
+        company: this.imageStorage.withPublicUrls(link.company),
+      })),
+    };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
@@ -147,29 +164,140 @@ export class AuthService {
   }
 
   async updateEmployerProfile(userId: string, dto: UpdateEmployerProfileDto) {
-    const link = await this.prisma.employerUser.findFirst({
-      where: { userId },
-      orderBy: { createdAt: 'asc' },
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, emailVerified: true },
     });
-    if (!link) {
-      throw new ForbiddenException(
-        'No company is linked to your account. Complete company registration first.',
-      );
-    }
+    if (!user) throw new UnauthorizedException();
+
+    const link = await this.resolveEmployerLink(
+      userId,
+      dto.companyId,
+      dto.companyName,
+    );
 
     const fullName = dto.fullName?.trim();
     const title = dto.title?.trim();
     const contactNo = dto.contactNo?.trim();
 
-    return this.prisma.employerUser.update({
+    let photoUrl: string | null | undefined;
+    if (dto.photoUrl !== undefined) {
+      if (!dto.photoUrl.trim()) {
+        photoUrl = null;
+      } else {
+        photoUrl = await this.imageStorage.saveOrKeepRecruiterPhoto(dto.photoUrl);
+      }
+    }
+
+    const nextEmail = dto.email?.trim().toLowerCase();
+    if (nextEmail !== undefined) {
+      if (user.emailVerified) {
+        throw new BadRequestException('Verified email cannot be changed');
+      }
+      if (nextEmail !== user.email.toLowerCase()) {
+        const existing = await this.prisma.user.findUnique({
+          where: { email: nextEmail },
+        });
+        if (existing) {
+          throw new ConflictException('Email is already in use');
+        }
+        await this.prisma.$transaction([
+          this.prisma.user.update({
+            where: { id: userId },
+            data: { email: nextEmail, emailVerified: false },
+          }),
+          this.prisma.verificationToken.deleteMany({
+            where: { userId, type: VerificationTokenType.EMAIL },
+          }),
+        ]);
+      }
+    }
+
+    const updated = await this.prisma.employerUser.update({
       where: { id: link.id },
       data: {
         ...(dto.fullName !== undefined ? { fullName: fullName || null } : {}),
         ...(dto.title !== undefined ? { title: title || null } : {}),
-        ...(dto.contactNo !== undefined ? { contactNo: contactNo || null } : {}),
+        ...(dto.contactNo !== undefined
+          ? {
+              contactNo: contactNo || null,
+              ...this.verification.resetPhoneVerificationIfContactChanged(
+                link.contactNo,
+                contactNo || null,
+              ),
+            }
+          : {}),
+        ...(photoUrl !== undefined ? { photoUrl } : {}),
       },
       include: { company: true },
     });
+
+    return {
+      ...updated,
+      photoUrl: this.imageStorage.resolvePublicUrl(updated.photoUrl),
+      company: this.imageStorage.withPublicUrls(updated.company),
+    };
+  }
+
+  private async resolveEmployerLink(
+    userId: string,
+    companyId?: string,
+    companyName?: string,
+  ) {
+    let link = await this.prisma.employerUser.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let resolvedCompanyId = companyId;
+
+    if (!resolvedCompanyId && companyName?.trim()) {
+      const matched = await this.prisma.company.findFirst({
+        where: { name: { equals: companyName.trim(), mode: 'insensitive' } },
+        select: { id: true },
+      });
+      resolvedCompanyId = matched?.id;
+    }
+
+    if (companyName?.trim() && !resolvedCompanyId) {
+      throw new BadRequestException(
+        'We could not find that company. Check the spelling and try again.',
+      );
+    }
+
+    if (resolvedCompanyId) {
+      const company = await this.prisma.company.findUnique({
+        where: { id: resolvedCompanyId },
+      });
+      if (!company) {
+        throw new NotFoundException('Company not found');
+      }
+
+      const existingForCompany = await this.prisma.employerUser.findUnique({
+        where: { userId_companyId: { userId, companyId: resolvedCompanyId } },
+      });
+
+      if (existingForCompany) {
+        return existingForCompany;
+      }
+
+      if (link) {
+        return this.prisma.employerUser.update({
+          where: { id: link.id },
+          data: { companyId: resolvedCompanyId },
+        });
+      }
+
+      return this.prisma.employerUser.create({
+        data: { userId, companyId: resolvedCompanyId },
+      });
+    }
+
+    if (!link) {
+      throw new BadRequestException('Enter your company name.');
+    }
+
+    return link;
   }
 
   async updateAdminProfile(userId: string, role: UserRole, dto: UpdateAdminProfileDto) {

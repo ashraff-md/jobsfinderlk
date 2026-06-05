@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmployerShell } from "@/components/layout/employer-shell";
+import { InlineEmailVerification } from "@/components/auth/inline-email-verification";
+import { InlinePhoneVerification } from "@/components/auth/inline-phone-verification";
+import {
+  RecruiterPhotoUploader,
+  type RecruiterPhotoDraft,
+} from "@/components/auth/recruiter-photo-uploader";
+import { VerificationStatusBadge } from "@/components/auth/verification-status-badge";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -13,6 +20,7 @@ import {
   updateEmployerProfile,
 } from "@/lib/api/auth";
 import { getEmployerJobs } from "@/lib/api/jobs";
+import { getVerificationStatus } from "@/lib/api/verification";
 import { signInPath } from "@/lib/auth/portal";
 
 export function EmployerSettingsPage() {
@@ -21,21 +29,24 @@ export function EmployerSettingsPage() {
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
   const [phone, setPhone] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [companyDescription, setCompanyDescription] = useState("");
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState("");
+  const [companySearch, setCompanySearch] = useState("");
+  const [photo, setPhoto] = useState<RecruiterPhotoDraft | null>(null);
   const [activeJobCount, setActiveJobCount] = useState<number | null>(null);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [hasCompany, setHasCompany] = useState(false);
 
   const [savedSnapshot, setSavedSnapshot] = useState({
+    email: "",
     fullName: "",
     title: "",
     phone: "",
+    companyId: "",
+    companySearch: "",
+    photoUrl: null as string | null,
   });
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -44,6 +55,9 @@ export function EmployerSettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [activeVerification, setActiveVerification] = useState<"email" | "phone" | null>(null);
 
   const displayName = useMemo(() => {
     const trimmed = fullName.trim();
@@ -60,25 +74,28 @@ export function EmployerSettingsPage() {
       const nextFullName = link?.fullName ?? "";
       const nextTitle = link?.title ?? "";
       const nextPhone = link?.contactNo ?? "";
+      const nextCompanyId = link?.company?.id ?? "";
+      const nextCompanyName = link?.company?.name ?? "";
+      const nextPhotoUrl = link?.photoUrl ?? null;
+
       setFullName(nextFullName);
       setTitle(nextTitle);
       setPhone(nextPhone);
+      setCompanyId(nextCompanyId);
+      setCompanySearch(nextCompanyName);
+      setPhoto(
+        nextPhotoUrl
+          ? { name: "profile-photo", previewUrl: nextPhotoUrl, dataUrl: nextPhotoUrl }
+          : null,
+      );
       setSavedSnapshot({
         fullName: nextFullName,
         title: nextTitle,
         phone: nextPhone,
+        companyId: nextCompanyId,
+        companySearch: nextCompanyName,
+        photoUrl: nextPhotoUrl,
       });
-      if (link?.company) {
-        setHasCompany(true);
-        setCompanyName(link.company.name);
-        setCompanyDescription(link.company.description ?? "");
-        setCompanyLogo(link.company.logoUrl ?? null);
-      } else {
-        setHasCompany(false);
-        setCompanyName("");
-        setCompanyDescription("");
-        setCompanyLogo(null);
-      }
     },
     [],
   );
@@ -93,8 +110,19 @@ export function EmployerSettingsPage() {
     try {
       const profile = await getProfile();
       setEmail(profile.email);
+      setEmailVerified(profile.emailVerified);
       const link = profile.employerUsers?.[0];
       applyEmployerProfile(link);
+      setSavedSnapshot((prev) => ({ ...prev, email: profile.email }));
+      setPhoneVerified(link?.phoneVerified ?? false);
+
+      try {
+        const verification = await getVerificationStatus(getAccessToken());
+        setEmailVerified(verification.emailVerified);
+        setPhoneVerified(verification.phoneVerified);
+      } catch {
+        // Keep values from profile response when verification endpoint fails.
+      }
 
       try {
         const jobs = await getEmployerJobs();
@@ -126,18 +154,70 @@ export function EmployerSettingsPage() {
       setProfileError("Full name is required.");
       return;
     }
+    if (!title.trim()) {
+      setProfileError("Professional title is required.");
+      return;
+    }
+    if (!phone.trim()) {
+      setProfileError("Phone number is required.");
+      return;
+    }
+    if (!companySearch.trim()) {
+      setProfileError("Company name is required.");
+      return;
+    }
+    if (!emailVerified) {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        setProfileError("Email address is required.");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        setProfileError("Enter a valid email address.");
+        return;
+      }
+    }
 
     setSavingProfile(true);
     try {
-      await updateEmployerProfile({
+      const companyChanged =
+        companySearch.trim().toLowerCase() !== savedSnapshot.companySearch.trim().toLowerCase();
+
+      const photoPayload =
+        photo === null
+          ? savedSnapshot.photoUrl
+            ? ""
+            : undefined
+          : photo.dataUrl !== savedSnapshot.photoUrl
+            ? photo.dataUrl
+            : undefined;
+
+      const updated = await updateEmployerProfile({
         fullName: fullName.trim(),
         title: title.trim() || undefined,
         contactNo: phone.trim() || undefined,
+        ...(companyChanged || !companyId
+          ? { companyName: companySearch.trim() }
+          : { companyId }),
+        ...(photoPayload !== undefined ? { photoUrl: photoPayload } : {}),
+        ...(!emailVerified ? { email: email.trim() } : {}),
       });
+      const nextPhotoUrl = updated.photoUrl ?? null;
+      setCompanySearch(updated.company.name);
+      setCompanyId(updated.company.id);
+      setPhoto(
+        nextPhotoUrl
+          ? { name: "profile-photo", previewUrl: nextPhotoUrl, dataUrl: nextPhotoUrl }
+          : null,
+      );
       setSavedSnapshot({
+        email: email.trim(),
         fullName: fullName.trim(),
         title: title.trim(),
         phone: phone.trim(),
+        companyId: updated.company.id,
+        companySearch: updated.company.name,
+        photoUrl: nextPhotoUrl,
       });
       setProfileSuccess("Profile saved.");
     } catch (err) {
@@ -148,9 +228,21 @@ export function EmployerSettingsPage() {
   };
 
   const handleDiscard = () => {
+    setEmail(savedSnapshot.email);
     setFullName(savedSnapshot.fullName);
     setTitle(savedSnapshot.title);
     setPhone(savedSnapshot.phone);
+    setCompanyId(savedSnapshot.companyId);
+    setCompanySearch(savedSnapshot.companySearch);
+    setPhoto(
+      savedSnapshot.photoUrl
+        ? {
+            name: "profile-photo",
+            previewUrl: savedSnapshot.photoUrl,
+            dataUrl: savedSnapshot.photoUrl,
+          }
+        : null,
+    );
     setProfileError(null);
     setProfileSuccess(null);
   };
@@ -189,7 +281,7 @@ export function EmployerSettingsPage() {
   return (
     <EmployerShell activeNav="settings" userName={displayName} userTitle={title || "Recruiter"} showFooter={false}>
       <header className="-mx-margin-mobile sticky top-0 z-30 flex h-20 items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-margin-mobile md:-mx-margin-desktop md:px-margin-desktop">
-        <h1 className="text-xl font-bold text-primary-container">Recruiter Profile Settings</h1>
+        <h1 className="text-xl font-bold text-primary-container">Recruiter Profile</h1>
         <div className="flex items-center gap-4 sm:gap-6">
           <nav className="hidden items-center gap-6 lg:flex">
             <Link href="/jobs" className="font-body-md text-on-surface-variant transition-colors hover:text-secondary">
@@ -221,7 +313,7 @@ export function EmployerSettingsPage() {
 
       <div className="mx-auto max-w-container-max py-stack-lg">
         {loadingProfile ? (
-          <p className="text-on-surface-variant">Loading settings…</p>
+          <p className="text-on-surface-variant">Loading profile…</p>
         ) : (
           <div className="grid grid-cols-12 gap-gutter">
             {profileError && (
@@ -245,18 +337,18 @@ export function EmployerSettingsPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-8 md:flex-row">
-                <div className="shrink-0">
-                  <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-surface-container-high">
-                    <span className="text-4xl font-bold text-primary-container">{avatarInitial}</span>
-                  </div>
-                  <p className="mt-4 text-center font-label-sm text-on-surface-variant">Photo upload coming soon</p>
-                </div>
+              <div className="mx-auto max-w-xl space-y-6">
+                <RecruiterPhotoUploader
+                  photo={photo}
+                  onChange={setPhoto}
+                  fallbackInitial={avatarInitial}
+                  disabled={savingProfile}
+                />
 
-                <div className="grow space-y-4">
+                <div className="space-y-4">
                   <div>
                     <label htmlFor="settings-full-name" className="mb-2 block font-label-bold text-on-surface">
-                      Full Name
+                      Full Name <span className="text-error">*</span>
                     </label>
                     <input
                       id="settings-full-name"
@@ -266,9 +358,10 @@ export function EmployerSettingsPage() {
                       className="w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
                     />
                   </div>
+
                   <div>
                     <label htmlFor="settings-title" className="mb-2 block font-label-bold text-on-surface">
-                      Professional Title
+                      Professional Title <span className="text-error">*</span>
                     </label>
                     <input
                       id="settings-title"
@@ -279,38 +372,113 @@ export function EmployerSettingsPage() {
                       className="w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
                     />
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label htmlFor="settings-email" className="mb-2 block font-label-bold text-on-surface">
-                        Email Address
+
+                  <div>
+                    <label htmlFor="settings-company" className="mb-2 block font-label-bold text-on-surface">
+                      Company <span className="text-error">*</span>
+                    </label>
+                    <input
+                      id="settings-company"
+                      type="text"
+                      value={companySearch}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setCompanySearch(next);
+                        if (
+                          companyId &&
+                          next.trim().toLowerCase() !== savedSnapshot.companySearch.trim().toLowerCase()
+                        ) {
+                          setCompanyId("");
+                        }
+                      }}
+                      placeholder="Enter your company name"
+                      className="w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <label htmlFor="settings-email" className="font-label-bold text-on-surface">
+                        Email Address <span className="text-error">*</span>
                       </label>
-                      <input
-                        id="settings-email"
-                        type="email"
-                        readOnly
-                        value={email}
-                        className="w-full cursor-not-allowed rounded border border-outline-variant bg-surface-container-low p-3 font-body-md outline-none"
+                      <VerificationStatusBadge
+                        verified={emailVerified}
+                        onVerify={
+                          emailVerified
+                            ? undefined
+                            : () =>
+                                setActiveVerification((current) =>
+                                  current === "email" ? null : "email",
+                                )
+                        }
                       />
                     </div>
-                    <div>
-                      <label htmlFor="settings-phone" className="mb-2 block font-label-bold text-on-surface">
-                        Phone Number
+                    <input
+                      id="settings-email"
+                      type="email"
+                      readOnly={emailVerified}
+                      disabled={emailVerified}
+                      value={email}
+                      onChange={emailVerified ? undefined : (e) => setEmail(e.target.value)}
+                      placeholder="you@company.com"
+                      className={
+                        emailVerified
+                          ? "w-full cursor-not-allowed rounded border border-outline-variant bg-surface-container-low p-3 font-body-md text-on-surface-variant outline-none"
+                          : "w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
+                      }
+                    />
+                    {!emailVerified && activeVerification === "email" ? (
+                      <InlineEmailVerification
+                        onVerified={() => {
+                          setEmailVerified(true);
+                          setActiveVerification(null);
+                        }}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <label htmlFor="settings-phone" className="font-label-bold text-on-surface">
+                        Phone Number <span className="text-error">*</span>
                       </label>
-                      <input
-                        id="settings-phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+94 11 234 5678"
-                        className="w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
+                      <VerificationStatusBadge
+                        verified={phoneVerified}
+                        type="phone"
+                        onVerify={
+                          phoneVerified
+                            ? undefined
+                            : () =>
+                                setActiveVerification((current) =>
+                                  current === "phone" ? null : "phone",
+                                )
+                        }
                       />
                     </div>
+                    <input
+                      id="settings-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+94 11 234 5678"
+                      className="w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
+                    />
+                    {!phoneVerified && activeVerification === "phone" ? (
+                      <InlinePhoneVerification
+                        phone={phone}
+                        onVerified={() => {
+                          setPhoneVerified(true);
+                          setActiveVerification(null);
+                        }}
+                      />
+                    ) : null}
                   </div>
                 </div>
               </div>
             </section>
 
-            <section className="col-span-12 flex flex-col rounded-lg border border-outline-variant bg-surface-container-lowest p-8 lg:col-span-5">
+            <div className="col-span-12 flex flex-col gap-gutter lg:col-span-5">
+            <section className="flex flex-col rounded-lg border border-outline-variant bg-surface-container-lowest p-8">
               <div className="mb-4 flex items-center gap-2">
                 <Icon name="security" className="text-primary-container" />
                 <h2 className="text-lg font-bold text-primary-container">Security</h2>
@@ -375,85 +543,7 @@ export function EmployerSettingsPage() {
               </button>
             </section>
 
-            <section className="col-span-12 rounded-lg border border-outline-variant bg-surface-container-lowest p-8 lg:col-span-7">
-              <div className="mb-8">
-                <span className="mb-2 inline-block rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-                  Read-Only
-                </span>
-                <h2 className="text-lg font-bold text-primary-container">Current Company Information</h2>
-                <p className="font-body-md text-on-surface-variant">
-                  Updates to company branding and details must be reviewed and approved by the platform
-                  administration.
-                </p>
-              </div>
-
-              {hasCompany ? (
-                <div className="flex flex-col gap-8 opacity-80 md:flex-row">
-                  <div className="shrink-0">
-                    <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-surface-container-high">
-                      {companyLogo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img alt="Company logo" className="h-full w-full object-cover" src={companyLogo} />
-                      ) : (
-                        <span className="text-3xl font-bold text-primary-container">
-                          {companyName.charAt(0) || "?"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grow space-y-4">
-                    <div>
-                      <label htmlFor="settings-company-name" className="mb-2 block font-label-bold text-on-surface">
-                        Company Name
-                      </label>
-                      <input
-                        id="settings-company-name"
-                        readOnly
-                        type="text"
-                        value={companyName}
-                        className="w-full cursor-not-allowed rounded border border-outline-variant bg-surface-container-low p-3 font-body-md outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="settings-company-description" className="mb-2 block font-label-bold text-on-surface">
-                        Company Description
-                      </label>
-                      <textarea
-                        id="settings-company-description"
-                        readOnly
-                        rows={3}
-                        value={companyDescription}
-                        className="w-full cursor-not-allowed rounded border border-outline-variant bg-surface-container-low p-3 font-body-md outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
-                  <p className="mb-4 text-on-surface-variant">
-                    No company is linked to your account yet.
-                  </p>
-                  <Link
-                    href="/employer/companies/new"
-                    className="inline-flex items-center justify-center rounded-lg bg-secondary px-6 py-2 font-label-bold text-white"
-                  >
-                    Register your company
-                  </Link>
-                </div>
-              )}
-
-              <div className="mt-8">
-                <button
-                  type="button"
-                  disabled={!hasCompany}
-                  className="w-full rounded border border-secondary px-6 py-3 font-label-bold text-secondary transition-all hover:bg-secondary hover:text-white disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
-                >
-                  Request Company Update
-                </button>
-              </div>
-            </section>
-
-            <section className="relative col-span-12 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-8 lg:col-span-5">
+            <section className="relative overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-8">
               <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-secondary/5 blur-3xl" />
               <h2 className="mb-8 text-lg font-bold text-primary-container">Billing &amp; Plan</h2>
               <div className="mb-4 rounded border border-outline-variant bg-surface-container-low p-6">
@@ -503,6 +593,7 @@ export function EmployerSettingsPage() {
                 </button>
               </div>
             </section>
+            </div>
 
             <div className="col-span-12 flex flex-col items-stretch justify-end gap-4 border-t border-outline-variant pt-8 sm:flex-row sm:items-center">
               <button

@@ -200,7 +200,7 @@ export function RegisterCompanyForm() {
     setError(null);
     setSubmitting(true);
     try {
-      await createCompanyRequest({
+      const created = await createCompanyRequest({
         companyName: companyName.trim(),
         industry: industry.trim(),
         website: website.trim() || undefined,
@@ -211,6 +211,17 @@ export function RegisterCompanyForm() {
         logoUrl: logo?.dataUrl,
         lifeAtCompanyImages: lifeAtImages.map((image) => image.dataUrl),
       });
+      const returnTo = searchParams.get("returnTo");
+      const placeholderId =
+        created.placeholderCompanyId ?? created.placeholderCompany?.id;
+      if (returnTo && placeholderId) {
+        const url = new URL(returnTo, window.location.origin);
+        url.searchParams.set("companyId", placeholderId);
+        url.searchParams.set("companyName", created.companyName);
+        url.searchParams.set("companyPending", "1");
+        router.push(`${url.pathname}${url.search}`);
+        return;
+      }
       setSuccess(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -232,21 +243,21 @@ export function RegisterCompanyForm() {
           <h2 className="text-headline-md text-on-surface">Registration submitted</h2>
         </div>
         <p className="text-body-md text-on-surface-variant">
-          Your company request is pending review. You&apos;ll be able to post jobs once an admin
-          approves or merges it with an existing company.
+          Your company request is pending review. You can continue creating your vacancy while
+          we review the company information.
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
             href="/employer"
-            className="rounded-lg bg-primary px-6 py-3 font-label-bold text-on-primary"
+            className="rounded-lg border border-primary px-6 py-3 font-label-bold text-primary hover:bg-surface-container-low"
           >
             Go to employer dashboard
           </Link>
           <Link
             href="/employer/jobs/new"
-            className="rounded-lg border border-primary px-6 py-3 font-label-bold text-primary hover:bg-surface-container-low"
+            className="rounded-lg bg-primary px-6 py-3 font-label-bold text-on-primary"
           >
-            Back to post job
+            Continue to post job
           </Link>
         </div>
       </div>

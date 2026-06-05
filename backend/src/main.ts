@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 import { ImageStorageService } from './common/storage/image-storage.service';
 
 /** Accepts base64 uploads before files are written under UPLOAD_ROOT. */
-const JSON_BODY_LIMIT = '8mb';
+const JSON_BODY_LIMIT = '10mb';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);

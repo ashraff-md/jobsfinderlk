@@ -15,11 +15,30 @@ export type PlatformBannerSlotPublic = {
   slides: PlatformBannerSlide[];
 };
 
+export type PlatformBannersResponse = {
+  slideRotationSeconds: number;
+  slidesPerPosition: number;
+  rotationIntervalMs: number;
+  slots: PlatformBannerSlotPublic[];
+};
+
 export async function getPlatformBanners(aspectRatio?: BannerAspectRatio) {
   const query = aspectRatio ? `?aspectRatio=${aspectRatio}` : "";
-  return apiFetch<PlatformBannerSlotPublic[]>(`/platform-ads/banners${query}`);
+  return apiFetch<PlatformBannersResponse>(`/platform-ads/banners${query}`);
 }
 
-export async function getPlatformSponsoredJobs(limit = 3) {
-  return apiFetch<Job[]>(`/platform-ads/sponsored?limit=${limit}`);
+export type PlatformSponsoredJobsResponse = {
+  batchSize: number;
+  totalActive: number;
+  offset: number;
+  nextOffset: number;
+  jobs: Job[];
+};
+
+export async function getPlatformSponsoredJobs(limit = 3, offset?: number) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (offset !== undefined) params.set("offset", String(offset));
+  return apiFetch<PlatformSponsoredJobsResponse>(
+    `/platform-ads/sponsored?${params.toString()}`,
+  );
 }

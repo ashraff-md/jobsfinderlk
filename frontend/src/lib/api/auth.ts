@@ -87,6 +87,8 @@ export type UserProfile = {
     fullName?: string | null;
     title?: string | null;
     contactNo?: string | null;
+    photoUrl?: string | null;
+    phoneVerified?: boolean;
     company: {
       id: string;
       name: string;
@@ -105,11 +107,22 @@ export async function updateEmployerProfile(input: {
   fullName?: string;
   title?: string;
   contactNo?: string;
+  email?: string;
+  photoUrl?: string | null;
+  companyId?: string;
+  companyName?: string;
 }) {
   return apiFetch<{
     fullName?: string | null;
     title?: string | null;
     contactNo?: string | null;
+    photoUrl?: string | null;
+    company: {
+      id: string;
+      name: string;
+      logoUrl?: string | null;
+      verified: boolean;
+    };
   }>("/auth/employer-profile", {
     method: "PATCH",
     token: getAccessToken(),

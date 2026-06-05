@@ -14,24 +14,28 @@ type CompanyAutocompleteProps = {
   label?: string;
   value: string;
   selectedCompanyId?: string;
+  selectedPendingReview?: boolean;
   onQueryChange: (query: string) => void;
   onSelect: (company: CompanySuggestion) => void;
   onClear?: () => void;
   placeholder?: string;
   required?: boolean;
   createHref?: string;
+  showCreateLink?: boolean;
 };
 
 export function CompanyAutocomplete({
   label = "Company",
   value,
   selectedCompanyId,
+  selectedPendingReview = false,
   onQueryChange,
   onSelect,
   onClear,
   placeholder = "Start typing a company name…",
   required,
   createHref = "/employer/companies/new",
+  showCreateLink = true,
 }: CompanyAutocompleteProps) {
   const listId = useId();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -42,23 +46,32 @@ export function CompanyAutocomplete({
   useEffect(() => {
     if (!value.trim() || value.trim().length < 2) {
       setSuggestions([]);
+      setOpen(false);
       return;
     }
 
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const results = await suggestCompanies(value);
+        const results = await suggestCompanies(value, controller.signal);
+        if (controller.signal.aborted) return;
         setSuggestions(results);
-        setOpen(true);
+        setOpen(results.length > 0);
       } catch {
-        setSuggestions([]);
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setOpen(false);
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }, 250);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [value]);
 
   useEffect(() => {
@@ -71,13 +84,27 @@ export function CompanyAutocomplete({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const showCreateLink = value.trim().length >= 2 && !selectedCompanyId;
+  const showCreateLinkOption = showCreateLink && value.trim().length >= 2 && !selectedCompanyId;
+  const showDropdown = open && (loading || suggestions.length > 0);
 
   return (
     <div ref={wrapperRef} className="space-y-2">
-      <label className="font-label-bold text-on-surface-variant" htmlFor={listId}>
-        {label}
-      </label>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <label className="font-label-bold text-on-surface-variant" htmlFor={listId}>
+          {label}
+        </label>
+        {showCreateLinkOption && (
+          <p className="text-label-sm text-on-surface-variant">
+            Company doesn&apos;t exist?{" "}
+            <Link
+              href={`${createHref}${createHref.includes("?") ? "&" : "?"}name=${encodeURIComponent(value.trim())}`}
+              className="font-label-bold text-primary underline-offset-2 hover:underline"
+            >
+              Create New Company
+            </Link>
+          </p>
+        )}
+      </div>
       <div className="relative">
         <input
           id={listId}
@@ -93,12 +120,19 @@ export function CompanyAutocomplete({
           className={inputClass}
         />
         {selectedCompanyId && (
-          <span className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 text-[11px] font-bold text-on-secondary-container">
-            <Icon name="check_circle" className="text-[14px]" />
-            Selected
+          <span
+            className={cn(
+              "absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
+              selectedPendingReview
+                ? "bg-tertiary-container text-on-tertiary-container"
+                : "bg-secondary-container text-on-secondary-container",
+            )}
+          >
+            <Icon name={selectedPendingReview ? "hourglass_top" : "check_circle"} className="text-[14px]" />
+            {selectedPendingReview ? "Pending review" : "Selected"}
           </span>
         )}
-        {open && (loading || suggestions.length > 0) && (
+        {showDropdown && (
           <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-outline-variant bg-white shadow-lg">
             {loading && (
               <p className="px-4 py-3 text-label-sm text-on-surface-variant">Searching…</p>
@@ -120,18 +154,26 @@ export function CompanyAutocomplete({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-label-bold">{company.name}</span>
-                      {company.verified && (
+                      {company.pendingReview ? (
+                        <span className="rounded bg-tertiary-container px-1.5 py-0.5 text-[10px] font-bold uppercase text-on-tertiary-container">
+                          Pending review
+                        </span>
+                      ) : company.verified ? (
                         <span className="rounded bg-secondary-container px-1.5 py-0.5 text-[10px] font-bold uppercase text-on-secondary-container">
                           Verified
                         </span>
+                      ) : null}
+                      {!company.pendingReview && (
+                        <span className="rounded bg-surface-container-high px-1.5 py-0.5 text-[10px] font-bold uppercase text-on-surface-variant">
+                          {company.matchType}
+                        </span>
                       )}
-                      <span className="rounded bg-surface-container-high px-1.5 py-0.5 text-[10px] font-bold uppercase text-on-surface-variant">
-                        {company.matchType}
-                      </span>
                     </div>
                     <p className="text-label-sm text-on-surface-variant">
-                      {[company.industry, company.location].filter(Boolean).join(" • ") ||
-                        "Company profile"}
+                      {company.pendingReview
+                        ? "Your submission — visible only to you until approved"
+                        : [company.industry, company.location].filter(Boolean).join(" • ") ||
+                          "Company profile"}
                     </p>
                   </div>
                 </button>
@@ -139,17 +181,6 @@ export function CompanyAutocomplete({
           </div>
         )}
       </div>
-      {showCreateLink && (
-        <p className="text-label-sm text-on-surface-variant">
-          Company doesn&apos;t exist?{" "}
-          <Link
-            href={`${createHref}?name=${encodeURIComponent(value.trim())}`}
-            className="font-label-bold text-primary underline-offset-2 hover:underline"
-          >
-            Create New Company
-          </Link>
-        </p>
-      )}
     </div>
   );
 }

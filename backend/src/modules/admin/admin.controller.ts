@@ -28,11 +28,13 @@ import { AdminRecruitersService } from './admin-recruiters.service';
 import { AdminListJobsQueryDto } from './dto/admin-list-jobs-query.dto';
 import { PlatformAdsService } from '../platform-ads/platform-ads.service';
 import {
+  CreateBannerCampaignDto,
   CreateSponsoredAdDto,
   ListBannerSlotsQueryDto,
-  PatchSponsoredAdDto,
   ReorderSponsoredAdsDto,
+  UpdateBannerCampaignDto,
   UpdateBannerSlotDto,
+  UpdateSponsoredAdDto,
 } from '../platform-ads/dto/platform-ads.dto';
 
 @ApiTags('admin')
@@ -152,6 +154,39 @@ export class AdminController {
     return this.adminRecruitersService.moderate(userId, 'reject', user.sub);
   }
 
+  @Get('platform-ads/banner-campaigns')
+  listBannerCampaigns(@Query() query: ListBannerSlotsQueryDto) {
+    return this.platformAdsService.listBannerCampaignsForAdmin(query.aspectRatio);
+  }
+
+  @Post('platform-ads/banner-campaigns')
+  createBannerCampaign(@Body() dto: CreateBannerCampaignDto) {
+    return this.platformAdsService.createBannerCampaign(dto);
+  }
+
+  @Get('platform-ads/banner-campaigns/:id')
+  bannerCampaignForAdmin(@Param('id') id: string) {
+    return this.platformAdsService.getBannerCampaignForAdmin(id);
+  }
+
+  @Patch('platform-ads/banner-campaigns/:id')
+  updateBannerCampaign(
+    @Param('id') id: string,
+    @Body() dto: UpdateBannerCampaignDto,
+  ) {
+    return this.platformAdsService.updateBannerCampaign(id, dto);
+  }
+
+  @Delete('platform-ads/banner-campaigns/:id')
+  deleteBannerCampaign(@Param('id') id: string) {
+    return this.platformAdsService.deleteBannerCampaign(id);
+  }
+
+  @Post('platform-ads/banner-slots/sync')
+  syncBannerSlots() {
+    return this.platformAdsService.syncAllBannerSlots();
+  }
+
   @Get('platform-ads/banner-slots')
   listBannerSlots(@Query() query: ListBannerSlotsQueryDto) {
     return this.platformAdsService.listBannerSlotsForAdmin(query.aspectRatio);
@@ -183,8 +218,8 @@ export class AdminController {
   }
 
   @Patch('platform-ads/sponsored/:id')
-  patchSponsoredAd(@Param('id') id: string, @Body() dto: PatchSponsoredAdDto) {
-    return this.platformAdsService.patchSponsoredAd(id, dto.active);
+  updateSponsoredAd(@Param('id') id: string, @Body() dto: UpdateSponsoredAdDto) {
+    return this.platformAdsService.updateSponsoredAd(id, dto);
   }
 
   @Delete('platform-ads/sponsored/:id')

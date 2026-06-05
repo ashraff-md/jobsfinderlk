@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class RegisterDto {
@@ -59,6 +59,27 @@ export class UpdateEmployerProfileDto {
   @IsOptional()
   @IsString()
   contactNo?: string;
+
+  @ApiPropertyOptional({ example: 'recruiter@company.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ description: 'Profile photo as base64 data URL or existing upload path' })
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Company to represent as recruiter' })
+  @IsOptional()
+  @IsUUID()
+  companyId?: string;
+
+  @ApiPropertyOptional({ description: 'Company name to match against the directory' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  companyName?: string;
 }
 
 export class UpdateAdminProfileDto {

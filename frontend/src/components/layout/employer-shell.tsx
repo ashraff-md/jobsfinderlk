@@ -13,14 +13,14 @@ const SIDEBAR_NAV = [
   { href: "/employer", icon: "dashboard", label: "Dashboard", key: "dashboard" },
   { href: "/employer/applications", icon: "description", label: "Applications", key: "applications" },
   { href: "/employer/jobs", icon: "work", label: "Job Listings", key: "listings" },
-  { href: "/employer/settings", icon: "settings", label: "Settings", key: "settings" },
+  { href: "/employer/settings", icon: "manage_accounts", label: "Profile", key: "settings" },
 ] as const;
 
 const MOBILE_NAV = [
   { href: "/employer", icon: "dashboard", label: "Home", key: "dashboard" },
   { href: "/employer/applications", icon: "description", label: "Applications", key: "applications" },
   { href: "/employer/jobs", icon: "work", label: "Listings", key: "listings" },
-  { href: "/employer/settings", icon: "settings", label: "Settings", key: "settings" },
+  { href: "/employer/settings", icon: "manage_accounts", label: "Profile", key: "settings" },
 ] as const;
 
 type EmployerNavKey = (typeof SIDEBAR_NAV)[number]["key"];

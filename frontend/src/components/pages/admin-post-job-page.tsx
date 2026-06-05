@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { PostJobForm } from "@/components/jobs/post-job-form";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 
@@ -26,7 +27,9 @@ export function AdminPostJobPage() {
           </p>
         </div>
 
-        <PostJobForm mode="admin" />
+        <Suspense fallback={null}>
+          <PostJobForm mode="admin" />
+        </Suspense>
       </AdminPageCanvas>
     </RecruiterAdminShell>
   );

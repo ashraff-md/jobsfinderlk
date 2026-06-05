@@ -2,7 +2,10 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { BannerAspectRatio } from '@prisma/client';
 import { PlatformAdsService } from './platform-ads.service';
-import { ListBannerSlotsQueryDto } from './dto/platform-ads.dto';
+import {
+  ListBannerSlotsQueryDto,
+  ListPublicSponsoredQueryDto,
+} from './dto/platform-ads.dto';
 
 @ApiTags('platform-ads')
 @Controller('platform-ads')
@@ -20,8 +23,8 @@ export class PlatformAdsController {
   }
 
   @Get('sponsored')
-  sponsored(@Query('limit') limit?: string) {
-    const parsed = limit ? Math.min(Number(limit) || 3, 12) : 3;
-    return this.platformAdsService.listPublicSponsored(parsed);
+  sponsored(@Query() query: ListPublicSponsoredQueryDto) {
+    const limit = query.limit ?? 3;
+    return this.platformAdsService.listPublicSponsored(limit, query.offset);
   }
 }

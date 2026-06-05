@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { CompanyRequestStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { slugify, uniqueSlug } from '../../common/utils/slug.util';
 import {
@@ -14,9 +15,11 @@ export type CompanySuggestion = {
   name: string;
   slug: string;
   verified: boolean;
+  pendingReview?: boolean;
   website?: string | null;
   industry?: string | null;
   location?: string | null;
+  logoUrl?: string | null;
   score: number;
   matchType: 'exact' | 'fuzzy' | 'phonetic' | 'domain';
 };
@@ -30,14 +33,17 @@ export class CompaniesService {
 
   async findAll(search?: string) {
     const companies = await this.prisma.company.findMany({
-      where: search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { description: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : undefined,
+      where: {
+        verified: true,
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
       include: {
         _count: {
           select: {
@@ -50,33 +56,63 @@ export class CompaniesService {
     return companies.map((company) => this.imageStorage.withPublicUrls(company));
   }
 
-  async suggest(query: string, limit = 10): Promise<CompanySuggestion[]> {
+  async suggest(
+    query: string,
+    userId?: string,
+    userRole?: UserRole,
+    limit = 10,
+  ): Promise<CompanySuggestion[]> {
     const trimmed = query.trim();
     if (trimmed.length < 2) return [];
 
-    const candidates = await this.prisma.company.findMany({
+    const isAdmin =
+      userRole === UserRole.ADMIN || userRole === UserRole.MODERATOR;
+
+    const verifiedCandidates = await this.prisma.company.findMany({
       where: {
-        OR: [
-          { name: { contains: trimmed, mode: 'insensitive' } },
-          { industry: { contains: trimmed, mode: 'insensitive' } },
-        ],
+        verified: true,
+        name: { contains: trimmed, mode: 'insensitive' },
       },
       take: 50,
       orderBy: { name: 'asc' },
     });
 
+    let pendingCandidates: typeof verifiedCandidates = [];
+    if (userId && !isAdmin) {
+      pendingCandidates = await this.prisma.company.findMany({
+        where: {
+          verified: false,
+          name: { contains: trimmed, mode: 'insensitive' },
+          placeholderRequest: {
+            requestedById: userId,
+            status: CompanyRequestStatus.PENDING,
+          },
+        },
+        take: 20,
+        orderBy: { name: 'asc' },
+      });
+    }
+
+    const seen = new Set<string>();
+    const candidates = [...pendingCandidates, ...verifiedCandidates].filter(
+      (company) => {
+        if (seen.has(company.id)) return false;
+        seen.add(company.id);
+        return true;
+      },
+    );
+
     const scored = candidates
-      .map((company) => ({
-        id: company.id,
-        name: company.name,
-        slug: company.slug,
-        verified: company.verified,
-        website: company.website,
-        industry: company.industry,
-        location: company.location,
-        score: similarityScore(trimmed, company.name),
-        matchType: matchReason(trimmed, company.name),
-      }))
+      .map((company) => {
+        const withUrls = this.imageStorage.withPublicUrls(company);
+        const pendingReview = !company.verified;
+        return {
+          ...withUrls,
+          pendingReview,
+          score: similarityScore(trimmed, company.name),
+          matchType: matchReason(trimmed, company.name),
+        };
+      })
       .filter((item) => item.score >= 0.45)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -98,6 +134,7 @@ export class CompaniesService {
     const domain = extractDomain(input.emailDomain) ?? extractDomain(input.website);
     const candidates = await this.prisma.company.findMany({
       where: {
+        verified: true,
         OR: [
           { name: { contains: trimmed.slice(0, Math.max(3, trimmed.length)), mode: 'insensitive' } },
           ...(domain
@@ -152,7 +189,9 @@ export class CompaniesService {
         },
       },
     });
-    if (!company) throw new NotFoundException('Company not found');
+    if (!company || !company.verified) {
+      throw new NotFoundException('Company not found');
+    }
     return this.imageStorage.withPublicUrls(company);
   }
 
@@ -244,7 +283,11 @@ export class CompaniesService {
     });
   }
 
-  async resolveForJob(userId: string, input: { companyId?: string }) {
+  async resolveForJob(
+    userId: string,
+    input: { companyId?: string },
+    userRole?: UserRole,
+  ) {
     if (!input.companyId) {
       throw new BadRequestException(
         'Select an existing company or submit a new company request before posting a job.',
@@ -256,7 +299,29 @@ export class CompaniesService {
     });
     if (!company) throw new NotFoundException('Company not found');
 
+    const isAdmin =
+      userRole === UserRole.ADMIN || userRole === UserRole.MODERATOR;
+    if (!company.verified && !isAdmin) {
+      const allowed = await this.canUsePendingCompany(userId, company.id);
+      if (!allowed) {
+        throw new ForbiddenException(
+          'This company is pending review and can only be used by the recruiter who submitted it.',
+        );
+      }
+    }
+
     await this.linkEmployerToCompany(userId, company.id);
     return this.imageStorage.withPublicUrls(company);
+  }
+
+  async canUsePendingCompany(userId: string, companyId: string): Promise<boolean> {
+    const request = await this.prisma.companyRequest.findFirst({
+      where: {
+        placeholderCompanyId: companyId,
+        requestedById: userId,
+        status: CompanyRequestStatus.PENDING,
+      },
+    });
+    return Boolean(request);
   }
 }

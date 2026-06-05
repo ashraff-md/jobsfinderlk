@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { AdminAdTypeModal } from "@/components/admin/platform-ads/admin-ad-type-modal";
 import { AdminPostJobTypeDialog } from "@/components/admin/admin-post-job-type-dialog";
 import { LogoutLink } from "@/components/auth/logout-link";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -23,8 +24,8 @@ const ADMIN_NAV = [
   { href: "/admin/verifications", icon: "group", label: "Recruiters", key: "verifications" },
   {
     href: "/admin/platform-ads",
-    icon: "campaign",
-    label: "Platform Ads",
+    icon: "ads_click",
+    label: "Ads Management",
     key: "platform-ads",
   },
   { href: "/admin/companies", icon: "business", label: "Companies", key: "companies" },
@@ -75,6 +76,7 @@ export function RecruiterAdminShell({
 }: RecruiterAdminShellProps) {
   const pathname = usePathname();
   const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [adTypeModalOpen, setAdTypeModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState(userName);
   const [displayTitle, setDisplayTitle] = useState(userTitle);
 
@@ -174,6 +176,16 @@ export function RecruiterAdminShell({
         </div>
 
         <div className="shrink-0 border-t border-white/10 p-6 pt-4">
+          {pathname.startsWith("/admin/platform-ads") && (
+            <button
+              type="button"
+              onClick={() => setAdTypeModalOpen(true)}
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-label-bold text-on-primary shadow-sm transition-opacity hover:opacity-90"
+            >
+              <Icon name="add_circle" className="text-[18px]" />
+              Create New Campaign
+            </button>
+          )}
           <LogoutLink />
         </div>
       </aside>
@@ -214,6 +226,7 @@ export function RecruiterAdminShell({
       </div>
 
       <AdminPostJobTypeDialog open={postDialogOpen} onClose={() => setPostDialogOpen(false)} />
+      <AdminAdTypeModal open={adTypeModalOpen} onClose={() => setAdTypeModalOpen(false)} />
     </div>
   );
 }

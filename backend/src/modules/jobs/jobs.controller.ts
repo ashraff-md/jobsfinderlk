@@ -50,6 +50,6 @@ export class JobsController {
   @Roles(UserRole.EMPLOYER, UserRole.ADMIN)
   @ApiBearerAuth()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateJobDto) {
-    return this.jobsService.create(user.sub, dto);
+    return this.jobsService.create(user.sub, dto, user.role);
   }
 }

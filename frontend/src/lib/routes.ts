@@ -76,7 +76,7 @@ export const ROUTE_META: Record<
     phase: "M1",
   },
   "/employer/settings": {
-    title: "Recruiter Profile Settings",
+    title: "Recruiter Profile",
     reference: "references2/recruiter_settings/code.html",
     phase: "M1",
   },
@@ -181,8 +181,13 @@ export const ROUTE_META: Record<
     phase: "M1",
   },
   "/admin/platform-ads": {
-    title: "Platform Ads",
-    reference: "references2/admin_platform_ads/code.html",
+    title: "Ads Management",
+    reference: "ui_references/admin_platform_ads_management/code.html",
+    phase: "M1",
+  },
+  "/admin/platform-ads/new": {
+    title: "Create Advertising Campaign",
+    reference: "ui_references/admin_create_new_campaign_form/code.html",
     phase: "M1",
   },
   "/admin/talent": {

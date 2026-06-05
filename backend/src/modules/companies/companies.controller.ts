@@ -19,8 +19,11 @@ export class CompaniesController {
   }
 
   @Get('suggest')
-  suggest(@Query('q') q?: string) {
-    return this.companiesService.suggest(q ?? '');
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER, UserRole.ADMIN, UserRole.MODERATOR)
+  @ApiBearerAuth()
+  suggest(@Query('q') q: string | undefined, @CurrentUser() user: AuthUser) {
+    return this.companiesService.suggest(q ?? '', user.sub, user.role);
   }
 
   @Get('check-duplicates')

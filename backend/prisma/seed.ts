@@ -95,8 +95,22 @@ async function main() {
 
   await prisma.employerUser.upsert({
     where: { userId_companyId: { userId: employer.id, companyId: wso2.id } },
-    update: {},
-    create: { userId: employer.id, companyId: wso2.id, title: 'HR Manager' },
+    update: {
+      fullName: 'WSO2 HR Manager',
+      title: 'HR Manager',
+      contactNo: '+94771234567',
+      phoneVerified: true,
+      phoneVerifiedAt: new Date(),
+    },
+    create: {
+      userId: employer.id,
+      companyId: wso2.id,
+      fullName: 'WSO2 HR Manager',
+      title: 'HR Manager',
+      contactNo: '+94771234567',
+      phoneVerified: true,
+      phoneVerifiedAt: new Date(),
+    },
   });
 
   const jobs = [

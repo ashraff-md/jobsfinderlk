@@ -60,10 +60,28 @@ export class CompanyRequestsService {
       );
     }
 
+    const existingMine = await this.prisma.companyRequest.findFirst({
+      where: {
+        requestedById: userId,
+        companyName: { equals: dto.companyName.trim(), mode: 'insensitive' },
+        status: CompanyRequestStatus.PENDING,
+      },
+      include: {
+        requestedBy: {
+          select: { id: true, email: true, role: true, createdAt: true },
+        },
+        placeholderCompany: true,
+      },
+    });
+    if (existingMine) {
+      return this.imageStorage.withPublicUrls(existingMine);
+    }
+
     const pendingDuplicate = await this.prisma.companyRequest.findFirst({
       where: {
         companyName: { equals: dto.companyName.trim(), mode: 'insensitive' },
         status: CompanyRequestStatus.PENDING,
+        requestedById: { not: userId },
       },
     });
     if (pendingDuplicate) {
@@ -76,6 +94,25 @@ export class CompanyRequestsService {
     const lifeAtPaths = await this.imageStorage.saveLifeAtCompanyImages(
       dto.lifeAtCompanyImages,
     );
+    const location = formatCompanyLocation(dto.address, dto.city);
+
+    const placeholderCompany = await this.companiesService.createFromRequest(
+      userId,
+      {
+        name: dto.companyName.trim(),
+        website: dto.website?.trim() || undefined,
+        description: dto.description?.trim() || undefined,
+        logoUrl: logoPath ?? undefined,
+        industry: dto.industry.trim(),
+        address: dto.address?.trim() || undefined,
+        city: dto.city.trim(),
+        location: location ?? undefined,
+        companyType: dto.companyType,
+        emailDomain: dto.emailDomain?.trim().toLowerCase() || undefined,
+        lifeAtCompanyImages: lifeAtPaths,
+        verified: false,
+      },
+    );
 
     const created = await this.prisma.companyRequest.create({
       data: {
@@ -85,17 +122,19 @@ export class CompanyRequestsService {
         emailDomain: dto.emailDomain?.trim().toLowerCase() || null,
         address: dto.address?.trim() || null,
         city: dto.city.trim(),
-        location: formatCompanyLocation(dto.address, dto.city),
+        location,
         companyType: dto.companyType,
         description: dto.description?.trim() || null,
         logoUrl: logoPath,
         lifeAtCompanyImages: lifeAtPaths,
         requestedById: userId,
+        placeholderCompanyId: placeholderCompany.id,
       },
       include: {
         requestedBy: {
           select: { id: true, email: true, role: true, createdAt: true },
         },
+        placeholderCompany: true,
       },
     });
 
@@ -284,23 +323,50 @@ export class CompanyRequestsService {
       throw new BadRequestException('Only pending requests can be approved');
     }
 
-    const company = await this.companiesService.createFromRequest(
-      request.requestedById,
-      {
-        name: request.companyName,
-        website: request.website ?? undefined,
-        description: request.description ?? undefined,
-        logoUrl: request.logoUrl ?? undefined,
-        industry: request.industry ?? undefined,
-        address: request.address ?? undefined,
-        city: request.city ?? undefined,
-        location: request.location ?? undefined,
-        companyType: request.companyType ?? undefined,
-        emailDomain: request.emailDomain ?? undefined,
-        lifeAtCompanyImages: request.lifeAtCompanyImages,
-        verified: true,
-      },
-    );
+    let companyId: string;
+    if (request.placeholderCompanyId) {
+      const company = await this.prisma.company.update({
+        where: { id: request.placeholderCompanyId },
+        data: {
+          name: request.companyName,
+          website: request.website,
+          description: request.description,
+          logoUrl: request.logoUrl,
+          industry: request.industry,
+          address: request.address,
+          city: request.city,
+          location: request.location,
+          companyType: request.companyType,
+          emailDomain: request.emailDomain,
+          lifeAtCompanyImages: request.lifeAtCompanyImages,
+          verified: true,
+        },
+      });
+      companyId = company.id;
+      await this.companiesService.linkEmployerToCompany(
+        request.requestedById,
+        company.id,
+      );
+    } else {
+      const company = await this.companiesService.createFromRequest(
+        request.requestedById,
+        {
+          name: request.companyName,
+          website: request.website ?? undefined,
+          description: request.description ?? undefined,
+          logoUrl: request.logoUrl ?? undefined,
+          industry: request.industry ?? undefined,
+          address: request.address ?? undefined,
+          city: request.city ?? undefined,
+          location: request.location ?? undefined,
+          companyType: request.companyType ?? undefined,
+          emailDomain: request.emailDomain ?? undefined,
+          lifeAtCompanyImages: request.lifeAtCompanyImages,
+          verified: true,
+        },
+      );
+      companyId = company.id;
+    }
 
     await this.markRecruiterReviewed(request.requestedById, reviewerId);
 
@@ -308,11 +374,12 @@ export class CompanyRequestsService {
       where: { id },
       data: {
         status: CompanyRequestStatus.APPROVED,
-        mergedIntoId: company.id,
+        mergedIntoId: companyId,
         ...this.reviewMeta(reviewerId),
       },
       include: {
         mergedInto: true,
+        placeholderCompany: true,
         requestedBy: { select: { id: true, email: true } },
         reviewedBy: reviewedByAdminSelect,
       },
@@ -343,6 +410,19 @@ export class CompanyRequestsService {
       request.requestedById,
       company.id,
     );
+
+    if (request.placeholderCompanyId) {
+      await this.prisma.job.updateMany({
+        where: { companyId: request.placeholderCompanyId },
+        data: { companyId: dto.companyId },
+      });
+      await this.prisma.employerUser.deleteMany({
+        where: { companyId: request.placeholderCompanyId },
+      });
+      await this.prisma.company.delete({
+        where: { id: request.placeholderCompanyId },
+      });
+    }
 
     await this.markRecruiterReviewed(request.requestedById, reviewerId);
 

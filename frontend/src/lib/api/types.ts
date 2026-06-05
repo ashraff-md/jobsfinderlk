@@ -36,6 +36,7 @@ export type Company = {
 export type CompanySuggestion = Company & {
   score: number;
   matchType: "exact" | "fuzzy" | "phonetic" | "domain";
+  pendingReview?: boolean;
 };
 
 export type ReviewedByAdmin = {
@@ -61,6 +62,8 @@ export type CompanyRequest = {
   logoUrl?: string | null;
   lifeAtCompanyImages?: string[];
   status: "PENDING" | "APPROVED" | "REJECTED" | "MERGED";
+  placeholderCompanyId?: string | null;
+  placeholderCompany?: Pick<Company, "id" | "name" | "slug" | "verified" | "logoUrl"> | null;
   reviewNotes?: string | null;
   reviewedAt?: string | null;
   reviewedBy?: ReviewedByAdmin | null;

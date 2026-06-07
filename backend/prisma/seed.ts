@@ -1,5 +1,7 @@
 import { PrismaClient, UserRole, JobStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { JOB_CATEGORY_NAMES } from '../src/modules/jobs/job-categories.constants';
+import { slugify } from '../src/common/utils/slug.util';
 
 const prisma = new PrismaClient();
 
@@ -165,6 +167,15 @@ async function main() {
         publishedAt: new Date(),
         isFeatured: job.slug === 'senior-product-designer',
       },
+    });
+  }
+
+  for (const [index, name] of JOB_CATEGORY_NAMES.entries()) {
+    const slug = slugify(name);
+    await prisma.jobCategory.upsert({
+      where: { name },
+      update: { slug, sortOrder: index + 1, active: true, icon: 'work' },
+      create: { name, slug, sortOrder: index + 1, active: true, icon: 'work' },
     });
   }
 

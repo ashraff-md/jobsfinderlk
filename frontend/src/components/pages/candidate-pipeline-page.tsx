@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { EmployerShell } from "@/components/layout/employer-shell";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
@@ -87,43 +86,32 @@ export function CandidatePipelinePage({ id }: CandidatePipelinePageProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <EmployerShell activeNav="applications" fullHeight showFooter={false}>
-      <header className="flex h-20 shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-6 md:px-margin-desktop">
-        <div className="flex flex-1 items-center gap-gutter">
-          <h1 className="text-headline-md text-primary-container">
-            Candidate Pipeline
-            <span className="ml-2 text-label-sm font-normal text-on-surface-variant">Job #{id}</span>
-          </h1>
-          <div className="relative ml-4 hidden w-full max-w-md sm:block">
-            <Icon
-              name="search"
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
-            />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search candidates, roles..."
-              className="w-full rounded-full border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 text-label-sm transition-colors focus:border-secondary focus:outline-none"
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
+    <>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-outline-variant bg-surface-container-lowest px-6 py-4 md:px-margin-desktop">
+        <div className="flex flex-1 flex-wrap items-center gap-4">
           <Link
             href="/employer/jobs"
-            className="hidden items-center gap-2 rounded-lg px-4 py-2 text-on-surface-variant transition-colors hover:bg-surface-container-low sm:flex"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-on-surface-variant transition-colors hover:bg-surface-container-low sm:px-4"
           >
             <Icon name="arrow_back" />
             <span className="font-label-bold">Back to Listings</span>
           </Link>
-          <Link
-            href="/employer/jobs/new"
-            className="rounded-lg bg-primary-container px-6 py-2 font-label-bold text-on-primary transition-opacity hover:opacity-90 active:scale-95"
-          >
-            Post a Job
-          </Link>
+          <p className="text-label-sm text-on-surface-variant">Job #{id}</p>
         </div>
-      </header>
+        <div className="relative w-full max-w-md sm:w-auto sm:min-w-[280px]">
+          <Icon
+            name="search"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+          />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search candidates, roles..."
+            className="w-full rounded-full border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 text-label-sm transition-colors focus:border-secondary focus:outline-none"
+          />
+        </div>
+      </div>
 
       <div className="pipeline-scroll flex-1 overflow-x-auto bg-background p-6">
         <div className="flex min-h-[600px] gap-6 pb-6">
@@ -224,6 +212,6 @@ export function CandidatePipelinePage({ id }: CandidatePipelinePageProps) {
           ))}
         </div>
       </div>
-    </EmployerShell>
+    </>
   );
 }

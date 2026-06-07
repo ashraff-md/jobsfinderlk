@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { EmployerShell } from "@/components/layout/employer-shell";
 import { InlineEmailVerification } from "@/components/auth/inline-email-verification";
 import { InlinePhoneVerification } from "@/components/auth/inline-phone-verification";
 import {
@@ -220,6 +219,7 @@ export function EmployerSettingsPage() {
         photoUrl: nextPhotoUrl,
       });
       setProfileSuccess("Profile saved.");
+      window.dispatchEvent(new Event("employer-profile-updated"));
     } catch (err) {
       setProfileError(err instanceof ApiError ? err.message : "Failed to save profile.");
     } finally {
@@ -279,38 +279,7 @@ export function EmployerSettingsPage() {
   };
 
   return (
-    <EmployerShell activeNav="settings" userName={displayName} userTitle={title || "Recruiter"} showFooter={false}>
-      <header className="-mx-margin-mobile sticky top-0 z-30 flex h-20 items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-margin-mobile md:-mx-margin-desktop md:px-margin-desktop">
-        <h1 className="text-xl font-bold text-primary-container">Recruiter Profile</h1>
-        <div className="flex items-center gap-4 sm:gap-6">
-          <nav className="hidden items-center gap-6 lg:flex">
-            <Link href="/jobs" className="font-body-md text-on-surface-variant transition-colors hover:text-secondary">
-              Find Jobs
-            </Link>
-            <Link href="/companies" className="font-body-md text-on-surface-variant transition-colors hover:text-secondary">
-              Companies
-            </Link>
-            <Link href="/pricing" className="font-body-md text-on-surface-variant transition-colors hover:text-secondary">
-              Salaries
-            </Link>
-          </nav>
-          <div className="hidden h-8 w-px bg-outline-variant lg:block" />
-          <button
-            type="button"
-            className="rounded p-2 text-on-surface-variant transition-colors hover:text-primary-container"
-            aria-label="Notifications"
-          >
-            <Icon name="notifications" />
-          </button>
-          <Link
-            href="/employer/jobs/new"
-            className="rounded bg-primary-container px-4 py-2 font-label-bold text-white transition-all hover:bg-black sm:px-6"
-          >
-            Post a Job
-          </Link>
-        </div>
-      </header>
-
+    <>
       <div className="mx-auto max-w-container-max py-stack-lg">
         {loadingProfile ? (
           <p className="text-on-surface-variant">Loading profile…</p>
@@ -615,6 +584,6 @@ export function EmployerSettingsPage() {
           </div>
         )}
       </div>
-    </EmployerShell>
+    </>
   );
 }

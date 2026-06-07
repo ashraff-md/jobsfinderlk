@@ -229,6 +229,94 @@ export class CreateJobDto {
   verificationLevel?: string;
 }
 
+export class UpdateJobDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(20)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  responsibilities?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  requirements?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  employmentType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  workArrangement?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @ApiPropertyOptional({ enum: ['Fixed', 'Range', 'Negotiable'] })
+  @IsOptional()
+  @IsString()
+  salaryType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  salaryMin?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  salaryMax?: number;
+
+  @ApiPropertyOptional({ enum: ['LKR', 'USD'] })
+  @IsOptional()
+  @IsString()
+  salaryCurrency?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  experienceLevel?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  educationRequirement?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  applicationDeadline?: string;
+}
+
 export class JobQueryDto {
   @ApiPropertyOptional()
   @IsOptional()

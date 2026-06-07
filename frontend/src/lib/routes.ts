@@ -160,6 +160,11 @@ export const ROUTE_META: Record<
     reference: "references2/government_job_posting_form/code.html",
     phase: "M1",
   },
+  "/admin/job-categories": {
+    title: "Job Categories",
+    reference: "references2/admin_job_categories/code.html",
+    phase: "M1",
+  },
   "/admin/companies": {
     title: "Company Onboarding",
     reference: "references2/admin_company_onboarding_approval/code.html",

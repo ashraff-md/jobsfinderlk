@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
-import { EmployerShell } from "@/components/layout/employer-shell";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
@@ -130,42 +128,18 @@ export function EmployerApplicationsPage() {
   }, [searchQuery]);
 
   return (
-    <EmployerShell activeNav="applications" fullHeight showFooter={false}>
-      <header className="flex h-20 shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-6 md:px-margin-desktop">
-        <div className="flex items-center gap-6">
-          <h1 className="text-headline-md text-primary">Candidate Pipeline</h1>
-          <nav className="hidden items-center gap-6 lg:flex">
-            <span className="cursor-pointer border-b-2 border-secondary py-2 font-label-bold text-secondary">
-              Active Roles
-            </span>
-            <span className="cursor-pointer font-body-md text-on-surface-variant transition-colors hover:text-secondary">
-              Archived
-            </span>
-          </nav>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="relative hidden sm:block">
-            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search candidates..."
-              className="w-64 rounded-lg border-none bg-surface-container py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-secondary"
-            />
-          </div>
-          <Link
-            href="/employer/jobs/new"
-            className="rounded bg-primary-container px-4 py-2 text-sm font-label-bold text-white transition-all hover:bg-black"
-          >
-            Post a Job
-          </Link>
-        </div>
-      </header>
-
+    <>
       <section className="flex flex-1 flex-col overflow-hidden p-6 md:p-8">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4">
+            <nav className="hidden items-center gap-6 lg:flex">
+              <span className="cursor-pointer border-b-2 border-secondary py-2 font-label-bold text-secondary">
+                Active Roles
+              </span>
+              <span className="cursor-pointer font-body-md text-on-surface-variant transition-colors hover:text-secondary">
+                Archived
+              </span>
+            </nav>
             <div className="flex items-center gap-3 rounded-lg border border-outline-variant bg-white px-4 py-2">
               <span className="text-xs font-label-bold uppercase tracking-wider text-outline">Role</span>
               <select
@@ -184,7 +158,17 @@ export function EmployerApplicationsPage() {
               <p className="text-sm text-outline">{selectedJob.title}</p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative sm:block">
+              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search candidates..."
+                className="w-full rounded-lg border-none bg-surface-container py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-secondary sm:w-64"
+              />
+            </div>
             <button
               type="button"
               className="flex items-center gap-2 rounded border border-outline-variant px-4 py-2 text-sm font-label-bold transition-all hover:bg-white"
@@ -336,6 +320,6 @@ export function EmployerApplicationsPage() {
           </div>
         </div>
       </section>
-    </EmployerShell>
+    </>
   );
 }

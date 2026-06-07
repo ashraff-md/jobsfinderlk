@@ -2,7 +2,6 @@
 
 import { FilterMultiSearchAutocomplete } from "@/components/jobs/filter-multi-search-autocomplete";
 import {
-  CATEGORY_SUGGESTIONS,
   EDUCATION_LEVELS,
   EXPERIENCE_LEVELS,
   JOB_TYPES,
@@ -10,6 +9,7 @@ import {
   SRI_LANKA_DISTRICTS,
   WORK_ARRANGEMENTS,
 } from "@/lib/jobs/job-search-filters";
+import { useJobCategories } from "@/lib/jobs/use-job-categories";
 
 const labelClass =
   "block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant";
@@ -67,6 +67,7 @@ export function JobSearchFiltersSidebar({
   onChange,
   onReset,
 }: JobSearchFiltersSidebarProps) {
+  const { names: categoryOptions } = useJobCategories();
   const salaryValue = filters.salaryMin ? Number(filters.salaryMin) : 50000;
 
   return (
@@ -93,7 +94,7 @@ export function JobSearchFiltersSidebar({
       <FilterMultiSearchAutocomplete
         label="Category"
         values={filters.categories}
-        options={CATEGORY_SUGGESTIONS}
+        options={categoryOptions}
         onChange={(categories) => onChange({ categories })}
         placeholder="Search categories…"
       />

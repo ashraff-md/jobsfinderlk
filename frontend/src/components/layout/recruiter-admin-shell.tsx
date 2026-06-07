@@ -29,6 +29,12 @@ const ADMIN_NAV = [
     key: "platform-ads",
   },
   { href: "/admin/companies", icon: "business", label: "Companies", key: "companies" },
+  {
+    href: "/admin/job-categories",
+    icon: "category",
+    label: "Job Categories",
+    key: "job-categories",
+  },
   { href: "/admin/talent", icon: "person_search", label: "Talent Pool", key: "talent" },
   { href: "/admin/partners", icon: "handshake", label: "Partners", key: "partners" },
   { href: "/admin/revenue", icon: "payments", label: "Revenue", key: "revenue" },
@@ -58,6 +64,8 @@ function isNavActive(pathname: string, key: string, href: string) {
   }
   if (key === "government") return pathname.startsWith("/admin/jobs/government");
   if (key === "companies") return pathname.startsWith("/admin/companies");
+  if (key === "job-categories") return pathname.startsWith("/admin/job-categories");
+  if (key === "partners") return pathname.startsWith("/admin/partners");
   if (key === "verifications") return pathname.startsWith("/admin/verifications");
   if (key === "platform-ads") return pathname.startsWith("/admin/platform-ads");
   if (key === "talent") return pathname.startsWith("/admin/talent");

@@ -185,6 +185,33 @@ model CompanyRequest {
   @@map("company_requests")
 }
 
+model PlatformPartner {
+  id          String   @id @default(uuid())
+  name        String
+  screenText  String?  @map("screen_text")
+  website     String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_partners")
+}
+
+model JobCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String   @default("work")
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("job_categories")
+}
+
 model Job {
   id                   String    @id @default(uuid())
   companyId            String    @map("company_id")
@@ -228,6 +255,7 @@ model Job {
   verificationLevel    String?   @map("verification_level")
   status               JobStatus @default(DRAFT)
   isFeatured           Boolean   @default(false) @map("is_featured")
+  viewCount            Int       @default(0) @map("view_count")
   publishedAt          DateTime? @map("published_at")
   expiresAt            DateTime? @map("expires_at")
   reviewedById         String?   @map("reviewed_by_id")

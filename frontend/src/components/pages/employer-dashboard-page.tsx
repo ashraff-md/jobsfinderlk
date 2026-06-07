@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
-import { EmployerShell } from "@/components/layout/employer-shell";
 import { Icon } from "@/components/ui/icon";
 
 const JOBS = [
@@ -92,23 +90,15 @@ export function EmployerDashboardPage() {
   }, [selectedJobId, searchQuery]);
 
   return (
-    <EmployerShell activeNav="dashboard">
+    <>
       <header className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
         <div>
-          <h1 className="text-3xl font-headline-xl font-extrabold leading-tight text-primary-container md:text-[40px]">
+          <h2 className="text-3xl font-headline-xl font-extrabold leading-tight text-primary-container md:text-[40px]">
             Recruiter Command Center
-          </h1>
+          </h2>
           <p className="mt-2 font-body-lg text-body-lg text-outline">
             Real-time performance metrics and applicant tracking.
           </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/employer/jobs/new"
-            className="rounded bg-primary-container px-6 py-2.5 text-base font-bold text-label-bold text-white shadow-md transition-all hover:bg-black active:scale-95"
-          >
-            Post a Job
-          </Link>
         </div>
       </header>
 
@@ -328,6 +318,6 @@ export function EmployerDashboardPage() {
           </div>
         </div>
       </section>
-    </EmployerShell>
+    </>
   );
 }

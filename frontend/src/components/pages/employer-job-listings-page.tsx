@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { EmployerShell } from "@/components/layout/employer-shell";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getEmployerJobs } from "@/lib/api/jobs";
@@ -21,7 +20,13 @@ type JobListing = {
   meta: string;
   category: string | null;
   applicants: number;
+  views: number;
+  isFeatured: boolean;
 };
+
+function formatCount(value: number) {
+  return value.toLocaleString();
+}
 
 function timeAgo(dateStr?: string | null) {
   if (!dateStr) return "Recently";
@@ -45,10 +50,15 @@ function mapListingStatus(status?: string): ListingStatus {
   }
 }
 
+function formatJobLocation(job: EmployerJob) {
+  if (job.location?.trim()) return job.location.trim();
+  const parts = [job.city, job.workArrangement].filter(Boolean);
+  return parts.length > 0 ? parts.join(" • ") : "Location not set";
+}
+
 function toJobListing(job: EmployerJob): JobListing {
   const status = mapListingStatus(job.status);
-  const location =
-    [job.location, job.city].filter(Boolean).join(" • ") || "Location not set";
+  const location = formatJobLocation(job);
 
   let meta: string;
   if (status === "draft") {
@@ -71,6 +81,8 @@ function toJobListing(job: EmployerJob): JobListing {
     meta,
     category: job.category ?? null,
     applicants: job._count?.applications ?? 0,
+    views: job.viewCount ?? 0,
+    isFeatured: job.isFeatured,
   };
 }
 
@@ -88,8 +100,58 @@ function statusBadgeClass(status: ListingStatus) {
 }
 
 function statusLabel(status: ListingStatus) {
-  if (status === "pending") return "pending review";
-  return status;
+  if (status === "pending") return "Pending review";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function ListingActions({ job }: { job: JobListing }) {
+  if (job.status === "draft") {
+    return (
+      <Link
+        href="/employer/jobs/new"
+        className="inline-flex items-center justify-center rounded-lg border border-primary-container px-4 py-2 font-label-bold text-primary-container transition-colors hover:bg-surface-container-low"
+      >
+        <Icon name="edit" className="mr-2 text-[18px]" />
+        Continue
+      </Link>
+    );
+  }
+
+  if (job.status !== "active") {
+    return null;
+  }
+
+  return (
+    <>
+      <Link
+        href={`/jobs/${job.slug}`}
+        className="inline-flex items-center justify-center rounded-lg border border-outline-variant px-4 py-2 font-label-bold text-on-surface-variant transition-colors hover:bg-surface-container-low"
+      >
+        View live
+      </Link>
+      <Link
+        href={`/employer/jobs/${job.id}/applicants`}
+        className="inline-flex items-center justify-center rounded-lg bg-secondary px-4 py-2 font-label-bold text-on-secondary transition-colors hover:opacity-90"
+      >
+        <Icon name="group" className="mr-2 text-[18px]" />
+        Applicants
+      </Link>
+      {job.isFeatured ? (
+        <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-container/10 px-4 py-2 font-label-bold text-primary-container">
+          <Icon name="campaign" className="text-[18px]" filled />
+          Promoted
+        </span>
+      ) : (
+        <Link
+          href="/pricing"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-secondary/30 bg-secondary/10 px-4 py-2 font-label-bold text-secondary transition-colors hover:bg-secondary/15"
+        >
+          <Icon name="campaign" className="text-[18px]" />
+          Promote
+        </Link>
+      )}
+    </>
+  );
 }
 
 export function EmployerJobListingsPage() {
@@ -145,45 +207,12 @@ export function EmployerJobListingsPage() {
   const activeCount = jobs.filter((job) => job.status === "active").length;
 
   return (
-    <EmployerShell activeNav="listings">
-      <header className="mb-8 flex flex-col gap-4 border-b border-outline-variant pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-xl">
-          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search listings..."
-            className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 font-body-md outline-none transition-all focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-          />
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => void loadJobs()}
-            disabled={loading}
-            className="rounded p-2 text-on-surface-variant transition-colors hover:text-secondary disabled:opacity-50"
-            title="Refresh listings"
-          >
-            <Icon name="refresh" />
-          </button>
-        </div>
-      </header>
-
-      <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg text-on-surface">Manage Job Listings</h1>
-          <p className="mt-1 font-body-lg text-on-surface-variant">
-            Review and manage your current career opportunities.
-          </p>
-        </div>
-        <Link
-          href="/employer/jobs/new"
-          className="inline-flex items-center justify-center rounded-lg bg-primary-container px-8 py-3 font-label-bold text-white shadow-sm transition-all hover:bg-black active:scale-95"
-        >
-          <Icon name="add" className="mr-2" />
-          Post New Job
-        </Link>
+    <>
+      <div className="mb-8">
+        <h2 className="font-headline-lg text-headline-lg text-on-surface">Manage Job Listings</h2>
+        <p className="mt-1 font-body-lg text-on-surface-variant">
+          Review and manage your current career opportunities.
+        </p>
       </div>
 
       {error && (
@@ -193,6 +222,16 @@ export function EmployerJobListingsPage() {
       )}
 
       <div className="mb-8 flex flex-wrap items-center gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+        <div className="relative min-w-[220px] flex-1">
+          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search listings..."
+            className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 font-body-md outline-none transition-all focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-label-bold text-outline">Filters:</span>
           <select
@@ -218,6 +257,15 @@ export function EmployerJobListingsPage() {
             <option value="draft">Status: Draft</option>
             <option value="closed">Status: Closed</option>
           </select>
+          <button
+            type="button"
+            onClick={() => void loadJobs()}
+            disabled={loading}
+            className="rounded p-2 text-on-surface-variant transition-colors hover:text-secondary disabled:opacity-50"
+            title="Refresh listings"
+          >
+            <Icon name="refresh" />
+          </button>
         </div>
       </div>
 
@@ -246,29 +294,37 @@ export function EmployerJobListingsPage() {
           filteredListings.map((job) => (
             <article
               key={job.id}
-              className="group flex flex-col gap-6 rounded-xl border border-outline-variant bg-surface-container-lowest p-6 transition-all hover:border-secondary hover:shadow-md lg:flex-row lg:items-center"
+              className="group flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-6 transition-all hover:border-secondary hover:shadow-md"
             >
-              <div className="flex-1">
-                <h2 className="text-lg font-bold leading-snug text-on-surface transition-colors group-hover:text-secondary">
+              <div className="flex items-start gap-3">
+                <h2
+                  className="min-w-0 flex-1 truncate text-lg font-bold leading-snug text-on-surface transition-colors group-hover:text-secondary"
+                  title={job.title}
+                >
                   {job.title}
                 </h2>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <span
-                    className={cn(
-                      "rounded px-2 py-0.5 text-[10px] font-bold uppercase",
-                      statusBadgeClass(job.status),
-                    )}
-                  >
-                    {statusLabel(job.status)}
-                  </span>
-                  <span className="font-label-sm text-on-surface-variant">ID: {job.refId}</span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-                  <div className="flex items-center font-label-bold text-on-surface-variant">
-                    <Icon name="location_on" className="mr-1.5 text-[18px]" />
-                    {job.location}
-                  </div>
-                  <div className="flex items-center font-label-bold text-on-surface-variant">
+                <span
+                  className={cn(
+                    "shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase",
+                    statusBadgeClass(job.status),
+                  )}
+                >
+                  {statusLabel(job.status)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[minmax(0,1fr)_11rem_28rem]">
+                <div className="min-w-0 space-y-1">
+                  <p className="truncate font-label-sm text-on-surface-variant" title={job.refId}>
+                    ID: {job.refId}
+                  </p>
+                  <p className="flex min-w-0 items-center truncate font-label-sm text-on-surface-variant">
+                    <Icon name="location_on" className="mr-1.5 shrink-0 text-[16px]" />
+                    <span className="truncate" title={job.location}>
+                      {job.location}
+                    </span>
+                  </p>
+                  <p className="flex min-w-0 items-center truncate font-label-sm text-on-surface-variant">
                     <Icon
                       name={
                         job.status === "draft"
@@ -277,46 +333,32 @@ export function EmployerJobListingsPage() {
                             ? "hourglass_top"
                             : "calendar_today"
                       }
-                      className="mr-1.5 text-[18px]"
+                      className="mr-1.5 shrink-0 text-[16px]"
                     />
-                    {job.meta}
+                    <span className="truncate" title={job.meta}>
+                      {job.meta}
+                    </span>
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center justify-center gap-6 border-outline-variant lg:border-l lg:pl-8">
+                  <div className="w-16 text-center">
+                    <p className="mb-1 font-label-sm text-on-surface-variant">Views</p>
+                    <p className="font-headline-md text-headline-md text-on-surface-variant">
+                      {formatCount(job.views)}
+                    </p>
+                  </div>
+                  <div className="w-16 text-center">
+                    <p className="mb-1 font-label-sm text-on-surface-variant">Applicants</p>
+                    <p className="font-headline-md text-headline-md text-secondary">
+                      {formatCount(job.applicants)}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-8 border-outline-variant sm:flex-row lg:border-l lg:px-12">
-                <div className="text-center">
-                  <p className="mb-1 font-label-sm text-on-surface-variant">Applicants</p>
-                  <p className="font-headline-md text-headline-md text-secondary">{job.applicants}</p>
+                <div className="flex min-h-[2.5rem] shrink-0 flex-wrap items-center justify-start gap-2 lg:justify-end">
+                  <ListingActions job={job} />
                 </div>
-              </div>
-
-              <div className="flex min-w-[180px] flex-wrap gap-3 lg:flex-col xl:flex-row">
-                {job.status === "active" && (
-                  <Link
-                    href={`/jobs/${job.slug}`}
-                    className="inline-flex flex-1 items-center justify-center rounded-lg border border-outline-variant px-4 py-2 font-label-bold text-on-surface-variant transition-colors hover:bg-surface-container-low xl:flex-none"
-                  >
-                    View live
-                  </Link>
-                )}
-                {job.status === "draft" ? (
-                  <Link
-                    href="/employer/jobs/new"
-                    className="inline-flex flex-1 items-center justify-center rounded-lg border border-primary-container px-4 py-2 font-label-bold text-primary-container transition-colors hover:bg-surface-container-low xl:flex-none"
-                  >
-                    <Icon name="edit" className="mr-2 text-[18px]" />
-                    Continue
-                  </Link>
-                ) : job.status === "active" ? (
-                  <Link
-                    href={`/employer/jobs/${job.id}/applicants`}
-                    className="inline-flex flex-1 items-center justify-center rounded-lg bg-secondary px-4 py-2 font-label-bold text-on-secondary transition-colors hover:opacity-90 xl:flex-none"
-                  >
-                    <Icon name="group" className="mr-2 text-[18px]" />
-                    Applicants
-                  </Link>
-                ) : null}
               </div>
             </article>
           ))
@@ -339,6 +381,6 @@ export function EmployerJobListingsPage() {
       >
         <Icon name="add" className="text-[32px]" />
       </Link>
-    </EmployerShell>
+    </>
   );
 }

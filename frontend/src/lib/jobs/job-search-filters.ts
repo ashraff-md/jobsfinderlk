@@ -1,5 +1,4 @@
 import {
-  CATEGORY_SUGGESTIONS,
   EDUCATION_LEVELS,
   EXPERIENCE_LEVELS,
   JOB_TYPES,
@@ -8,7 +7,6 @@ import {
 } from "@/lib/jobs/post-job.constants";
 
 export {
-  CATEGORY_SUGGESTIONS,
   EDUCATION_LEVELS,
   EXPERIENCE_LEVELS,
   JOB_TYPES,

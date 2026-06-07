@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,7 +15,11 @@ import { detectScamContent, slugify, uniqueSlug } from '../../common/utils/slug.
 import { assertValidApplicationDeadline } from '../../common/utils/application-deadline.util';
 import { ImageStorageService } from '../../common/storage/image-storage.service';
 import { VerificationService } from '../auth/verification.service';
-import { CreateJobDto, JobQueryDto } from './dto/job.dto';
+import { CreateJobDto, JobQueryDto, UpdateJobDto } from './dto/job.dto';
+import {
+  CreateJobCategoryDto,
+  UpdateJobCategoryDto,
+} from './dto/job-category.dto';
 
 function buildJobSlug(
   dto: CreateJobDto,
@@ -214,7 +220,13 @@ export class JobsService {
       include: { company: true },
     });
     if (!job) throw new NotFoundException('Job not found');
-    return this.mapJobForPublic(job);
+
+    await this.prisma.job.update({
+      where: { id: job.id },
+      data: { viewCount: { increment: 1 } },
+    });
+
+    return this.mapJobForPublic({ ...job, viewCount: job.viewCount + 1 });
   }
 
   async create(userId: string, dto: CreateJobDto, userRole?: UserRole) {
@@ -427,6 +439,111 @@ export class JobsService {
     return job;
   }
 
+  async updateForAdmin(id: string, dto: UpdateJobDto) {
+    const job = await this.prisma.job.findUnique({
+      where: { id },
+      include: { company: true },
+    });
+    if (!job) throw new NotFoundException('Job not found');
+
+    if (dto.applicationDeadline) {
+      assertValidApplicationDeadline(dto.applicationDeadline);
+    }
+
+    const title = dto.title?.trim() ?? job.title;
+    const description = dto.description?.trim() ?? job.description;
+    const city = dto.city !== undefined ? dto.city.trim() || null : job.city;
+    const workArrangement =
+      dto.workArrangement !== undefined ? dto.workArrangement : job.workArrangement;
+    const salaryType = dto.salaryType !== undefined ? dto.salaryType : job.salaryType;
+
+    const location =
+      dto.location !== undefined
+        ? dto.location.trim() || null
+        : dto.city !== undefined || dto.workArrangement !== undefined
+          ? [city, workArrangement].filter(Boolean).join(' • ') || job.location
+          : job.location;
+
+    const keywordDto: CreateJobDto = {
+      title,
+      description,
+      responsibilities:
+        dto.responsibilities !== undefined
+          ? dto.responsibilities
+          : job.responsibilities ?? undefined,
+      requirements:
+        dto.requirements !== undefined ? dto.requirements : job.requirements ?? undefined,
+      category: dto.category !== undefined ? dto.category : job.category ?? undefined,
+      city: city ?? undefined,
+      employmentType:
+        dto.employmentType !== undefined
+          ? dto.employmentType
+          : job.employmentType ?? undefined,
+      workArrangement: workArrangement ?? undefined,
+      experienceLevel:
+        dto.experienceLevel !== undefined
+          ? dto.experienceLevel
+          : job.experienceLevel ?? undefined,
+      ageMin: job.ageMin ?? undefined,
+      ageMax: job.ageMax ?? undefined,
+      requiredSkills: job.requiredSkills,
+      niceToHaveSkills: job.niceToHaveSkills,
+    };
+
+    return this.prisma.job.update({
+      where: { id },
+      data: {
+        ...(dto.title !== undefined && { title }),
+        ...(dto.description !== undefined && { description }),
+        ...(dto.responsibilities !== undefined && {
+          responsibilities: dto.responsibilities.trim() || null,
+        }),
+        ...(dto.requirements !== undefined && {
+          requirements: dto.requirements.trim() || null,
+        }),
+        ...(dto.category !== undefined && { category: dto.category.trim() || null }),
+        ...(dto.employmentType !== undefined && { employmentType: dto.employmentType }),
+        ...(dto.workArrangement !== undefined && { workArrangement: dto.workArrangement }),
+        ...(dto.experienceLevel !== undefined && { experienceLevel: dto.experienceLevel }),
+        ...(dto.educationRequirement !== undefined && {
+          educationRequirement: dto.educationRequirement,
+        }),
+        ...(dto.city !== undefined && { city }),
+        ...(dto.location !== undefined ||
+        dto.city !== undefined ||
+        dto.workArrangement !== undefined
+          ? { location }
+          : {}),
+        ...(dto.salaryType !== undefined && { salaryType: dto.salaryType }),
+        ...(dto.salaryCurrency !== undefined && { salaryCurrency: dto.salaryCurrency }),
+        ...(dto.salaryType !== undefined || dto.salaryMin !== undefined || dto.salaryMax !== undefined
+          ? {
+              salaryMin:
+                (dto.salaryType ?? salaryType) === 'Negotiable'
+                  ? null
+                  : dto.salaryMin !== undefined
+                    ? dto.salaryMin
+                    : job.salaryMin,
+              salaryMax:
+                (dto.salaryType ?? salaryType) === 'Negotiable'
+                  ? null
+                  : dto.salaryMax !== undefined
+                    ? dto.salaryMax
+                    : job.salaryMax,
+            }
+          : {}),
+        ...(dto.applicationDeadline !== undefined && {
+          applicationDeadline: dto.applicationDeadline
+            ? new Date(dto.applicationDeadline)
+            : null,
+          expiresAt: dto.applicationDeadline ? new Date(dto.applicationDeadline) : null,
+        }),
+        keywords: buildJobKeywords(keywordDto, job.company.name),
+      },
+      include: { company: true },
+    });
+  }
+
   async moderate(
     jobId: string,
     action: 'approve' | 'reject',
@@ -500,5 +617,199 @@ export class JobsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async listCategories() {
+    const [categories, counts] = await Promise.all([
+      this.prisma.jobCategory.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          icon: true,
+          sortOrder: true,
+        },
+      }),
+      this.buildCategoryJobCounts(),
+    ]);
+
+    return categories.map((category) => {
+      const key = counts.normalizeKey(category.name);
+      return {
+        ...category,
+        totalJobs: counts.totalByCategory.get(key) ?? 0,
+      };
+    });
+  }
+
+  private async buildCategoryJobCounts() {
+    const [totalGroups, activeGroups] = await Promise.all([
+      this.prisma.job.groupBy({
+        by: ['category'],
+        _count: { _all: true },
+        where: { category: { not: null } },
+      }),
+      this.prisma.job.groupBy({
+        by: ['category'],
+        _count: { _all: true },
+        where: {
+          category: { not: null },
+          status: JobStatus.PUBLISHED,
+        },
+      }),
+    ]);
+
+    const normalizeKey = (value: string | null) => value?.trim().toLowerCase() ?? '';
+
+    const totalByCategory = new Map<string, number>();
+    for (const row of totalGroups) {
+      const key = normalizeKey(row.category);
+      if (!key) continue;
+      totalByCategory.set(key, row._count._all);
+    }
+
+    const activeByCategory = new Map<string, number>();
+    for (const row of activeGroups) {
+      const key = normalizeKey(row.category);
+      if (!key) continue;
+      activeByCategory.set(key, row._count._all);
+    }
+
+    return { totalByCategory, activeByCategory, normalizeKey };
+  }
+
+  async listCategoriesForAdmin() {
+    const [categories, counts] = await Promise.all([
+      this.prisma.jobCategory.findMany({
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      }),
+      this.buildCategoryJobCounts(),
+    ]);
+
+    return categories.map((category) => {
+      const key = counts.normalizeKey(category.name);
+      return {
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        description: category.description,
+        icon: category.icon,
+        sortOrder: category.sortOrder,
+        active: category.active,
+        totalJobs: counts.totalByCategory.get(key) ?? 0,
+        activeJobs: counts.activeByCategory.get(key) ?? 0,
+        updatedAt: category.updatedAt,
+      };
+    });
+  }
+
+  async createCategory(dto: CreateJobCategoryDto) {
+    const name = dto.name.trim();
+    const slug = slugify(name);
+    if (!slug) {
+      throw new BadRequestException('Category name is invalid.');
+    }
+
+    const existing = await this.prisma.jobCategory.findFirst({
+      where: {
+        OR: [
+          { name: { equals: name, mode: 'insensitive' } },
+          { slug },
+        ],
+      },
+    });
+    if (existing) {
+      throw new ConflictException('A category with this name already exists.');
+    }
+
+    const maxSort = await this.prisma.jobCategory.aggregate({
+      _max: { sortOrder: true },
+    });
+
+    return this.prisma.jobCategory.create({
+      data: {
+        name,
+        slug,
+        description: dto.description?.trim() || null,
+        icon: dto.icon?.trim() || 'work',
+        sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
+        active: true,
+      },
+    });
+  }
+
+  async updateCategory(id: string, dto: UpdateJobCategoryDto) {
+    const category = await this.prisma.jobCategory.findUnique({ where: { id } });
+    if (!category) {
+      throw new NotFoundException('Category not found.');
+    }
+
+    const data: Prisma.JobCategoryUpdateInput = {};
+
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      const slug = slugify(name);
+      if (!slug) {
+        throw new BadRequestException('Category name is invalid.');
+      }
+
+      const duplicate = await this.prisma.jobCategory.findFirst({
+        where: {
+          id: { not: id },
+          OR: [
+            { name: { equals: name, mode: 'insensitive' } },
+            { slug },
+          ],
+        },
+      });
+      if (duplicate) {
+        throw new ConflictException('A category with this name already exists.');
+      }
+
+      data.name = name;
+      data.slug = slug;
+    }
+
+    if (dto.description !== undefined) {
+      data.description = dto.description.trim() || null;
+    }
+    if (dto.icon !== undefined) {
+      data.icon = dto.icon.trim() || 'work';
+    }
+    if (dto.active !== undefined) {
+      data.active = dto.active;
+    }
+    if (dto.sortOrder !== undefined) {
+      data.sortOrder = dto.sortOrder;
+    }
+
+    return this.prisma.jobCategory.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteCategory(id: string) {
+    const category = await this.prisma.jobCategory.findUnique({ where: { id } });
+    if (!category) {
+      throw new NotFoundException('Category not found.');
+    }
+
+    const linkedJobs = await this.prisma.job.count({
+      where: {
+        category: { equals: category.name, mode: 'insensitive' },
+      },
+    });
+    if (linkedJobs > 0) {
+      throw new ConflictException(
+        'Cannot delete a category that is assigned to existing job listings.',
+      );
+    }
+
+    await this.prisma.jobCategory.delete({ where: { id } });
+    return { deleted: true };
   }
 }

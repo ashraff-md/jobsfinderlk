@@ -26,6 +26,9 @@ import { AdminListCompanyRequestsQueryDto } from './dto/admin-list-company-reque
 import { AdminListRecruitersQueryDto } from './dto/admin-list-recruiters-query.dto';
 import { AdminRecruitersService } from './admin-recruiters.service';
 import { AdminListJobsQueryDto } from './dto/admin-list-jobs-query.dto';
+import { UpdateJobDto } from '../jobs/dto/job.dto';
+import { PartnersService } from '../partners/partners.service';
+import { CreatePartnerDto, UpdatePartnerDto } from '../partners/dto/partner.dto';
 import { PlatformAdsService } from '../platform-ads/platform-ads.service';
 import {
   CreateBannerCampaignDto,
@@ -36,6 +39,10 @@ import {
   UpdateBannerSlotDto,
   UpdateSponsoredAdDto,
 } from '../platform-ads/dto/platform-ads.dto';
+import {
+  CreateJobCategoryDto,
+  UpdateJobCategoryDto,
+} from '../jobs/dto/job-category.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -48,7 +55,46 @@ export class AdminController {
     private readonly companyRequestsService: CompanyRequestsService,
     private readonly adminRecruitersService: AdminRecruitersService,
     private readonly platformAdsService: PlatformAdsService,
+    private readonly partnersService: PartnersService,
   ) {}
+
+  @Get('partners')
+  listPartners() {
+    return this.partnersService.listForAdmin();
+  }
+
+  @Post('partners')
+  createPartner(@Body() dto: CreatePartnerDto) {
+    return this.partnersService.create(dto);
+  }
+
+  @Patch('partners/:id')
+  updatePartner(@Param('id') id: string, @Body() dto: UpdatePartnerDto) {
+    return this.partnersService.update(id, dto);
+  }
+
+  @Get('job-categories')
+  listJobCategories() {
+    return this.jobsService.listCategoriesForAdmin();
+  }
+
+  @Post('job-categories')
+  createJobCategory(@Body() dto: CreateJobCategoryDto) {
+    return this.jobsService.createCategory(dto);
+  }
+
+  @Patch('job-categories/:id')
+  updateJobCategory(
+    @Param('id') id: string,
+    @Body() dto: UpdateJobCategoryDto,
+  ) {
+    return this.jobsService.updateCategory(id, dto);
+  }
+
+  @Delete('job-categories/:id')
+  deleteJobCategory(@Param('id') id: string) {
+    return this.jobsService.deleteCategory(id);
+  }
 
   @Get('jobs/stats')
   adminJobStats() {
@@ -73,6 +119,11 @@ export class AdminController {
   @Get('jobs/:id')
   jobForReview(@Param('id') id: string) {
     return this.jobsService.findByIdForModeration(id);
+  }
+
+  @Patch('jobs/:id')
+  updateJob(@Param('id') id: string, @Body() dto: UpdateJobDto) {
+    return this.jobsService.updateForAdmin(id, dto);
   }
 
   @Patch('jobs/:id/approve')

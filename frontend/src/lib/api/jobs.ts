@@ -6,6 +6,7 @@ import type {
   CompanyDetail,
   EmployerJob,
   Job,
+  JobCategory,
   JobsSearchResponse,
 } from "./types";
 
@@ -47,6 +48,10 @@ export async function searchJobs(
 
 export async function getJob(slug: string) {
   return apiFetch<Job>(`/jobs/${slug}`);
+}
+
+export async function getJobCategories() {
+  return apiFetch<JobCategory[]>("/jobs/categories");
 }
 
 export async function getCompanies(search?: string) {

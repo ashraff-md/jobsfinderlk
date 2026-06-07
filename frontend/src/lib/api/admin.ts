@@ -1,7 +1,9 @@
 import { apiFetch } from "./client";
 import { getAccessToken } from "./auth";
 import type {
+  AdminJobCategory,
   AdminRecruiter,
+  PlatformPartner,
   BannerAspectRatio,
   CompanyRequest,
   Job,
@@ -59,6 +61,14 @@ export async function getGovernmentJobs() {
 
 export async function getAdminJob(id: string) {
   return apiFetch<Job>(`/admin/jobs/${id}`, { token: getAccessToken() });
+}
+
+export async function updateAdminJob(id: string, body: Record<string, unknown>) {
+  return apiFetch<Job>(`/admin/jobs/${id}`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body),
+  });
 }
 
 export async function approveJob(id: string) {
@@ -365,5 +375,81 @@ export async function deleteAdminSponsoredAd(id: string) {
   return apiFetch<AdminSponsoredAd[]>(`/admin/platform-ads/sponsored/${id}`, {
     method: "DELETE",
     token: getAccessToken(),
+  });
+}
+
+export async function getAdminJobCategories() {
+  return apiFetch<AdminJobCategory[]>("/admin/job-categories", {
+    token: getAccessToken(),
+  });
+}
+
+export type CreateAdminJobCategoryBody = {
+  name: string;
+  description?: string;
+  icon?: string;
+};
+
+export type UpdateAdminJobCategoryBody = {
+  name?: string;
+  description?: string;
+  icon?: string;
+  active?: boolean;
+};
+
+export async function createAdminJobCategory(body: CreateAdminJobCategoryBody) {
+  return apiFetch<AdminJobCategory>("/admin/job-categories", {
+    method: "POST",
+    token: getAccessToken(),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateAdminJobCategory(id: string, body: UpdateAdminJobCategoryBody) {
+  return apiFetch<AdminJobCategory>(`/admin/job-categories/${id}`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteAdminJobCategory(id: string) {
+  return apiFetch<{ deleted: boolean }>(`/admin/job-categories/${id}`, {
+    method: "DELETE",
+    token: getAccessToken(),
+  });
+}
+
+export async function getAdminPartners() {
+  return apiFetch<PlatformPartner[]>("/admin/partners", {
+    token: getAccessToken(),
+  });
+}
+
+export type CreateAdminPartnerBody = {
+  name: string;
+  screenText?: string;
+  website?: string;
+};
+
+export type UpdateAdminPartnerBody = {
+  name?: string;
+  screenText?: string;
+  website?: string;
+};
+
+export async function createAdminPartner(body: CreateAdminPartnerBody) {
+  return apiFetch<PlatformPartner>("/admin/partners", {
+    method: "POST",
+    token: getAccessToken(),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateAdminPartner(id: string, body: UpdateAdminPartnerBody) {
+  return apiFetch<PlatformPartner>(`/admin/partners/${id}`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body),
   });
 }

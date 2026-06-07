@@ -2,46 +2,51 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
 import { HomeBannerAdsSection } from "@/components/home/home-banner-ads-section";
 import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
-import { searchPublishedJobs } from "@/lib/api/jobs";
+import { getJobCategories, searchPublishedJobs } from "@/lib/api/jobs";
+import { getPartners } from "@/lib/api/partners";
+import type { JobCategory, PlatformPartner } from "@/lib/api/types";
 import { JOB_SLIDE_INTERVAL_MS } from "@/lib/jobs/featured-jobs";
 import { buildJobCardSlides } from "@/lib/jobs/map-job-to-featured-card";
 import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
 
-const MARQUEE_COMPANIES = [
-  "DIALOG",
-  "WSO2",
-  "VIRTUSA",
-  "SYSCO LABS",
-  "AXIATA",
-  "MAS HOLDINGS",
-];
-
-const PREMIUM_SECTORS = ["Banking", "Technology", "Manufacturing", "FMCG"];
+const FALLBACK_PREMIUM_SECTORS = [
+  "Software Development",
+  "Information Technology (IT)",
+  "Banking & Financial Services",
+  "Sales",
+].map((name) => ({
+  name,
+  href: `/jobs?category=${encodeURIComponent(name)}`,
+  totalJobs: 0,
+}));
 
 const HOME_OPPORTUNITIES_CARDS_PER_SLIDE = 12;
 const HOME_OPPORTUNITIES_SLIDE_COUNT = 3;
+const HOME_BROWSE_CATEGORY_LIMIT = 12;
 
-const JOB_CATEGORIES = [
-  { name: "Information Technology", icon: "computer", count: "1,240", href: "/jobs?q=Information+Technology" },
-  { name: "Banking & Finance", icon: "account_balance", count: "860", href: "/jobs?category=Finance" },
-  { name: "Engineering", icon: "engineering", count: "720", href: "/jobs?q=Engineering" },
-  { name: "Marketing", icon: "campaign", count: "540", href: "/jobs?q=Marketing" },
-  { name: "Sales", icon: "storefront", count: "680", href: "/jobs?q=Sales" },
-  { name: "Healthcare", icon: "medical_services", count: "410", href: "/jobs?q=Healthcare" },
-  { name: "Education", icon: "school", count: "320", href: "/jobs?q=Education" },
-  { name: "Hospitality", icon: "travel_explore", count: "290", href: "/jobs?q=Hospitality" },
-  { name: "Human Resources", icon: "groups", count: "180", href: "/jobs?q=Human+Resources" },
-  { name: "Design", icon: "palette", count: "260", href: "/jobs?q=Design" },
-  { name: "Operations", icon: "precision_manufacturing", count: "390", href: "/jobs?q=Operations" },
-  { name: "Government", icon: "account_balance_wallet", count: "150", href: "/jobs?q=Government" },
-] as const;
+function formatCategoryJobCount(count: number) {
+  if (count === 1) return "1 job";
+  return `${count.toLocaleString()} jobs`;
+}
+
+function partnerMarqueeLabel(partner: PlatformPartner) {
+  return partner.screenText?.trim() || partner.name;
+}
+
+function sortCategoriesByListings(categories: JobCategory[]) {
+  return [...categories].sort((a, b) => {
+    const countDiff = (b.totalJobs ?? 0) - (a.totalJobs ?? 0);
+    if (countDiff !== 0) return countDiff;
+    return a.sortOrder - b.sortOrder;
+  });
+}
 
 function animateValue(
   element: HTMLElement,
@@ -82,6 +87,58 @@ export function LandingPage() {
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobSlide, setJobSlide] = useState(0);
   const [jobCarouselPaused, setJobCarouselPaused] = useState(false);
+  const [jobCategories, setJobCategories] = useState<JobCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [marqueePartners, setMarqueePartners] = useState<PlatformPartner[]>([]);
+  const [partnersLoading, setPartnersLoading] = useState(true);
+
+  const premiumSectors = useMemo(
+    () =>
+      sortCategoriesByListings(jobCategories)
+        .slice(0, 4)
+        .map((category) => ({
+          name: category.name,
+          href: `/jobs?category=${encodeURIComponent(category.name)}`,
+          totalJobs: category.totalJobs ?? 0,
+        })),
+    [jobCategories],
+  );
+
+  const browseCategories = useMemo(
+    () => sortCategoriesByListings(jobCategories).slice(0, HOME_BROWSE_CATEGORY_LIMIT),
+    [jobCategories],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCategoriesLoading(true);
+      setPartnersLoading(true);
+      try {
+        const [categories, partners] = await Promise.all([
+          getJobCategories(),
+          getPartners(),
+        ]);
+        if (!cancelled) {
+          setJobCategories(categories);
+          setMarqueePartners(partners);
+        }
+      } catch {
+        if (!cancelled) {
+          setJobCategories([]);
+          setMarqueePartners([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setCategoriesLoading(false);
+          setPartnersLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,15 +267,18 @@ export function LandingPage() {
                 </button>
               </div>
             </form>
-            <div className="mt-10 flex flex-wrap justify-center gap-6">
+            <div className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2">
               <span className="font-label-bold text-white/40">Premium Sectors:</span>
-              {PREMIUM_SECTORS.map((sector) => (
+              {(premiumSectors.length ? premiumSectors : FALLBACK_PREMIUM_SECTORS).map((sector) => (
                 <Link
-                  key={sector}
-                  href="/jobs"
+                  key={sector.name}
+                  href={sector.href}
                   className="border-b border-white/20 pb-0.5 text-white/80 transition-colors hover:text-white"
                 >
-                  {sector}
+                  {sector.name}
+                  {sector.totalJobs > 0 ? (
+                    <span className="ml-1 text-white/50">({sector.totalJobs.toLocaleString()})</span>
+                  ) : null}
                 </Link>
               ))}
             </div>
@@ -361,23 +421,34 @@ export function LandingPage() {
                 <Icon name="arrow_forward" className="text-[18px]" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-              {JOB_CATEGORIES.map((category) => (
-                <Link
-                  key={category.name}
-                  href={category.href}
-                  className="group flex flex-col items-center rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-5 text-center transition-all hover:border-primary hover:shadow-sm"
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/5 text-primary transition-colors group-hover:bg-primary group-hover:text-on-primary">
-                    <Icon name={category.icon} className="text-2xl" />
-                  </div>
-                  <h3 className="mb-1 text-sm font-bold leading-snug text-primary">{category.name}</h3>
-                  <p className="text-[11px] font-label-bold text-on-surface-variant">
-                    {category.count}+ jobs
-                  </p>
-                </Link>
-              ))}
-            </div>
+            {categoriesLoading ? (
+              <div className="flex justify-center py-16">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-surface-container border-t-primary" />
+              </div>
+            ) : browseCategories.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-outline-variant py-12 text-center text-on-surface-variant">
+                Categories will appear here once listings are published.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {browseCategories.map((category) => (
+                  <Link
+                    key={category.id}
+                    href={`/jobs?category=${encodeURIComponent(category.name)}`}
+                    className="group flex flex-col items-center rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-5 text-center transition-all hover:border-primary hover:shadow-sm"
+                  >
+                    <Icon
+                      name={category.icon ?? "work"}
+                      className="mb-3 text-3xl text-primary transition-colors group-hover:text-secondary"
+                    />
+                    <h3 className="mb-1 text-sm font-bold leading-snug text-primary">{category.name}</h3>
+                    <p className="text-[11px] font-label-bold text-on-surface-variant">
+                      {formatCategoryJobCount(category.totalJobs ?? 0)}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -391,26 +462,53 @@ export function LandingPage() {
               Organizations across Sri Lanka hire exceptional talent on JobsFinder.lk
             </p>
           </div>
-          <div className="marquee">
-            {[0, 1].map((copy) => (
-              <div
-                key={copy}
-                aria-hidden={copy === 1}
-                className="marquee-content"
-              >
-                {MARQUEE_COMPANIES.map((name) => (
-                  <div
-                    key={`${copy}-${name}`}
-                    className="flex cursor-default items-center gap-3 opacity-40 transition-all hover:opacity-100"
-                  >
-                    <span className="text-xl font-extrabold tracking-tighter text-primary">
-                      {name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+          {partnersLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-surface-container border-t-primary" />
+            </div>
+          ) : marqueePartners.length === 0 ? (
+            <p className="text-center text-body-md text-on-surface-variant">
+              Partner organizations will appear here once onboarded.
+            </p>
+          ) : (
+            <div className="marquee">
+              {[0, 1].map((copy) => (
+                <div
+                  key={copy}
+                  aria-hidden={copy === 1}
+                  className="marquee-content"
+                >
+                  {marqueePartners.map((partner) => {
+                    const label = partnerMarqueeLabel(partner);
+                    const content = (
+                      <span className="text-xl font-extrabold tracking-tighter text-primary">
+                        {label}
+                      </span>
+                    );
+                    return (
+                      <div
+                        key={`${copy}-${partner.id}`}
+                        className="flex cursor-default items-center gap-3 opacity-40 transition-all hover:opacity-100"
+                      >
+                        {partner.website ? (
+                          <a
+                            href={partner.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="no-underline"
+                          >
+                            {content}
+                          </a>
+                        ) : (
+                          content
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Authority Stats */}

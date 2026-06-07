@@ -32,6 +32,11 @@ export class JobsController {
     return this.jobsService.suggest(q ?? '', parsedLimit);
   }
 
+  @Get('categories')
+  categories() {
+    return this.jobsService.listCategories();
+  }
+
   @Get('employer/mine')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER, UserRole.ADMIN)

@@ -1,5 +1,33 @@
 export type UserRole = "SEEKER" | "EMPLOYER" | "ADMIN" | "MODERATOR";
 
+export type JobCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  icon?: string;
+  sortOrder: number;
+  totalJobs?: number;
+};
+
+export type PlatformPartner = {
+  id: string;
+  name: string;
+  screenText?: string | null;
+  website?: string | null;
+  sortOrder?: number;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminJobCategory = JobCategory & {
+  active: boolean;
+  totalJobs: number;
+  activeJobs: number;
+  updatedAt: string;
+};
+
 export type BannerAspectRatio = "RATIO_3_2" | "RATIO_2_5";
 
 export type AuthUser = {
@@ -130,6 +158,7 @@ export type Job = {
   requiredSkills?: string[];
   niceToHaveSkills?: string[];
   isFeatured: boolean;
+  viewCount?: number;
   status?: string;
   jobSourceType?: string | null;
   verificationLevel?: string | null;

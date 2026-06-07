@@ -19,7 +19,6 @@ import {
   PUBLIC_SERVICE_GRADES,
 } from "@/lib/jobs/government-job.constants";
 import {
-  CATEGORY_SUGGESTIONS,
   EDUCATION_LEVELS,
   EXPERIENCE_LEVELS,
   JOB_TYPES,
@@ -27,6 +26,8 @@ import {
   SRI_LANKA_DISTRICTS,
   WORK_ARRANGEMENTS,
 } from "@/lib/jobs/post-job.constants";
+import { FormSearchAutocomplete } from "@/components/jobs/form-search-autocomplete";
+import { useJobCategories } from "@/lib/jobs/use-job-categories";
 import { cn } from "@/lib/utils";
 
 const inputClass =
@@ -50,49 +51,6 @@ function FormCard({
       </div>
       {children}
     </section>
-  );
-}
-
-function DatalistField({
-  label,
-  listId,
-  options,
-  value,
-  onChange,
-  placeholder,
-  required,
-  type = "text",
-}: {
-  label: string;
-  listId: string;
-  options: readonly string[];
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className={labelClass} htmlFor={listId}>
-        {label}
-      </label>
-      <input
-        id={listId}
-        list={listId}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        required={required}
-        className={inputClass}
-      />
-      <datalist id={listId}>
-        {options.map((opt) => (
-          <option key={opt} value={opt} />
-        ))}
-      </datalist>
-    </div>
   );
 }
 
@@ -186,6 +144,7 @@ export function GovernmentJobForm() {
   const [form, setForm] = useState<GovernmentJobFormValues>(DEFAULT_GOVERNMENT_JOB_VALUES);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { names: categoryOptions } = useJobCategories();
 
   const patch = (partial: Partial<GovernmentJobFormValues>) => {
     setForm((prev) => ({ ...prev, ...partial }));
@@ -338,13 +297,13 @@ export function GovernmentJobForm() {
                 ))}
               </select>
             </div>
-            <DatalistField
+            <FormSearchAutocomplete
               label="Category"
-              listId="gov-category-list"
-              options={CATEGORY_SUGGESTIONS}
+              options={categoryOptions}
               value={form.category}
               onChange={(category) => patch({ category })}
-              placeholder="e.g. Administration"
+              placeholder="Search categories…"
+              maxSuggestions={10}
             />
             <div className="space-y-2">
               <label className={labelClass} htmlFor="gazette-ref">
@@ -454,9 +413,8 @@ export function GovernmentJobForm() {
             value={form.workArrangement as (typeof WORK_ARRANGEMENTS)[number]}
             onChange={(workArrangement) => patch({ workArrangement })}
           />
-          <DatalistField
+          <FormSearchAutocomplete
             label="City / district"
-            listId="gov-city-list"
             options={SRI_LANKA_DISTRICTS}
             value={form.city}
             onChange={(city) => patch({ city })}

@@ -15,19 +15,6 @@ export const JOB_TITLE_SUGGESTIONS = [
   "Operations Manager",
 ];
 
-export const CATEGORY_SUGGESTIONS = [
-  "IT",
-  "Finance",
-  "Sales",
-  "Marketing",
-  "Operations",
-  "Human Resources",
-  "Engineering",
-  "Design",
-  "Customer Service",
-  "Administration",
-];
-
 export const INDUSTRY_SUGGESTIONS = [
   "Information Technology",
   "Banking & Finance",

@@ -1,0 +1,28 @@
+export const JOB_CATEGORY_ICON_OPTIONS = [
+  "work",
+  "code",
+  "account_balance",
+  "factory",
+  "campaign",
+  "support_agent",
+  "engineering",
+  "health_and_safety",
+  "school",
+  "store",
+  "local_shipping",
+  "gavel",
+  "groups",
+  "science",
+  "security",
+  "public",
+  "design_services",
+  "inventory_2",
+  "flight",
+  "construction",
+  "spa",
+  "agriculture",
+  "payments",
+  "analytics",
+] as const;
+
+export type JobCategoryIcon = (typeof JOB_CATEGORY_ICON_OPTIONS)[number];

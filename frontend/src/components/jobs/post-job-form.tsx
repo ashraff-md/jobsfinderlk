@@ -17,7 +17,6 @@ import { JobListingMediaUploader } from "@/components/jobs/job-listing-media-upl
 import type { CompanySuggestion } from "@/lib/api/types";
 import { ApplicationDeadlinePicker } from "@/components/ui/application-deadline-picker";
 import {
-  CATEGORY_SUGGESTIONS,
   CURRENCIES,
   DEFAULT_POST_JOB_VALUES,
   EDUCATION_LEVELS,
@@ -31,6 +30,8 @@ import {
   SRI_LANKA_DISTRICTS,
   WORK_ARRANGEMENTS,
 } from "@/lib/jobs/post-job.constants";
+import { FormSearchAutocomplete } from "@/components/jobs/form-search-autocomplete";
+import { useJobCategories } from "@/lib/jobs/use-job-categories";
 import { applicationDeadlineError } from "@/lib/jobs/application-deadline";
 import { cn } from "@/lib/utils";
 
@@ -60,49 +61,6 @@ function Section({
       </div>
       {children}
     </section>
-  );
-}
-
-function DatalistField({
-  label,
-  listId,
-  options,
-  value,
-  onChange,
-  placeholder,
-  required,
-  type = "text",
-}: {
-  label: string;
-  listId: string;
-  options: readonly string[];
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className={labelClass} htmlFor={listId}>
-        {label}
-      </label>
-      <input
-        id={listId}
-        list={listId}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        required={required}
-        className={inputClass}
-      />
-      <datalist id={listId}>
-        {options.map((opt) => (
-          <option key={opt} value={opt} />
-        ))}
-      </datalist>
-    </div>
   );
 }
 
@@ -166,6 +124,7 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     Array<"fullName" | "title" | "contactNo" | "company">
   >([]);
   const [canPostJobs, setCanPostJobs] = useState(isAdmin);
+  const { names: categoryOptions } = useJobCategories();
 
   const patch = useCallback((partial: Partial<PostJobFormValues>) => {
     setForm((prev) => ({ ...prev, ...partial }));
@@ -525,22 +484,21 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
         </Section>
 
         <Section id="basics" icon="work" title="2. Job Basic Info">
-          <DatalistField
+          <FormSearchAutocomplete
             label="Job title"
-            listId="job-title-list"
             options={JOB_TITLE_SUGGESTIONS}
             value={form.title}
             onChange={(title) => patch({ title })}
             placeholder="e.g. Senior Software Engineer"
             required
           />
-          <DatalistField
+          <FormSearchAutocomplete
             label="Category"
-            listId="category-list"
-            options={CATEGORY_SUGGESTIONS}
+            options={categoryOptions}
             value={form.category}
             onChange={(category) => patch({ category })}
-            placeholder="e.g. IT"
+            placeholder="Search categories…"
+            maxSuggestions={10}
           />
           <div className="space-y-2">
             <label className={labelClass} htmlFor="positions">
@@ -573,9 +531,8 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
         </Section>
 
         <Section id="location" icon="location_on" title="4. Location">
-          <DatalistField
+          <FormSearchAutocomplete
             label="City / district"
-            listId="city-list"
             options={SRI_LANKA_DISTRICTS}
             value={form.city}
             onChange={(city) => patch({ city })}

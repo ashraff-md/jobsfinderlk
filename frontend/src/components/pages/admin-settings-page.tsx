@@ -95,17 +95,11 @@ export function AdminSettingsPage() {
       setProfileError("Last name is required.");
       return;
     }
-    if (!contactEmail.trim()) {
-      setProfileError("Email is required.");
-      return;
-    }
-
     setSavingProfile(true);
     try {
       await updateAdminProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: contactEmail.trim(),
         contactNo: contactNo.trim() || undefined,
       });
       setProfileSuccess("Admin profile updated.");
@@ -222,11 +216,13 @@ export function AdminSettingsPage() {
                       id="admin-email"
                       type="email"
                       value={contactEmail}
-                      onChange={(e) => setContactEmail(e.target.value)}
-                      placeholder="admin@jobsfinder.lk"
-                      className={inputClass}
-                      required
+                      readOnly
+                      disabled
+                      className={`${inputClass} cursor-not-allowed opacity-70`}
                     />
+                    <p className="text-label-sm text-on-surface-variant">
+                      Account email cannot be changed.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <label className={labelClass} htmlFor="admin-contact-no">

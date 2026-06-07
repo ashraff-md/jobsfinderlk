@@ -8,7 +8,13 @@ import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
-import { approveJob, getAdminJobStats, getAdminJobs, rejectJob } from "@/lib/api/admin";
+import {
+  approveJob,
+  deleteAdminJob,
+  getAdminJobStats,
+  getAdminJobs,
+  rejectJob,
+} from "@/lib/api/admin";
 import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
 import type { Job } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -42,10 +48,10 @@ const TABLE_COLUMNS = [
 ] as const;
 
 const stickyActionHeaderClass =
-  "sticky right-0 z-20 min-w-[220px] bg-surface-container-low/50 px-stack-lg py-4 text-right font-label-bold uppercase tracking-wider text-outline shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.12)]";
+  "sticky right-0 z-20 min-w-[280px] bg-surface-container-low/50 px-stack-lg py-4 text-right font-label-bold uppercase tracking-wider text-outline shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.12)]";
 
 const stickyActionCellClass =
-  "sticky right-0 z-10 min-w-[220px] bg-surface-container-lowest px-stack-lg py-4 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.08)] group-hover:bg-tertiary-fixed/30";
+  "sticky right-0 z-10 min-w-[280px] bg-surface-container-lowest px-stack-lg py-4 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.08)] group-hover:bg-tertiary-fixed/30";
 
 function reviewHref(job: Job) {
   return `/admin/jobs/${job.id}/review`;
@@ -178,6 +184,23 @@ export function AdminJobsApprovalPage() {
       if (action === "approve") await approveJob(id);
       else await rejectJob(id);
       await Promise.all([loadJobs(), loadStats()]);
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDelete = async (job: Job) => {
+    const confirmed = window.confirm(
+      `Delete "${job.title}"? This permanently removes the listing and its applications.`,
+    );
+    if (!confirmed) return;
+
+    setActionId(job.id);
+    try {
+      await deleteAdminJob(job.id);
+      await Promise.all([loadJobs(), loadStats()]);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete job.");
     } finally {
       setActionId(null);
     }
@@ -456,6 +479,14 @@ export function AdminJobsApprovalPage() {
                             >
                               {item.status === "PENDING_REVIEW" ? "Review" : "Details"}
                             </Link>
+                            <button
+                              type="button"
+                              disabled={actionId === item.id}
+                              onClick={() => void handleDelete(item)}
+                              className="rounded px-3 py-1.5 text-label-sm font-label-bold text-error hover:bg-error-container disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>

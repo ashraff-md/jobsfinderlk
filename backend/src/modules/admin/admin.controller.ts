@@ -136,6 +136,11 @@ export class AdminController {
     return this.jobsService.moderate(id, 'reject', user.sub);
   }
 
+  @Delete('jobs/:id')
+  deleteJob(@Param('id') id: string) {
+    return this.jobsService.deleteForAdmin(id);
+  }
+
   @Get('recruiters')
   listRecruiters(@Query() query: AdminListRecruitersQueryDto) {
     return this.adminRecruitersService.listForAdmin(query);

@@ -792,6 +792,16 @@ export class JobsService {
     });
   }
 
+  async deleteForAdmin(id: string) {
+    const job = await this.prisma.job.findUnique({ where: { id } });
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    await this.prisma.job.delete({ where: { id } });
+    return { deleted: true };
+  }
+
   async deleteCategory(id: string) {
     const category = await this.prisma.jobCategory.findUnique({ where: { id } });
     if (!category) {

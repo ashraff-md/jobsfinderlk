@@ -85,6 +85,13 @@ export async function rejectJob(id: string) {
   });
 }
 
+export async function deleteAdminJob(id: string) {
+  return apiFetch<{ deleted: boolean }>(`/admin/jobs/${id}`, {
+    method: "DELETE",
+    token: getAccessToken(),
+  });
+}
+
 export type AdminRecruitersFilters = {
   status?: string;
   q?: string;

@@ -16,16 +16,21 @@ import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
 import {
   buildJobSearchParams,
   DEFAULT_JOB_SEARCH_FILTERS,
-  formatActiveFiltersSummary,
   type JobSearchFilters,
 } from "@/lib/jobs/job-search-filters";
 import type { Job } from "@/lib/api/types";
 
 const JOBS_PER_PAGE_OPTIONS = [10, 20, 50] as const;
 
+function sidebarFilterFields(filters: JobSearchFilters): Omit<JobSearchFilters, "q"> {
+  const { q: _q, ...rest } = filters;
+  return rest;
+}
+
 export function JobsSearchPage() {
   const urlSearchParams = useSearchParams();
   const [filters, setFilters] = useState<JobSearchFilters>(DEFAULT_JOB_SEARCH_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<JobSearchFilters>(DEFAULT_JOB_SEARCH_FILTERS);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [sponsoredJobs, setSponsoredJobs] = useState<FeaturedJobCardItem[]>([]);
@@ -44,13 +49,14 @@ export function JobsSearchPage() {
       categories = [legacyIndustry];
     }
     if (!q && !cities.length && !categories.length) return;
-    setPage(1);
-    setFilters((prev) => ({
-      ...prev,
+    const patch = {
       ...(q ? { q } : {}),
       ...(cities.length ? { cities } : {}),
       ...(categories.length ? { categories } : {}),
-    }));
+    };
+    setPage(1);
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setDraftFilters((prev) => ({ ...prev, ...patch }));
     setDebouncedQ(q);
   }, [urlSearchParams]);
 
@@ -69,12 +75,28 @@ export function JobsSearchPage() {
     setFilters((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  const patchDraftFilters = useCallback((patch: Partial<JobSearchFilters>) => {
+    setDraftFilters((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const applyFilters = useCallback(() => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, ...sidebarFilterFields(draftFilters) }));
+  }, [draftFilters]);
+
   const resetFilters = useCallback(() => {
     setPage(1);
     setFilters(DEFAULT_JOB_SEARCH_FILTERS);
+    setDraftFilters(DEFAULT_JOB_SEARCH_FILTERS);
   }, []);
 
-  const filtersSummary = useMemo(() => formatActiveFiltersSummary(filters), [filters]);
+  const hasUnappliedFilters = useMemo(() => {
+    const applied = sidebarFilterFields(filters);
+    const draft = sidebarFilterFields(draftFilters);
+    return (Object.keys(applied) as (keyof typeof applied)[]).some(
+      (key) => JSON.stringify(applied[key]) !== JSON.stringify(draft[key]),
+    );
+  }, [filters, draftFilters]);
 
   const resultsRangeLabel = useMemo(() => {
     if (loading || total === 0) return null;
@@ -157,8 +179,10 @@ export function JobsSearchPage() {
         <aside className="w-full shrink-0 md:w-80">
           <div className="sticky top-28 space-y-6">
             <JobSearchFiltersSidebar
-              filters={filters}
-              onChange={patchFilters}
+              filters={draftFilters}
+              hasUnappliedChanges={hasUnappliedFilters}
+              onChange={patchDraftFilters}
+              onApply={applyFilters}
               onReset={resetFilters}
             />
 
@@ -210,7 +234,6 @@ export function JobsSearchPage() {
                     ? "No jobs found"
                     : `Showing ${resultsRangeLabel} job${total === 1 ? "" : "s"}`}
               </h2>
-              <p className="text-label-sm text-outline">Based on your filters: {filtersSummary}</p>
             </div>
             <div className="flex flex-wrap items-center gap-3 sm:justify-end">
               <div className="flex items-center gap-2">
@@ -308,10 +331,10 @@ export function JobsSearchPage() {
                   </button>
                 </nav>
               )}
-
-              <HomeBannerAdsGrid columns={2} className="w-full pt-4" />
             </>
           )}
+
+          {!loading && <HomeBannerAdsGrid columns={2} className="w-full pt-4" />}
         </section>
       </main>
 

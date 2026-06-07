@@ -58,13 +58,17 @@ function FilterChipGroup({
 
 type JobSearchFiltersSidebarProps = {
   filters: JobSearchFilters;
+  hasUnappliedChanges?: boolean;
   onChange: (patch: Partial<JobSearchFilters>) => void;
+  onApply: () => void;
   onReset: () => void;
 };
 
 export function JobSearchFiltersSidebar({
   filters,
+  hasUnappliedChanges = false,
   onChange,
+  onApply,
   onReset,
 }: JobSearchFiltersSidebarProps) {
   const { names: categoryOptions } = useJobCategories();
@@ -168,6 +172,15 @@ export function JobSearchFiltersSidebar({
         options={JOB_TYPES}
         onChange={(employmentType) => onChange({ employmentType })}
       />
+
+      <button
+        type="button"
+        onClick={onApply}
+        disabled={!hasUnappliedChanges}
+        className="w-full rounded-lg bg-primary py-3 text-label-sm font-bold text-on-primary transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Apply filters
+      </button>
     </div>
   );
 }

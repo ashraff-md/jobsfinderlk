@@ -271,7 +271,7 @@ export type AdminSponsoredAd = {
   job: Job;
 };
 
-export type PromotionPeriodDays = 3 | 5 | 7 | 14 | 30;
+export type PromotionPeriodDays = 3 | 5 | 7 | 14 | 30 | 60;
 
 export type CreateAdminSponsoredAdBody = {
   jobId: string;

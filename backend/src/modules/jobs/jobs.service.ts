@@ -15,6 +15,7 @@ import { detectScamContent, slugify, uniqueSlug } from '../../common/utils/slug.
 import { assertValidApplicationDeadline } from '../../common/utils/application-deadline.util';
 import { ImageStorageService } from '../../common/storage/image-storage.service';
 import { VerificationService } from '../auth/verification.service';
+import { GovernmentOrganizationsService } from '../government-organizations/government-organizations.service';
 import { CreateJobDto, JobQueryDto, UpdateJobDto } from './dto/job.dto';
 import {
   CreateJobCategoryDto,
@@ -73,25 +74,71 @@ export type JobSearchSuggestion = {
   matchType: 'exact' | 'fuzzy' | 'phonetic' | 'domain';
 };
 
+const JOB_PUBLIC_INCLUDE = {
+  company: true,
+  governmentOrganization: {
+    include: {
+      parent: {
+        select: {
+          id: true,
+          name: true,
+          organizationType: true,
+          shortName: true,
+        },
+      },
+    },
+  },
+} as const;
+
 @Injectable()
 export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly companiesService: CompaniesService,
+    private readonly governmentOrganizationsService: GovernmentOrganizationsService,
     private readonly imageStorage: ImageStorageService,
     private readonly verification: VerificationService,
   ) {}
+
+  private mapGovernmentOrganization<
+    T extends { logoUrl?: string | null; parent?: Record<string, unknown> | null },
+  >(org: T | null): T | null {
+    if (!org) return org;
+    return {
+      ...org,
+      logoUrl: this.imageStorage.resolvePublicUrl(org.logoUrl),
+      ...(org.parent
+        ? {
+            parent: {
+              ...org.parent,
+              logoUrl: this.imageStorage.resolvePublicUrl(
+                org.parent.logoUrl as string | null | undefined,
+              ),
+            },
+          }
+        : {}),
+    };
+  }
 
   private mapJobForPublic<
     T extends {
       vacancyArtworkUrl?: string | null;
       company: { logoUrl?: string | null; lifeAtCompanyImages?: string[] };
+      governmentOrganization?: {
+        logoUrl?: string | null;
+        parent?: Record<string, unknown> | null;
+      } | null;
     },
   >(job: T): T {
     return {
       ...job,
       vacancyArtworkUrl: this.imageStorage.resolvePublicUrl(job.vacancyArtworkUrl),
       company: this.imageStorage.withPublicUrls(job.company),
+      ...(job.governmentOrganization !== undefined
+        ? {
+            governmentOrganization: this.mapGovernmentOrganization(job.governmentOrganization),
+          }
+        : {}),
     };
   }
 
@@ -145,7 +192,7 @@ export class JobsService {
     const [items, total] = await Promise.all([
       this.prisma.job.findMany({
         where,
-        include: { company: true },
+        include: JOB_PUBLIC_INCLUDE,
         orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }],
         skip,
         take: limit,
@@ -217,7 +264,7 @@ export class JobsService {
   async findBySlug(slug: string) {
     const job = await this.prisma.job.findFirst({
       where: { slug, status: JobStatus.PUBLISHED },
-      include: { company: true },
+      include: JOB_PUBLIC_INCLUDE,
     });
     if (!job) throw new NotFoundException('Job not found');
 
@@ -236,13 +283,40 @@ export class JobsService {
       await this.verification.assertRecruiterCanPostJobs(userId);
     }
 
-    const company = await this.companiesService.resolveForJob(
-      userId,
-      {
-        companyId: dto.companyId,
-      },
-      userRole,
-    );
+    const isGovernmentAdminPost =
+      dto.jobSourceType === 'GOVERNMENT' &&
+      (userRole === UserRole.ADMIN || userRole === UserRole.MODERATOR);
+
+    let ministryDepartment: string | null = null;
+    let governmentOrganizationId: string | null = null;
+    let company;
+
+    if (isGovernmentAdminPost) {
+      if (dto.governmentOrganizationId) {
+        const org = await this.governmentOrganizationsService.findByIdOrThrow(
+          dto.governmentOrganizationId,
+        );
+        governmentOrganizationId = org.id;
+        ministryDepartment = org.name;
+      } else {
+        ministryDepartment =
+          dto.ministryDepartment?.trim() || dto.requestedCompanyName?.trim() || null;
+        if (!ministryDepartment) {
+          throw new BadRequestException(
+            'Ministry/Department organization is required.',
+          );
+        }
+      }
+      company = await this.companiesService.findOrCreateGovernmentPlaceholder();
+    } else {
+      company = await this.companiesService.resolveForJob(
+        userId,
+        {
+          companyId: dto.companyId,
+        },
+        userRole,
+      );
+    }
 
     const bodyText = [
       dto.title,
@@ -258,11 +332,17 @@ export class JobsService {
       slug = uniqueSlug(slug, Date.now().toString(36));
     }
 
+    const publishNow = Boolean(
+      isGovernmentAdminPost && dto.publish && !isScam,
+    );
+
     const status = isScam
       ? JobStatus.PENDING_REVIEW
-      : dto.publish
-        ? JobStatus.PENDING_REVIEW
-        : JobStatus.DRAFT;
+      : publishNow
+        ? JobStatus.PUBLISHED
+        : dto.publish
+          ? JobStatus.PENDING_REVIEW
+          : JobStatus.DRAFT;
 
     const location =
       dto.location?.trim() ||
@@ -295,37 +375,46 @@ export class JobsService {
         positionsCount: dto.positionsCount,
         requiredSkills: dto.requiredSkills ?? [],
         niceToHaveSkills: dto.niceToHaveSkills ?? [],
-        keywords: buildJobKeywords(dto, company.name),
+        keywords: buildJobKeywords(
+          dto,
+          ministryDepartment ?? company.name,
+        ),
         recruiterRole: dto.recruiterRole,
-        requestedCompanyName: dto.requestedCompanyName?.trim() || null,
+        requestedCompanyName:
+          ministryDepartment ?? (dto.requestedCompanyName?.trim() || null),
+        governmentOrganizationId,
         applicationDeadline: dto.applicationDeadline
           ? new Date(dto.applicationDeadline)
           : null,
         applyViaEmail: dto.applyViaEmail ?? false,
         applyViaExternalLink: dto.applyViaExternalLink ?? false,
         applyViaWalkIn: dto.applyViaWalkIn ?? false,
+        applyViaRegisteredPost: dto.applyViaRegisteredPost ?? false,
         applyViaOneClick: dto.applyViaOneClick ?? true,
         applicationEmail: dto.applicationEmail,
         applicationExternalUrl: dto.applicationExternalUrl,
         walkInDetails: dto.walkInDetails,
+        registeredPostDetails: dto.registeredPostDetails?.trim() || null,
         jobDocumentUrl: dto.jobDocumentUrl,
-        vacancyArtworkUrl: dto.vacancyArtworkUrl,
+        vacancyArtworkUrl: await this.imageStorage.saveVacancyArtwork(
+          dto.vacancyArtworkUrl,
+        ),
         jobSourceType: dto.jobSourceType?.trim() || 'DIRECT_EMPLOYER',
         verificationLevel: dto.verificationLevel?.trim() || null,
         status,
-        publishedAt: null,
+        publishedAt: publishNow ? new Date() : null,
         expiresAt: dto.applicationDeadline
           ? new Date(dto.applicationDeadline)
           : null,
       },
-      include: { company: true },
+      include: JOB_PUBLIC_INCLUDE,
     });
   }
 
   async listPending() {
     return this.prisma.job.findMany({
       where: { status: JobStatus.PENDING_REVIEW },
-      include: { company: true },
+      include: JOB_PUBLIC_INCLUDE,
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -357,6 +446,12 @@ export class JobsService {
         { location: { contains: q, mode: 'insensitive' } },
         { city: { contains: q, mode: 'insensitive' } },
         { company: { name: { contains: q, mode: 'insensitive' } } },
+        {
+          governmentOrganization: {
+            name: { contains: q, mode: 'insensitive' },
+          },
+        },
+        { requestedCompanyName: { contains: q, mode: 'insensitive' } },
       ];
       if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) {
         or.push({ id: q });
@@ -425,7 +520,7 @@ export class JobsService {
   async listGovernmentJobs() {
     return this.prisma.job.findMany({
       where: { jobSourceType: 'GOVERNMENT' },
-      include: { company: true },
+      include: JOB_PUBLIC_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -433,16 +528,16 @@ export class JobsService {
   async findByIdForModeration(id: string) {
     const job = await this.prisma.job.findUnique({
       where: { id },
-      include: { company: true },
+      include: JOB_PUBLIC_INCLUDE,
     });
     if (!job) throw new NotFoundException('Job not found');
-    return job;
+    return this.mapJobForPublic(job);
   }
 
   async updateForAdmin(id: string, dto: UpdateJobDto) {
     const job = await this.prisma.job.findUnique({
       where: { id },
-      include: { company: true },
+      include: JOB_PUBLIC_INCLUDE,
     });
     if (!job) throw new NotFoundException('Job not found');
 
@@ -484,11 +579,42 @@ export class JobsService {
         dto.experienceLevel !== undefined
           ? dto.experienceLevel
           : job.experienceLevel ?? undefined,
-      ageMin: job.ageMin ?? undefined,
-      ageMax: job.ageMax ?? undefined,
+      ageMin: dto.ageMin !== undefined ? dto.ageMin : job.ageMin ?? undefined,
+      ageMax: dto.ageMax !== undefined ? dto.ageMax : job.ageMax ?? undefined,
       requiredSkills: job.requiredSkills,
       niceToHaveSkills: job.niceToHaveSkills,
     };
+
+    let employerName = job.requestedCompanyName ?? job.company.name;
+    let governmentOrganizationId = job.governmentOrganizationId;
+
+    if (dto.governmentOrganizationId !== undefined) {
+      if (dto.governmentOrganizationId) {
+        const org = await this.governmentOrganizationsService.findByIdOrThrow(
+          dto.governmentOrganizationId,
+        );
+        governmentOrganizationId = org.id;
+        employerName = org.name;
+      } else {
+        governmentOrganizationId = null;
+      }
+    }
+
+    if (
+      dto.ministryDepartment !== undefined &&
+      dto.governmentOrganizationId === undefined
+    ) {
+      const ministryName = dto.ministryDepartment.trim() || null;
+      if (ministryName) employerName = ministryName;
+    }
+
+    const publishGovernment =
+      job.jobSourceType === 'GOVERNMENT' && dto.publish === true;
+
+    const vacancyArtworkUrl =
+      dto.vacancyArtworkUrl !== undefined
+        ? await this.imageStorage.saveVacancyArtwork(dto.vacancyArtworkUrl)
+        : undefined;
 
     return this.prisma.job.update({
       where: { id },
@@ -502,11 +628,28 @@ export class JobsService {
           requirements: dto.requirements.trim() || null,
         }),
         ...(dto.category !== undefined && { category: dto.category.trim() || null }),
+        ...(dto.sector !== undefined && {
+          sector: dto.sector.trim() || null,
+          industry: dto.sector.trim() || null,
+        }),
         ...(dto.employmentType !== undefined && { employmentType: dto.employmentType }),
         ...(dto.workArrangement !== undefined && { workArrangement: dto.workArrangement }),
         ...(dto.experienceLevel !== undefined && { experienceLevel: dto.experienceLevel }),
         ...(dto.educationRequirement !== undefined && {
           educationRequirement: dto.educationRequirement,
+        }),
+        ...(dto.recruiterRole !== undefined && {
+          recruiterRole: dto.recruiterRole.trim() || null,
+        }),
+        ...(dto.positionsCount !== undefined && { positionsCount: dto.positionsCount }),
+        ...(dto.ageMin !== undefined && { ageMin: dto.ageMin }),
+        ...(dto.ageMax !== undefined && { ageMax: dto.ageMax }),
+        ...(dto.governmentOrganizationId !== undefined && {
+          governmentOrganizationId,
+        }),
+        ...((dto.governmentOrganizationId !== undefined ||
+          dto.ministryDepartment !== undefined) && {
+          requestedCompanyName: employerName,
         }),
         ...(dto.city !== undefined && { city }),
         ...(dto.location !== undefined ||
@@ -538,9 +681,41 @@ export class JobsService {
             : null,
           expiresAt: dto.applicationDeadline ? new Date(dto.applicationDeadline) : null,
         }),
-        keywords: buildJobKeywords(keywordDto, job.company.name),
+        ...(dto.applyViaEmail !== undefined && { applyViaEmail: dto.applyViaEmail }),
+        ...(dto.applyViaExternalLink !== undefined && {
+          applyViaExternalLink: dto.applyViaExternalLink,
+        }),
+        ...(dto.applyViaWalkIn !== undefined && { applyViaWalkIn: dto.applyViaWalkIn }),
+        ...(dto.applyViaRegisteredPost !== undefined && {
+          applyViaRegisteredPost: dto.applyViaRegisteredPost,
+        }),
+        ...(dto.applyViaOneClick !== undefined && { applyViaOneClick: dto.applyViaOneClick }),
+        ...(dto.applicationEmail !== undefined && {
+          applicationEmail: dto.applicationEmail?.trim() || null,
+        }),
+        ...(dto.applicationExternalUrl !== undefined && {
+          applicationExternalUrl: dto.applicationExternalUrl?.trim() || null,
+        }),
+        ...(dto.walkInDetails !== undefined && {
+          walkInDetails: dto.walkInDetails?.trim() || null,
+        }),
+        ...(dto.registeredPostDetails !== undefined && {
+          registeredPostDetails: dto.registeredPostDetails?.trim() || null,
+        }),
+        ...(vacancyArtworkUrl !== undefined && { vacancyArtworkUrl }),
+        ...(dto.jobSourceType !== undefined && {
+          jobSourceType: dto.jobSourceType.trim() || null,
+        }),
+        ...(dto.verificationLevel !== undefined && {
+          verificationLevel: dto.verificationLevel.trim() || null,
+        }),
+        ...(publishGovernment && {
+          status: JobStatus.PUBLISHED,
+          publishedAt: job.publishedAt ?? new Date(),
+        }),
+        keywords: buildJobKeywords(keywordDto, employerName),
       },
-      include: { company: true },
+      include: JOB_PUBLIC_INCLUDE,
     });
   }
 

@@ -12,6 +12,11 @@ import {
   type ImageUploadFolder,
 } from './image-storage.constants';
 import { isImageDataUrl, parseImageDataUrl } from './image-data.util';
+import {
+  isVacancyArtworkDataUrl,
+  parseVacancyArtworkDataUrl,
+  VACANCY_ARTWORK_LIMITS,
+} from './vacancy-artwork.util';
 
 @Injectable()
 export class ImageStorageService implements OnModuleInit {
@@ -129,6 +134,14 @@ export class ImageStorageService implements OnModuleInit {
     return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.companyLogos, input);
   }
 
+  async saveGovernmentOrgLogo(dataUrl?: string | null): Promise<string | null> {
+    return this.saveDataUrl(IMAGE_UPLOAD_FOLDERS.governmentOrgLogos, dataUrl);
+  }
+
+  async saveOrKeepGovernmentOrgLogo(input?: string | null): Promise<string | null> {
+    return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.governmentOrgLogos, input);
+  }
+
   async saveOrKeepRecruiterPhoto(input?: string | null): Promise<string | null> {
     return this.saveOrKeepImage(IMAGE_UPLOAD_FOLDERS.recruiterPhotos, input);
   }
@@ -139,6 +152,31 @@ export class ImageStorageService implements OnModuleInit {
       input,
       BANNER_IMAGE_LIMITS,
     );
+  }
+
+  async saveVacancyArtwork(input?: string | null): Promise<string | null> {
+    if (!input?.trim()) return null;
+
+    const trimmed = input.trim();
+    if (isVacancyArtworkDataUrl(trimmed, VACANCY_ARTWORK_LIMITS)) {
+      const parsed = parseVacancyArtworkDataUrl(trimmed, VACANCY_ARTWORK_LIMITS);
+      if (!parsed) return null;
+
+      const filename = `${randomUUID()}.${parsed.ext}`;
+      const folder = IMAGE_UPLOAD_FOLDERS.vacancyArtwork;
+      const relativePath = posix.join(folder, filename);
+      const absolutePath = join(this.uploadRoot, folder, filename);
+
+      await mkdir(join(this.uploadRoot, folder), { recursive: true });
+      await writeFile(absolutePath, parsed.buffer);
+
+      return relativePath;
+    }
+
+    const existing = this.extractStoredPath(trimmed);
+    if (existing) return existing;
+
+    return null;
   }
 
   async saveOrKeepLifeAtCompanyImages(

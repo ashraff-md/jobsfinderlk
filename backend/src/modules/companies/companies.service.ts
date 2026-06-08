@@ -283,6 +283,24 @@ export class CompaniesService {
     });
   }
 
+  async findOrCreateGovernmentPlaceholder() {
+    const name = 'Government of Sri Lanka';
+    const slug = 'government-of-sri-lanka';
+    const existing = await this.prisma.company.findUnique({ where: { slug } });
+    if (existing) return this.imageStorage.withPublicUrls(existing);
+
+    const created = await this.prisma.company.create({
+      data: {
+        name,
+        slug,
+        verified: true,
+        industry: 'Government',
+        companyType: 'Government',
+      },
+    });
+    return this.imageStorage.withPublicUrls(created);
+  }
+
   async resolveForJob(
     userId: string,
     input: { companyId?: string },

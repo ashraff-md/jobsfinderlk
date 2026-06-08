@@ -7,6 +7,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
   MinLength,
 } from 'class-validator';
@@ -186,6 +187,11 @@ export class CreateJobDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
+  applyViaRegisteredPost?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
   applyViaOneClick?: boolean;
 
   @ApiPropertyOptional()
@@ -203,6 +209,13 @@ export class CreateJobDto {
   @IsString()
   walkInDetails?: string;
 
+  @ApiPropertyOptional({
+    description: 'Instructions for sending applications by registered post',
+  })
+  @IsOptional()
+  @IsString()
+  registeredPostDetails?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -217,6 +230,22 @@ export class CreateJobDto {
   @IsOptional()
   @IsBoolean()
   publish?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Ministry or department name for government postings',
+    example: 'Ministry of Public Administration',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  ministryDepartment?: string;
+
+  @ApiPropertyOptional({
+    description: 'Registered government organization ID for government postings',
+  })
+  @IsOptional()
+  @IsUUID()
+  governmentOrganizationId?: string;
 
   @ApiPropertyOptional({ example: 'GOVERNMENT' })
   @IsOptional()
@@ -256,6 +285,11 @@ export class UpdateJobDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sector?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -315,6 +349,107 @@ export class UpdateJobDto {
   @IsOptional()
   @IsDateString()
   applicationDeadline?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  ministryDepartment?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  governmentOrganizationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  recruiterRole?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  positionsCount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(16)
+  ageMin?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(16)
+  ageMax?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  applyViaEmail?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  applyViaExternalLink?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  applyViaWalkIn?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  applyViaRegisteredPost?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  applyViaOneClick?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  applicationEmail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  applicationExternalUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  walkInDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  registeredPostDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  vacancyArtworkUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  publish?: boolean;
+
+  @ApiPropertyOptional({ example: 'GOVERNMENT' })
+  @IsOptional()
+  @IsString()
+  jobSourceType?: string;
+
+  @ApiPropertyOptional({ example: 'GOVT_CERTIFIED' })
+  @IsOptional()
+  @IsString()
+  verificationLevel?: string;
 }
 
 export class JobQueryDto {

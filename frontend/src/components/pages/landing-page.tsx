@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
 import { HomeBannerAdsSection } from "@/components/home/home-banner-ads-section";
 import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
 import { getJobCategories, searchPublishedJobs } from "@/lib/api/jobs";
@@ -154,7 +153,6 @@ export function LandingPage() {
               data.items,
               HOME_OPPORTUNITIES_CARDS_PER_SLIDE,
               HOME_OPPORTUNITIES_SLIDE_COUNT,
-              { badgeStyle: "featured-only" },
             ),
           );
           setJobSlide(0);
@@ -655,8 +653,6 @@ export function LandingPage() {
           </div>
         </section>
       </main>
-
-      <SiteFooter variant="light" />
     </div>
   );
 }

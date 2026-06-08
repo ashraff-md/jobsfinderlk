@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoutLink } from "@/components/auth/logout-link";
 import { Icon } from "@/components/ui/icon";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { AVATAR_URL, LOGO_URL } from "@/lib/assets";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +34,6 @@ type SeekerShellProps = {
   userAvatar?: string;
   showTopHeader?: boolean;
   fullHeight?: boolean;
-  showFooter?: boolean;
 };
 
 function isActive(pathname: string, href: string, key?: SeekerNavKey) {
@@ -52,7 +50,6 @@ export function SeekerShell({
   userAvatar = AVATAR_URL,
   showTopHeader = true,
   fullHeight = false,
-  showFooter = true,
 }: SeekerShellProps) {
   const pathname = usePathname();
 
@@ -184,7 +181,6 @@ export function SeekerShell({
         >
           {children}
         </div>
-        {showFooter && !fullHeight && <SiteFooter variant="dark" className="mt-20" />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around border-t border-white/10 bg-primary-container p-4 md:hidden">

@@ -98,7 +98,6 @@ export function SimilarJobsCarousel({ excludeSlug }: SimilarJobsCarouselProps) {
                 <FeaturedJobCard
                   key={item.href ?? `${item.title}-${slideIndex}`}
                   job={item}
-                  titleLineClamp={3}
                 />
               ))}
             </div>

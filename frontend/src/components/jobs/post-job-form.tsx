@@ -184,7 +184,13 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     if (form.description.trim().length < 20) {
       return "Job description must be at least 20 characters.";
     }
-    if (!form.applyViaEmail && !form.applyViaExternalLink && !form.applyViaWalkIn && !form.applyViaOneClick) {
+    if (
+      !form.applyViaEmail &&
+      !form.applyViaExternalLink &&
+      !form.applyViaWalkIn &&
+      !form.applyViaRegisteredPost &&
+      !form.applyViaOneClick
+    ) {
       return "Select at least one application method.";
     }
     if (form.applyViaEmail && !form.applicationEmail.trim()) {
@@ -192,6 +198,9 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     }
     if (form.applyViaExternalLink && !form.applicationExternalUrl.trim()) {
       return "Enter an external application link.";
+    }
+    if (form.applyViaRegisteredPost && !form.registeredPostDetails.trim()) {
+      return "Enter registered post application instructions.";
     }
     if (form.salaryType === "Range" && form.salaryMin && form.salaryMax) {
       if (Number(form.salaryMin) > Number(form.salaryMax)) {
@@ -249,12 +258,17 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     applyViaEmail: form.applyViaEmail,
     applyViaExternalLink: form.applyViaExternalLink,
     applyViaWalkIn: form.applyViaWalkIn,
+    applyViaRegisteredPost: form.applyViaRegisteredPost,
     applyViaOneClick: form.applyViaOneClick,
     applicationEmail: form.applyViaEmail ? form.applicationEmail.trim() : undefined,
     applicationExternalUrl: form.applyViaExternalLink
       ? form.applicationExternalUrl.trim()
       : undefined,
     walkInDetails: form.applyViaWalkIn ? form.walkInDetails.trim() : undefined,
+    registeredPostDetails: form.applyViaRegisteredPost
+      ? form.registeredPostDetails.trim()
+      : undefined,
+    vacancyArtworkUrl: form.vacancyArtworkUrl || undefined,
     publish,
   });
 
@@ -711,6 +725,7 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
           <div className="space-y-3">
             <span className={labelClass}>Receive applications via</span>
             {[
+              { key: "applyViaRegisteredPost" as const, label: "Registered post" },
               { key: "applyViaOneClick" as const, label: "One-click Apply (JobsFinder)" },
               { key: "applyViaEmail" as const, label: "Email" },
               { key: "applyViaExternalLink" as const, label: "External link (ATS / form / website)" },
@@ -751,6 +766,18 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
               />
             </div>
           )}
+          {form.applyViaRegisteredPost && (
+            <div className="space-y-2">
+              <label className={labelClass}>Registered post instructions</label>
+              <textarea
+                rows={8}
+                value={form.registeredPostDetails}
+                onChange={(e) => patch({ registeredPostDetails: e.target.value })}
+                placeholder="Forwarding rules, envelope marking, closing date, and postal address…"
+                className={cn(inputClass, "resize-y")}
+              />
+            </div>
+          )}
           {form.applyViaWalkIn && (
             <div className="space-y-2">
               <label className={labelClass}>Walk-in details</label>
@@ -767,8 +794,22 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
 
         <Section id="media" icon="image" title="9. Vacancy artwork">
           <JobListingMediaUploader
-            vacancyArtworkName={form.vacancyArtworkName}
-            onVacancyArtworkChange={(vacancyArtworkName) => patch({ vacancyArtworkName })}
+            artwork={
+              form.vacancyArtworkUrl
+                ? {
+                    name: form.vacancyArtworkName,
+                    dataUrl: form.vacancyArtworkUrl,
+                    mimeType: form.vacancyArtworkMime,
+                  }
+                : null
+            }
+            onArtworkChange={(artwork) =>
+              patch({
+                vacancyArtworkName: artwork?.name ?? "",
+                vacancyArtworkUrl: artwork?.dataUrl ?? "",
+                vacancyArtworkMime: artwork?.mimeType ?? "",
+              })
+            }
             disabled={submitting}
           />
         </Section>

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PublicHeader } from "@/components/layout/public-header";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { verifyEmailToken } from "@/lib/api/verification";
@@ -87,8 +86,6 @@ export function VerifyEmailPage() {
           ) : null}
         </div>
       </main>
-
-      <SiteFooter variant="dark" />
     </div>
   );
 }

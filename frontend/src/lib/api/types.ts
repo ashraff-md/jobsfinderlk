@@ -67,6 +67,58 @@ export type CompanySuggestion = Company & {
   pendingReview?: boolean;
 };
 
+export type GovernmentOrganizationParent = {
+  id: string;
+  name: string;
+  organizationType: string;
+  shortName?: string | null;
+};
+
+export type GovernmentOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  organizationType: string;
+  parentOrganizationId?: string | null;
+  shortName?: string | null;
+  description?: string | null;
+  website?: string | null;
+  email?: string | null;
+  contactNumber?: string | null;
+  headOfficeAddress?: string | null;
+  district?: string | null;
+  province?: string | null;
+  logoUrl?: string | null;
+  parent?: GovernmentOrganizationParent | null;
+  createdBy?: ReviewedByAdmin | null;
+  _count?: { jobs: number };
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type GovernmentOrganizationSuggestion = Pick<
+  GovernmentOrganization,
+  "id" | "name" | "slug" | "organizationType" | "shortName" | "district" | "province" | "logoUrl" | "parent"
+> & {
+  score: number;
+  matchType: "exact" | "fuzzy" | "phonetic";
+};
+
+export type CreateGovernmentOrganizationBody = {
+  name: string;
+  organizationType: string;
+  parentOrganizationId?: string;
+  shortName?: string;
+  description?: string;
+  website?: string;
+  email?: string;
+  contactNumber?: string;
+  headOfficeAddress?: string;
+  district?: string;
+  province?: string;
+  logoUrl?: string;
+};
+
 export type ReviewedByAdmin = {
   id: string;
   email: string;
@@ -162,9 +214,23 @@ export type Job = {
   status?: string;
   jobSourceType?: string | null;
   verificationLevel?: string | null;
+  requestedCompanyName?: string | null;
+  governmentOrganizationId?: string | null;
+  governmentOrganization?: GovernmentOrganization | null;
+  recruiterRole?: string | null;
+  positionsCount?: number | null;
   createdAt?: string;
   publishedAt?: string | null;
   applicationDeadline?: string | null;
+  applyViaEmail?: boolean;
+  applyViaExternalLink?: boolean;
+  applyViaWalkIn?: boolean;
+  applyViaRegisteredPost?: boolean;
+  applyViaOneClick?: boolean;
+  applicationEmail?: string | null;
+  applicationExternalUrl?: string | null;
+  walkInDetails?: string | null;
+  registeredPostDetails?: string | null;
   reviewedAt?: string | null;
   vacancyArtworkUrl?: string | null;
   company: Company;

@@ -4,6 +4,11 @@ import { formatSalary } from "@/lib/api/jobs";
 import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
 import { formatJobAgeRange } from "@/lib/jobs/format-age-range";
 import type { Job } from "@/lib/api/types";
+import {
+  getJobEmployerLogo,
+  getJobEmployerName,
+  getJobLocationLabel,
+} from "@/lib/jobs/job-employer-name";
 
 type JobSearchResultCardProps = {
   job: Job;
@@ -20,22 +25,24 @@ export function JobSearchResultCard({ job }: JobSearchResultCardProps) {
     ageLabel,
   ].filter(Boolean) as string[];
 
-  const location = job.location ?? job.city ?? "Sri Lanka";
+  const location = getJobLocationLabel(job);
+  const employerName = getJobEmployerName(job);
+  const employerLogo = getJobEmployerLogo(job);
 
   return (
     <article className="group job-card-shadow job-card-hover flex h-full flex-col rounded-lg border border-outline-variant bg-surface-container-lowest p-6 transition-all duration-300 hover:border-primary/40">
       <div className="mb-4 flex items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded border border-outline-variant bg-surface-container">
-          {job.company.logoUrl ? (
+          {employerLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={job.company.logoUrl}
+              src={employerLogo}
               alt=""
               className="h-full w-full object-cover"
             />
           ) : (
             <span className="text-xl font-bold text-primary">
-              {job.company.name.charAt(0)}
+              {employerName.charAt(0)}
             </span>
           )}
         </div>
@@ -45,21 +52,7 @@ export function JobSearchResultCard({ job }: JobSearchResultCardProps) {
               {job.title}
             </h3>
           </Link>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-medium text-on-surface-variant">
-              {job.company.name}
-            </span>
-            {job.company.verified && (
-              <span className="flex items-center gap-0.5 rounded bg-primary/10 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-primary">
-                <Icon
-                  name="verified"
-                  filled
-                  className="!text-[12px] !leading-none ![font-variation-settings:'FILL'_1,'wght'_400,'GRAD'_0,'opsz'_20]"
-                />
-                Verified
-              </span>
-            )}
-          </div>
+          <p className="mt-1 text-xs font-medium text-on-surface-variant">{employerName}</p>
         </div>
         <button
           type="button"

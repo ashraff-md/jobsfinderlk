@@ -5,7 +5,13 @@ import { GovernmentJobForm } from "@/components/jobs/government-job-form";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 
-export function AdminGovernmentJobPage() {
+type AdminGovernmentJobPageProps = {
+  jobId?: string;
+};
+
+export function AdminGovernmentJobPage({ jobId }: AdminGovernmentJobPageProps) {
+  const isEdit = Boolean(jobId);
+
   return (
     <RecruiterAdminShell activeNav="government">
       <AdminPageCanvas className="space-y-stack-lg">
@@ -20,12 +26,15 @@ export function AdminGovernmentJobPage() {
                 Government Postings
               </Link>
               <span className="mx-2">/</span>
-              <span className="text-secondary">New</span>
+              <span className="text-secondary">{isEdit ? "Edit" : "New"}</span>
             </nav>
-            <h1 className="text-headline-xl text-on-background">Create Official Posting</h1>
+            <h1 className="text-headline-xl text-on-background">
+              {isEdit ? "Edit Government Posting" : "Create Official Posting"}
+            </h1>
             <p className="mt-2 max-w-2xl text-body-lg text-on-surface-variant">
-              Create high-authority government sector listings with standardized civil service
-              parameters and gazette references.
+              {isEdit
+                ? "Update ministry details, salary lines, application instructions, and artwork for this listing."
+                : "Create high-authority government sector listings with standardized civil service parameters and gazette references."}
             </p>
           </div>
           <div className="flex items-center gap-3 rounded-lg border border-secondary/20 bg-surface-container-high px-4 py-2">
@@ -34,7 +43,7 @@ export function AdminGovernmentJobPage() {
           </div>
         </div>
 
-        <GovernmentJobForm />
+        <GovernmentJobForm jobId={jobId} />
       </AdminPageCanvas>
     </RecruiterAdminShell>
   );

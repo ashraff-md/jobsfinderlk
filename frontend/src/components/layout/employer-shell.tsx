@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import { LogoutLink } from "@/components/auth/logout-link";
 import { EmployerTopNav } from "@/components/layout/employer-top-nav";
 import { Icon } from "@/components/ui/icon";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { LOGO_URL } from "@/lib/assets";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +32,6 @@ type EmployerShellProps = {
   userTitle?: string;
   userAvatar?: string;
   fullHeight?: boolean;
-  showFooter?: boolean;
 };
 
 function isActive(pathname: string, href: string, key?: EmployerNavKey) {
@@ -61,7 +59,6 @@ export function EmployerShell({
   userTitle = "Premium Member",
   userAvatar,
   fullHeight = false,
-  showFooter = true,
 }: EmployerShellProps) {
   const pathname = usePathname();
 
@@ -159,7 +156,6 @@ export function EmployerShell({
         >
           {children}
         </div>
-        {showFooter && !fullHeight && <SiteFooter variant="dark" className="mt-20" />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around border-t border-white/10 bg-primary-container p-4 md:hidden">

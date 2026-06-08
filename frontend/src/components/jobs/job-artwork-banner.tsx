@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { isVacancyArtworkPdf } from "@/lib/jobs/vacancy-artwork";
 import { cn } from "@/lib/utils";
 
 type JobArtworkBannerProps = {
@@ -23,6 +24,7 @@ export function JobArtworkBanner({
   imageClassName = "aspect-[3/2] w-full",
 }: JobArtworkBannerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const isPdf = isVacancyArtworkPdf(null, artworkUrl);
 
   const close = useCallback(() => setIsOpen(false), []);
 
@@ -54,12 +56,20 @@ export function JobArtworkBanner({
         aria-label={`View full artwork for ${title}`}
       >
         <div className={cn("relative bg-surface-container-low", imageClassName)}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt={`${title} artwork`}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            src={artworkUrl}
-          />
+          {isPdf ? (
+            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+              <Icon name="picture_as_pdf" className="text-[56px] text-error" />
+              <p className="font-label-bold text-on-surface">Vacancy notice (PDF)</p>
+              <p className="text-label-sm text-on-surface-variant">Click to view the full document</p>
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={`${title} artwork`}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              src={artworkUrl}
+            />
+          )}
           {showOverlay && (
             <>
               <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/70 via-navy-deep/15 to-transparent" />
@@ -92,13 +102,22 @@ export function JobArtworkBanner({
           >
             <Icon name="close" />
           </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt={`${title} artwork`}
-            className="max-h-[90vh] max-w-full object-contain"
-            src={artworkUrl}
-            onClick={(event) => event.stopPropagation()}
-          />
+          {isPdf ? (
+            <iframe
+              title={`${title} PDF`}
+              src={artworkUrl}
+              className="h-[90vh] w-full max-w-5xl rounded-lg bg-white"
+              onClick={(event) => event.stopPropagation()}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={`${title} artwork`}
+              className="max-h-[90vh] max-w-full object-contain"
+              src={artworkUrl}
+              onClick={(event) => event.stopPropagation()}
+            />
+          )}
         </div>
       )}
     </>

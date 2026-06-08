@@ -1,4 +1,3 @@
-import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { JobDetailView } from "@/components/jobs/job-detail-view";
 import { SimilarJobsCarousel } from "@/components/jobs/similar-jobs-carousel";
@@ -31,8 +30,6 @@ export function JobDetailPage({ job }: JobDetailPageProps) {
           <SimilarJobsCarousel excludeSlug={job.slug} />
         </section>
       </main>
-
-      <SiteFooter variant="dark" />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
+import { SiteChrome } from "@/components/layout/site-chrome";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -38,7 +39,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full bg-background text-on-surface font-sans selection:bg-primary/10">
-        {children}
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   );

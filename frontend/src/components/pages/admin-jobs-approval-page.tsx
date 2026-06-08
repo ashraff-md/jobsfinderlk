@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/admin";
 import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
 import type { Job } from "@/lib/api/types";
+import { getJobEmployerName } from "@/lib/jobs/job-employer-name";
 import { cn } from "@/lib/utils";
 
 const STATUS_FILTERS = [
@@ -420,7 +421,7 @@ export function AdminJobsApprovalPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-stack-lg py-4 font-label-bold">{item.company.name}</td>
+                        <td className="px-stack-lg py-4 font-label-bold">{getJobEmployerName(item)}</td>
                         <td className="px-stack-lg py-4 text-body-md">
                           {item.city ?? item.location ?? "—"}
                         </td>

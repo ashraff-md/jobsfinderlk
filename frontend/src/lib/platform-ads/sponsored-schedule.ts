@@ -1,4 +1,11 @@
-export const PROMOTION_PERIOD_OPTIONS = [
+export const BANNER_PROMOTION_PERIOD_OPTIONS = [
+  { days: 7, label: "7 Days" },
+  { days: 14, label: "14 Days" },
+  { days: 30, label: "30 Days" },
+  { days: 60, label: "60 Days" },
+] as const;
+
+export const SPONSORED_PROMOTION_PERIOD_OPTIONS = [
   { days: 3, label: "+3 days" },
   { days: 5, label: "+5 days" },
   { days: 7, label: "+7 days" },
@@ -6,7 +13,16 @@ export const PROMOTION_PERIOD_OPTIONS = [
   { days: 30, label: "+1 month" },
 ] as const;
 
-export type PromotionPeriodDays = (typeof PROMOTION_PERIOD_OPTIONS)[number]["days"];
+/** @deprecated Use BANNER_PROMOTION_PERIOD_OPTIONS or SPONSORED_PROMOTION_PERIOD_OPTIONS */
+export const PROMOTION_PERIOD_OPTIONS = SPONSORED_PROMOTION_PERIOD_OPTIONS;
+
+export type BannerPromotionPeriodDays =
+  (typeof BANNER_PROMOTION_PERIOD_OPTIONS)[number]["days"];
+
+export type SponsoredPromotionPeriodDays =
+  (typeof SPONSORED_PROMOTION_PERIOD_OPTIONS)[number]["days"];
+
+export type PromotionPeriodDays = BannerPromotionPeriodDays | SponsoredPromotionPeriodDays;
 
 export function addPromotionDays(start: Date, days: PromotionPeriodDays): Date {
   const end = new Date(start);
@@ -45,4 +61,16 @@ export function sponsoredScheduleStatus(
 export function toDateInputValue(iso?: string | null): string {
   if (!iso) return new Date().toISOString().slice(0, 10);
   return new Date(iso).toISOString().slice(0, 10);
+}
+
+export function inferPromotionDaysFromRange(
+  startsAt: string,
+  endsAt: string,
+  options: readonly { days: number }[] = BANNER_PROMOTION_PERIOD_OPTIONS,
+): number {
+  const days = Math.round(
+    (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 86400000,
+  );
+  const match = options.find((o) => o.days === days);
+  return match?.days ?? options[0]?.days ?? 7;
 }

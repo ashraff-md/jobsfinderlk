@@ -6,7 +6,8 @@ const meta = ROUTE_META["/pricing"];
 
 export const metadata: Metadata = {
   title: `${meta.title} | JobsFinder.lk`,
-  description: "Pricing plans for job seekers and recruiters.",
+  description:
+    "Job listing packages, sponsored job tiers, and banner advertising pricing for recruiters.",
 };
 
 export default function Page() {

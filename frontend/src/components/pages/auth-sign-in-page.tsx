@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { ApiError } from "@/lib/api/client";
 import { dashboardPath, login } from "@/lib/api/auth";
 import { authRoleFromSignInParam, isSafeReturnUrl, portalFromSignInRoleParam } from "@/lib/auth/portal";
@@ -73,9 +72,6 @@ function AuthBrandingPanel({ imageRef }: { imageRef: React.RefObject<HTMLImageEl
             </div>
           </footer>
         </blockquote>
-      </div>
-      <div className="relative z-10 max-w-sm opacity-80">
-        <SiteFooter variant="compact" />
       </div>
     </section>
   );

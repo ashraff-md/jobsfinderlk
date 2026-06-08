@@ -160,6 +160,26 @@ export const ROUTE_META: Record<
     reference: "references2/government_job_posting_form/code.html",
     phase: "M1",
   },
+  "/admin/jobs/government/[id]/edit": {
+    title: "Edit Government Posting",
+    reference: "references2/government_job_posting_form/code.html",
+    phase: "M1",
+  },
+  "/admin/government-organizations": {
+    title: "Government Organizations",
+    reference: "references2/government_job_posting_form/code.html",
+    phase: "M1",
+  },
+  "/admin/government-organizations/new": {
+    title: "Register Government Organization",
+    reference: "references2/government_job_posting_form/code.html",
+    phase: "M1",
+  },
+  "/admin/government-organizations/[id]/edit": {
+    title: "Edit Government Organization",
+    reference: "references2/government_job_posting_form/code.html",
+    phase: "M1",
+  },
   "/admin/job-categories": {
     title: "Job Categories",
     reference: "references2/admin_job_categories/code.html",
@@ -205,25 +225,10 @@ export const ROUTE_META: Record<
     reference: "references2/admin_partner_management/code.html",
     phase: "M1–M2",
   },
-  "/admin/revenue": {
-    title: "Revenue & Financials",
-    reference: "references2/admin_revenue_financials/code.html",
-    phase: "M1–M2",
-  },
-  "/admin/analytics": {
-    title: "AI Performance Analytics",
-    reference: "references2/admin_ai_performance_analytics/code.html",
-    phase: "M1–M2",
-  },
   "/admin/settings": {
     title: "Admin Profile",
     reference: "references2/recruiter_settings/code.html",
     phase: "M1",
-  },
-  "/admin/governance": {
-    title: "Governance & Security",
-    reference: "references2/admin_platform_governance_security/code.html",
-    phase: "M1–M2",
   },
   "/legal/[policy]": {
     title: "Legal Policies",

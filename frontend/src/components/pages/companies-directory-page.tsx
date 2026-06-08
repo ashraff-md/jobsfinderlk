@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
 import type { Company } from "@/lib/api/types";
@@ -366,8 +365,6 @@ export function CompaniesDirectoryPage({ companies: apiCompanies }: CompaniesDir
           </button>
         </div>
       </main>
-
-      <SiteFooter variant="dark" />
     </div>
   );
 }

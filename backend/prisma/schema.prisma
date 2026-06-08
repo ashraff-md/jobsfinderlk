@@ -61,6 +61,7 @@ model User {
   reviewedBy    User?     @relation("RecruiterReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
   moderatedRecruiters User[] @relation("RecruiterReviewedBy")
   verificationTokens VerificationToken[]
+  createdGovernmentOrganizations GovernmentOrganization[] @relation("GovOrgCreatedBy")
 
   @@map("users")
 }
@@ -198,6 +199,34 @@ model PlatformPartner {
   @@map("platform_partners")
 }
 
+model GovernmentOrganization {
+  id                   String   @id @default(uuid())
+  name                 String
+  slug                 String   @unique
+  organizationType     String   @map("organization_type")
+  parentOrganizationId String?  @map("parent_organization_id")
+  shortName            String?  @map("short_name")
+  description          String?
+  website              String?
+  email                String?
+  contactNumber        String?  @map("contact_number")
+  headOfficeAddress    String?  @map("head_office_address")
+  district             String?
+  province             String?
+  logoUrl              String?  @map("logo_url")
+  createdById          String?  @map("created_by_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  parent    GovernmentOrganization?  @relation("GovOrgHierarchy", fields: [parentOrganizationId], references: [id], onDelete: SetNull)
+  children  GovernmentOrganization[] @relation("GovOrgHierarchy")
+  createdBy User?                    @relation("GovOrgCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  jobs      Job[]
+
+  @@index([name])
+  @@map("government_organizations")
+}
+
 model JobCategory {
   id          String   @id @default(uuid())
   name        String   @unique
@@ -241,14 +270,17 @@ model Job {
   keywords             String[]  @default([])
   recruiterRole        String?   @map("recruiter_role")
   requestedCompanyName String?   @map("requested_company_name")
+  governmentOrganizationId String? @map("government_organization_id")
   applicationDeadline  DateTime? @map("application_deadline")
   applyViaEmail        Boolean   @default(false) @map("apply_via_email")
   applyViaExternalLink Boolean   @default(false) @map("apply_via_external_link")
   applyViaWalkIn       Boolean   @default(false) @map("apply_via_walk_in")
+  applyViaRegisteredPost Boolean @default(false) @map("apply_via_registered_post")
   applyViaOneClick     Boolean   @default(true) @map("apply_via_one_click")
   applicationEmail     String?   @map("application_email")
   applicationExternalUrl String? @map("application_external_url")
   walkInDetails        String?   @map("walk_in_details")
+  registeredPostDetails String?  @map("registered_post_details")
   jobDocumentUrl       String?   @map("job_document_url")
   vacancyArtworkUrl    String?   @map("vacancy_artwork_url")
   jobSourceType        String?   @default("DIRECT_EMPLOYER") @map("job_source_type")
@@ -263,10 +295,11 @@ model Job {
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  reviewedBy   User?         @relation("JobReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
-  applications Application[]
-  sponsoredAd  SponsoredAd?
+  company                Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  governmentOrganization GovernmentOrganization? @relation(fields: [governmentOrganizationId], references: [id], onDelete: SetNull)
+  reviewedBy             User?                   @relation("JobReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  applications             Application[]
+  sponsoredAd              SponsoredAd?
 
   @@map("jobs")
 }

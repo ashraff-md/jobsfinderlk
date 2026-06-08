@@ -11,6 +11,7 @@ import { ApplicationsModule } from './modules/applications/applications.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PlatformAdsModule } from './modules/platform-ads/platform-ads.module';
 import { PartnersModule } from './modules/partners/partners.module';
+import { GovernmentOrganizationsModule } from './modules/government-organizations/government-organizations.module';
 import { ImageStorageModule } from './common/storage/image-storage.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { ImageStorageModule } from './common/storage/image-storage.module';
     AdminModule,
     PlatformAdsModule,
     PartnersModule,
+    GovernmentOrganizationsModule,
   ],
   providers: [
     {

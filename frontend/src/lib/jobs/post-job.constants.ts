@@ -111,11 +111,15 @@ export type PostJobFormValues = {
   applyViaEmail: boolean;
   applyViaExternalLink: boolean;
   applyViaWalkIn: boolean;
+  applyViaRegisteredPost: boolean;
   applyViaOneClick: boolean;
   applicationEmail: string;
   applicationExternalUrl: string;
   walkInDetails: string;
+  registeredPostDetails: string;
   vacancyArtworkName: string;
+  vacancyArtworkUrl: string;
+  vacancyArtworkMime: string;
 };
 
 export const DEFAULT_POST_JOB_VALUES: PostJobFormValues = {
@@ -143,9 +147,13 @@ export const DEFAULT_POST_JOB_VALUES: PostJobFormValues = {
   applyViaEmail: false,
   applyViaExternalLink: false,
   applyViaWalkIn: false,
+  applyViaRegisteredPost: false,
   applyViaOneClick: true,
   applicationEmail: "",
   applicationExternalUrl: "",
   walkInDetails: "",
+  registeredPostDetails: "",
   vacancyArtworkName: "",
+  vacancyArtworkUrl: "",
+  vacancyArtworkMime: "",
 };

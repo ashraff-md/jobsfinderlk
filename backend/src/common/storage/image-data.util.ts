@@ -21,7 +21,9 @@ export function parseImageDataUrl(
   limits: ImageDataLimits = DEFAULT_IMAGE_LIMITS,
 ): { buffer: Buffer; ext: string } | null {
   const trimmed = dataUrl.trim();
-  const match = trimmed.match(/^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/i);
+  const match = trimmed.match(
+    /^data:image\/(jpeg|jpg|png|webp|gif|svg\+xml);base64,(.+)$/i,
+  );
   if (!match) return null;
 
   const mime = match[1].toLowerCase();

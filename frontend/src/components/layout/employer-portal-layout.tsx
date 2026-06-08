@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { EmployerShell } from "@/components/layout/employer-shell";
 import { getAccessToken, getProfile } from "@/lib/api/auth";
 
@@ -9,24 +9,15 @@ type EmployerPortalLayoutProps = {
   children: ReactNode;
 };
 
-function useEmployerLayoutOptions(pathname: string) {
-  return useMemo(() => {
-    const fullHeight =
-      pathname.startsWith("/employer/applications") || pathname.includes("/applicants");
-
-    const showFooter =
-      !fullHeight &&
-      !pathname.startsWith("/employer/settings") &&
-      !pathname.startsWith("/employer/jobs/new") &&
-      !pathname.startsWith("/employer/companies/new");
-
-    return { fullHeight, showFooter };
-  }, [pathname]);
+function useEmployerFullHeight(pathname: string) {
+  return (
+    pathname.startsWith("/employer/applications") || pathname.includes("/applicants")
+  );
 }
 
 export function EmployerPortalLayout({ children }: EmployerPortalLayoutProps) {
   const pathname = usePathname();
-  const { fullHeight, showFooter } = useEmployerLayoutOptions(pathname);
+  const fullHeight = useEmployerFullHeight(pathname);
   const [userName, setUserName] = useState("Recruiter");
   const [userTitle, setUserTitle] = useState("Recruiter");
   const [userAvatar, setUserAvatar] = useState<string | undefined>();
@@ -68,7 +59,6 @@ export function EmployerPortalLayout({ children }: EmployerPortalLayoutProps) {
       userTitle={userTitle}
       userAvatar={userAvatar}
       fullHeight={fullHeight}
-      showFooter={showFooter}
     >
       {children}
     </EmployerShell>

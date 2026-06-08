@@ -1,22 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { CompanyAutocomplete } from "@/components/companies/company-autocomplete";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { GovernmentOrganizationAutocomplete } from "@/components/government-organizations/government-organization-autocomplete";
 import { JobListingMediaUploader } from "@/components/jobs/job-listing-media-uploader";
 import { ApplicationDeadlinePicker } from "@/components/ui/application-deadline-picker";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
+import { getAdminJob, updateAdminJob } from "@/lib/api/admin";
 import { createJob } from "@/lib/api/jobs";
+import { getGovernmentOrganization } from "@/lib/api/government-organizations";
+import type { Job } from "@/lib/api/types";
+import { resolveGovernmentOrganizationId } from "@/lib/government-organizations/resolve-government-organization";
+import { jobToGovernmentFormValues } from "@/lib/jobs/government-job-mapper";
 import { applicationDeadlineError } from "@/lib/jobs/application-deadline";
 import {
   DEFAULT_GOVERNMENT_JOB_VALUES,
   GOVERNMENT_POSTING_GUIDELINES,
+  GOVERNMENT_SALARY_PLACEHOLDER,
   GovernmentJobFormValues,
   PUBLIC_SERVICE_GRADES,
+  REGISTERED_POST_PLACEHOLDER,
 } from "@/lib/jobs/government-job.constants";
 import {
   EDUCATION_LEVELS,
@@ -103,7 +110,7 @@ function buildDescription(values: GovernmentJobFormValues) {
     lines.push(`Public Service Grade: ${values.publicServiceGrade}`);
   }
   if (values.salaryScale.trim()) {
-    lines.push(`Salary Scale: ${values.salaryScale.trim()}`);
+    lines.push("Salary:", values.salaryScale.trim());
   }
   if (values.description.trim()) {
     lines.push("", values.description.trim());
@@ -138,24 +145,95 @@ function employmentPreviewTag(type: string) {
   return type.replace(/\s+/g, " ").toUpperCase();
 }
 
-export function GovernmentJobForm() {
+type GovernmentJobFormProps = {
+  jobId?: string;
+};
+
+export function GovernmentJobForm({ jobId }: GovernmentJobFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isEdit = Boolean(jobId);
   const [form, setForm] = useState<GovernmentJobFormValues>(DEFAULT_GOVERNMENT_JOB_VALUES);
+  const [jobStatus, setJobStatus] = useState<Job["status"]>(undefined);
+  const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { names: categoryOptions } = useJobCategories();
+
+  useEffect(() => {
+    if (!jobId) return;
+
+    let cancelled = false;
+    (async () => {
+      if (!getAccessToken()) {
+        router.push(signInPath("admin", pathname));
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const job = await getAdminJob(jobId);
+        if (cancelled) return;
+        if (job.jobSourceType !== "GOVERNMENT") {
+          setError("This listing is not a government posting.");
+          return;
+        }
+        setForm(jobToGovernmentFormValues(job));
+        setJobStatus(job.status);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 401) {
+          router.push(signInPath("admin", pathname));
+          return;
+        }
+        setError(err instanceof ApiError ? err.message : "Failed to load government posting.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, pathname, router]);
+
+  useEffect(() => {
+    if (jobId || pathname.includes("/edit")) return;
+    const organizationId = searchParams.get("organizationId");
+    if (!organizationId) return;
+
+    let cancelled = false;
+    void getGovernmentOrganization(organizationId)
+      .then((org) => {
+        if (cancelled) return;
+        setForm((prev) => ({
+          ...prev,
+          governmentOrganizationId: org.id,
+          governmentOrganizationSearch: org.name,
+        }));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, pathname, searchParams]);
 
   const patch = (partial: Partial<GovernmentJobFormValues>) => {
     setForm((prev) => ({ ...prev, ...partial }));
   };
 
   const previewGazette = form.gazetteReference.trim() || "GZ-—";
-  const previewSalary = form.salaryScale.trim() || "Scale pending";
+  const previewSalary =
+    form.salaryScale
+      .trim()
+      .split("\n")
+      .find((line) => line.trim()) || "Salary details pending";
 
   const validate = () => {
-    if (!form.companyId) {
-      return "Select a ministry or department from the suggestions.";
+    if (!form.governmentOrganizationSearch.trim()) {
+      return "Ministry/Department is required.";
     }
     if (!form.designation.trim()) return "Designation (official title) is required.";
     if (buildDescription(form).length < 20) {
@@ -165,6 +243,7 @@ export function GovernmentJobForm() {
       !form.applyViaEmail &&
       !form.applyViaExternalLink &&
       !form.applyViaWalkIn &&
+      !form.applyViaRegisteredPost &&
       !form.applyViaOneClick
     ) {
       return "Select at least one application method.";
@@ -174,6 +253,9 @@ export function GovernmentJobForm() {
     }
     if (form.applyViaExternalLink && !form.applicationExternalUrl.trim()) {
       return "Enter an official application portal link.";
+    }
+    if (form.applyViaRegisteredPost && !form.registeredPostDetails.trim()) {
+      return "Enter registered post application instructions.";
     }
     if (form.applicationDeadline) {
       const deadlineError = applicationDeadlineError(form.applicationDeadline);
@@ -200,7 +282,8 @@ export function GovernmentJobForm() {
     description: buildDescription(form),
     responsibilities: form.responsibilities.trim() || undefined,
     requirements: form.requirements.trim() || undefined,
-    companyId: form.companyId,
+    ministryDepartment: form.governmentOrganizationSearch.trim(),
+    governmentOrganizationId: form.governmentOrganizationId.trim(),
     recruiterRole: form.recruiterRole,
     category: form.category.trim() || "Government",
     sector: "Government",
@@ -218,14 +301,19 @@ export function GovernmentJobForm() {
     applyViaEmail: form.applyViaEmail,
     applyViaExternalLink: form.applyViaExternalLink,
     applyViaWalkIn: form.applyViaWalkIn,
+    applyViaRegisteredPost: form.applyViaRegisteredPost,
     applyViaOneClick: form.applyViaOneClick,
     applicationEmail: form.applyViaEmail ? form.applicationEmail.trim() : undefined,
     applicationExternalUrl: form.applyViaExternalLink
       ? normalizeExternalUrl(form.applicationExternalUrl)
       : undefined,
     walkInDetails: form.applyViaWalkIn ? form.walkInDetails.trim() : undefined,
+    registeredPostDetails: form.applyViaRegisteredPost
+      ? form.registeredPostDetails.trim()
+      : undefined,
     jobSourceType: "GOVERNMENT",
     verificationLevel: "GOVT_CERTIFIED",
+    vacancyArtworkUrl: form.vacancyArtworkUrl || undefined,
     publish,
   });
 
@@ -242,23 +330,58 @@ export function GovernmentJobForm() {
     setError(null);
     setSubmitting(true);
     try {
-      await createJob(buildPayload(publish));
-      router.push(publish ? "/admin/jobs/government" : "/admin/jobs/government/new");
+      const governmentOrganizationId = await resolveGovernmentOrganizationId({
+        organizationId: form.governmentOrganizationId,
+        search: form.governmentOrganizationSearch,
+        defaultOrganizationType: "Department",
+      });
+      const payload = {
+        ...buildPayload(publish),
+        governmentOrganizationId,
+        ministryDepartment: form.governmentOrganizationSearch.trim(),
+      };
+      if (isEdit && jobId) {
+        if (jobStatus === "PUBLISHED") {
+          const { publish: _publish, ...updateBody } = payload;
+          await updateAdminJob(jobId, updateBody);
+        } else {
+          await updateAdminJob(jobId, payload);
+        }
+      } else {
+        await createJob(payload);
+      }
+      router.push("/admin/jobs/government");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push(signInPath("admin", pathname));
         return;
       }
-      setError(err instanceof ApiError ? err.message : "Failed to save government posting.");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : isEdit
+            ? "Failed to update government posting."
+            : "Failed to save government posting.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   const previewMinistry = useMemo(
-    () => ministryPreviewName(form.companySearch),
-    [form.companySearch],
+    () => ministryPreviewName(form.governmentOrganizationSearch),
+    [form.governmentOrganizationSearch],
   );
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-outline-variant bg-surface-container-lowest px-6 py-16 text-center text-on-surface-variant">
+        Loading government posting…
+      </div>
+    );
+  }
+
+  const isPublished = jobStatus === "PUBLISHED";
 
   return (
     <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
@@ -266,18 +389,29 @@ export function GovernmentJobForm() {
         <FormCard icon="account_balance" title="Authority & Identification">
           <div className="grid grid-cols-1 gap-stack-lg sm:grid-cols-2">
             <div className="col-span-full">
-              <CompanyAutocomplete
+              <GovernmentOrganizationAutocomplete
                 label="Ministry/Department"
-                value={form.companySearch}
-                selectedCompanyId={form.companyId || undefined}
-                onQueryChange={(companySearch) => patch({ companySearch, companyId: "" })}
-                onSelect={(company) =>
-                  patch({ companySearch: company.name, companyId: company.id })
+                value={form.governmentOrganizationSearch}
+                selectedOrganizationId={form.governmentOrganizationId || undefined}
+                onQueryChange={(query) =>
+                  patch({
+                    governmentOrganizationSearch: query,
+                    governmentOrganizationId: "",
+                  })
                 }
-                onClear={() => patch({ companySearch: "", companyId: "" })}
-                placeholder="e.g. Ministry of Public Administration, Home Affairs, Provincial Councils"
+                onSelect={(organization) =>
+                  patch({
+                    governmentOrganizationSearch: organization.name,
+                    governmentOrganizationId: organization.id,
+                  })
+                }
+                onClear={() =>
+                  patch({
+                    governmentOrganizationId: "",
+                  })
+                }
+                placeholder="e.g. Ministry of Education, Department of Examinations"
                 required
-                createHref="/admin/companies"
               />
             </div>
             <div className="space-y-2">
@@ -385,17 +519,20 @@ export function GovernmentJobForm() {
               />
             </div>
             <div className="col-span-full space-y-2">
-              <label className={labelClass} htmlFor="salary-scale">
-                Salary Scale (SL Standard)
+              <label className={labelClass} htmlFor="salary-details">
+                Salary
               </label>
-              <input
-                id="salary-scale"
-                type="text"
+              <textarea
+                id="salary-details"
+                rows={5}
                 value={form.salaryScale}
                 onChange={(e) => patch({ salaryScale: e.target.value })}
-                placeholder="SL-1-2016: Rs. 47,615 - 10 x 1,335..."
-                className={inputClass}
+                placeholder={GOVERNMENT_SALARY_PLACEHOLDER}
+                className={cn(inputClass, "resize-y")}
               />
+              <p className="text-label-sm text-on-surface-variant">
+                List each effective date on its own line, including base pay and allowances.
+              </p>
             </div>
           </div>
         </FormCard>
@@ -557,6 +694,7 @@ export function GovernmentJobForm() {
           <div className="space-y-3">
             <span className={labelClass}>Receive applications via</span>
             {[
+              { key: "applyViaRegisteredPost" as const, label: "Registered post" },
               { key: "applyViaOneClick" as const, label: "One-click Apply (JobsFinder)" },
               { key: "applyViaEmail" as const, label: "Email" },
               { key: "applyViaExternalLink" as const, label: "External link (official portal)" },
@@ -614,12 +752,45 @@ export function GovernmentJobForm() {
               />
             </div>
           )}
+          {form.applyViaRegisteredPost && (
+            <div className="space-y-2">
+              <label className={labelClass} htmlFor="registered-post-details">
+                Registered post instructions
+              </label>
+              <textarea
+                id="registered-post-details"
+                rows={10}
+                value={form.registeredPostDetails}
+                onChange={(e) => patch({ registeredPostDetails: e.target.value })}
+                placeholder={REGISTERED_POST_PLACEHOLDER}
+                className={cn(inputClass, "resize-y")}
+              />
+              <p className="text-label-sm text-on-surface-variant">
+                Include forwarding rules, envelope marking, closing date, and the full postal
+                address of the recipient.
+              </p>
+            </div>
+          )}
         </FormCard>
 
         <FormCard icon="image" title="Vacancy artwork">
           <JobListingMediaUploader
-            vacancyArtworkName={form.vacancyArtworkName}
-            onVacancyArtworkChange={(vacancyArtworkName) => patch({ vacancyArtworkName })}
+            artwork={
+              form.vacancyArtworkUrl
+                ? {
+                    name: form.vacancyArtworkName,
+                    dataUrl: form.vacancyArtworkUrl,
+                    mimeType: form.vacancyArtworkMime,
+                  }
+                : null
+            }
+            onArtworkChange={(artwork) =>
+              patch({
+                vacancyArtworkName: artwork?.name ?? "",
+                vacancyArtworkUrl: artwork?.dataUrl ?? "",
+                vacancyArtworkMime: artwork?.mimeType ?? "",
+              })
+            }
             disabled={submitting}
           />
         </FormCard>
@@ -631,22 +802,41 @@ export function GovernmentJobForm() {
         )}
 
         <div className="flex flex-wrap justify-end gap-stack-md pb-stack-lg">
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => handleSubmit(false)}
-            className="rounded-lg border border-primary-container px-8 py-3 font-label-bold text-primary-container transition-all hover:bg-surface-container-low disabled:opacity-50"
-          >
-            Save Draft
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => handleSubmit(true)}
-            className="rounded-lg bg-primary px-12 py-3 font-label-bold text-on-primary shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-          >
-            {submitting ? "Publishing…" : "Publish Official Posting"}
-          </button>
+          {isEdit && isPublished ? (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleSubmit(false)}
+              className="rounded-lg bg-primary px-12 py-3 font-label-bold text-on-primary shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+            >
+              {submitting ? "Saving…" : "Save changes"}
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => handleSubmit(false)}
+                className="rounded-lg border border-primary-container px-8 py-3 font-label-bold text-primary-container transition-all hover:bg-surface-container-low disabled:opacity-50"
+              >
+                {isEdit ? "Save draft" : "Save Draft"}
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => handleSubmit(true)}
+                className="rounded-lg bg-primary px-12 py-3 font-label-bold text-on-primary shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              >
+                {submitting
+                  ? isEdit
+                    ? "Publishing…"
+                    : "Publishing…"
+                  : isEdit
+                    ? "Publish posting"
+                    : "Publish Official Posting"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -690,8 +880,10 @@ export function GovernmentJobForm() {
               </span>
             </div>
             <div className="mt-6 border-t border-outline-variant/30 pt-4">
-              <p className="mb-2 font-label-sm text-on-surface-variant">Monthly Scale:</p>
-              <p className="text-headline-md text-primary-container">{previewSalary}</p>
+              <p className="mb-2 font-label-sm text-on-surface-variant">Salary:</p>
+              <p className="whitespace-pre-line text-label-sm font-label-bold text-primary-container">
+                {previewSalary}
+              </p>
             </div>
           </div>
         </div>

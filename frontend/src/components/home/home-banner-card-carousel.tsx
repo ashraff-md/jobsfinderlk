@@ -7,6 +7,7 @@ import {
   BANNER_SLIDES_PER_POSITION,
 } from "@/lib/platform-ads/banner-rotation";
 import type { HomeBannerCard } from "@/lib/home/home-banner-ads";
+import { isExternalBannerUrl } from "@/lib/platform-ads/banner-destination";
 import { cn } from "@/lib/utils";
 
 type HomeBannerCardCarouselProps = {
@@ -39,20 +40,21 @@ export function HomeBannerCardCarousel({
   if (slides.length === 0) return null;
 
   const active = slides[index] ?? slides[0];
+  const external = isExternalBannerUrl(active.href);
 
-  return (
-    <Link
-      href={active.href}
-      aria-label={active.alt}
-      className={cn(
-        "group relative block w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-sm transition-all hover:border-secondary/50 hover:shadow-md",
-        aspectClassName,
-      )}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
-    >
+  const linkClassName = cn(
+    "group relative block w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-sm transition-all hover:border-secondary/50 hover:shadow-md",
+    aspectClassName,
+  );
+  const linkHandlers = {
+    onMouseEnter: () => setPaused(true),
+    onMouseLeave: () => setPaused(false),
+    onFocus: () => setPaused(true),
+    onBlur: () => setPaused(false),
+  };
+
+  const slideContent = (
+    <>
       <span className="sr-only" aria-live="polite">
         {active.alt}
       </span>
@@ -85,6 +87,27 @@ export function HomeBannerCardCarousel({
           />
         ))}
       </div>
+    </>
+  );
+
+  if (external) {
+    return (
+      <a
+        href={active.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={active.alt}
+        className={linkClassName}
+        {...linkHandlers}
+      >
+        {slideContent}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={active.href} aria-label={active.alt} className={linkClassName} {...linkHandlers}>
+      {slideContent}
     </Link>
   );
 }

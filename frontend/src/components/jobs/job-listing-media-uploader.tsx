@@ -2,19 +2,24 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import {
+  isVacancyArtworkPdf,
+  readVacancyArtworkFile,
+  validateVacancyArtworkFile,
+  VACANCY_ARTWORK_ACCEPT,
+  type VacancyArtworkFile,
+} from "@/lib/jobs/vacancy-artwork";
 import { cn } from "@/lib/utils";
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-
 type JobListingMediaUploaderProps = {
-  vacancyArtworkName: string;
-  onVacancyArtworkChange: (fileName: string) => void;
+  artwork: VacancyArtworkFile | null;
+  onArtworkChange: (artwork: VacancyArtworkFile | null) => void;
   disabled?: boolean;
 };
 
 export function JobListingMediaUploader({
-  vacancyArtworkName,
-  onVacancyArtworkChange,
+  artwork,
+  onArtworkChange,
   disabled = false,
 }: JobListingMediaUploaderProps) {
   const inputId = useId();
@@ -24,46 +29,46 @@ export function JobListingMediaUploader({
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  const isPdf = isVacancyArtworkPdf(artwork?.mimeType, artwork?.dataUrl);
+
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+    if (!artwork || isPdf) {
+      setPreviewUrl(null);
+      return;
+    }
+    setPreviewUrl(artwork.dataUrl);
+    return () => {};
+  }, [artwork, isPdf]);
 
   const clearFile = () => {
     setError(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    onVacancyArtworkChange("");
+    onArtworkChange(null);
   };
 
-  const setFile = (file: File | null) => {
+  const setFile = async (file: File | null) => {
     setError(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
 
     if (!file) {
-      onVacancyArtworkChange("");
+      onArtworkChange(null);
       return;
     }
 
-    if (file.size > MAX_FILE_BYTES) {
-      setError(`${file.name} exceeds the 5MB limit.`);
+    const validationError = validateVacancyArtworkFile(file);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setError("Vacancy artwork must be a PNG, JPG, or WebP image.");
-      return;
+    try {
+      onArtworkChange(await readVacancyArtworkFile(file));
+    } catch {
+      setError("Failed to read the selected file.");
     }
-
-    setPreviewUrl(URL.createObjectURL(file));
-    onVacancyArtworkChange(file.name);
   };
 
   const handleFiles = (files: FileList | null) => {
     if (!files?.length || disabled) return;
-    setFile(files[0]);
+    void setFile(files[0]);
   };
 
   const onDragEnter = (event: React.DragEvent) => {
@@ -96,14 +101,14 @@ export function JobListingMediaUploader({
     handleFiles(event.dataTransfer.files);
   };
 
-  const hasFile = Boolean(vacancyArtworkName);
+  const hasFile = Boolean(artwork);
 
   return (
     <div className="space-y-2">
       <div>
         <p className="font-label-bold text-on-surface">Vacancy artwork (optional)</p>
         <p className="text-[11px] text-on-surface-variant">
-          PNG, JPG, or WebP banner for search and job detail pages
+          PNG, JPG, WebP, or PDF for search and job detail pages
         </p>
       </div>
 
@@ -122,7 +127,7 @@ export function JobListingMediaUploader({
           ref={inputRef}
           id={inputId}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept={VACANCY_ARTWORK_ACCEPT}
           disabled={disabled}
           className="sr-only"
           onChange={(e) => {
@@ -138,20 +143,28 @@ export function JobListingMediaUploader({
         )}
 
         <div className="p-4 md:p-5">
-          {hasFile ? (
+          {hasFile && artwork ? (
             <div className="relative overflow-hidden rounded-lg border border-outline-variant/80 bg-white shadow-sm">
-              {previewUrl ? (
+              {isPdf ? (
+                <div className="flex aspect-[16/10] flex-col items-center justify-center gap-3 bg-surface-container-low px-4 text-center">
+                  <Icon name="picture_as_pdf" className="text-[48px] text-error" />
+                  <p className="line-clamp-2 text-label-sm font-label-bold text-on-surface">
+                    {artwork.name}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant">PDF artwork attached</p>
+                </div>
+              ) : previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={previewUrl}
-                  alt={vacancyArtworkName}
+                  alt={artwork.name}
                   className="aspect-[16/10] w-full object-cover"
                 />
               ) : (
                 <div className="flex aspect-[16/10] flex-col items-center justify-center gap-2 bg-surface-container-low px-4 text-center">
                   <Icon name="image" className="text-[40px] text-primary" />
                   <p className="line-clamp-2 text-label-sm font-label-bold text-on-surface">
-                    {vacancyArtworkName}
+                    {artwork.name}
                   </p>
                 </div>
               )}
@@ -183,9 +196,11 @@ export function JobListingMediaUploader({
                 className={cn("text-[32px]", isDragging ? "text-secondary" : "text-primary/70")}
               />
               <p className="mt-3 font-label-bold text-on-surface">
-                {isDragging ? "Drop image here" : "Add vacancy artwork"}
+                {isDragging ? "Drop file here" : "Add vacancy artwork"}
               </p>
-              <p className="mt-1 text-[11px] text-on-surface-variant">or click to browse · 5MB max</p>
+              <p className="mt-1 text-[11px] text-on-surface-variant">
+                Image or PDF · 5MB max
+              </p>
             </button>
           )}
         </div>

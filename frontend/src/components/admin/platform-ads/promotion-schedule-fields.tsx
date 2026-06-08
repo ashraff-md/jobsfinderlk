@@ -1,17 +1,22 @@
 import {
-  PROMOTION_PERIOD_OPTIONS,
+  BANNER_PROMOTION_PERIOD_OPTIONS,
+  SPONSORED_PROMOTION_PERIOD_OPTIONS,
   addPromotionDays,
   formatScheduleRange,
   toDateInputValue,
+  type BannerPromotionPeriodDays,
+  type SponsoredPromotionPeriodDays,
 } from "@/lib/platform-ads/sponsored-schedule";
-import type { PromotionPeriodDays } from "@/lib/api/admin";
 import { cn } from "@/lib/utils";
+
+type PromotionScheduleMode = "banner" | "sponsored";
 
 type PromotionScheduleFieldsProps = {
   startDate: string;
   onStartDateChange: (value: string) => void;
-  promotionDays: PromotionPeriodDays;
-  onPromotionDaysChange: (days: PromotionPeriodDays) => void;
+  promotionDays: number;
+  onPromotionDaysChange: (days: number) => void;
+  mode?: PromotionScheduleMode;
 };
 
 export function PromotionScheduleFields({
@@ -19,10 +24,14 @@ export function PromotionScheduleFields({
   onStartDateChange,
   promotionDays,
   onPromotionDaysChange,
+  mode = "sponsored",
 }: PromotionScheduleFieldsProps) {
+  const options =
+    mode === "banner" ? BANNER_PROMOTION_PERIOD_OPTIONS : SPONSORED_PROMOTION_PERIOD_OPTIONS;
+
   const promotionEndPreview = formatScheduleRange(
     new Date(startDate).toISOString(),
-    addPromotionDays(new Date(startDate), promotionDays).toISOString(),
+    addPromotionDays(new Date(startDate), promotionDays as BannerPromotionPeriodDays).toISOString(),
   );
 
   return (
@@ -40,7 +49,7 @@ export function PromotionScheduleFields({
       <div>
         <span className="mb-2 block font-label-bold">Promotion period</span>
         <div className="flex flex-wrap gap-2">
-          {PROMOTION_PERIOD_OPTIONS.map((option) => (
+          {options.map((option) => (
             <button
               key={option.days}
               type="button"
@@ -65,15 +74,26 @@ export function PromotionScheduleFields({
   );
 }
 
-export function inferPromotionDaysFromRange(
+export function inferBannerPromotionDaysFromRange(
   startsAt: string,
   endsAt: string,
-): PromotionPeriodDays {
+): BannerPromotionPeriodDays {
   const days = Math.round(
     (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 86400000,
   );
-  const match = PROMOTION_PERIOD_OPTIONS.find((o) => o.days === days);
-  return match?.days ?? 7;
+  const match = BANNER_PROMOTION_PERIOD_OPTIONS.find((o) => o.days === days);
+  return (match?.days ?? 7) as BannerPromotionPeriodDays;
+}
+
+export function inferSponsoredPromotionDaysFromRange(
+  startsAt: string,
+  endsAt: string,
+): SponsoredPromotionPeriodDays {
+  const days = Math.round(
+    (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 86400000,
+  );
+  const match = SPONSORED_PROMOTION_PERIOD_OPTIONS.find((o) => o.days === days);
+  return (match?.days ?? 7) as SponsoredPromotionPeriodDays;
 }
 
 export { toDateInputValue };

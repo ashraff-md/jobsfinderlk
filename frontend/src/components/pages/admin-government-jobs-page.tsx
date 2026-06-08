@@ -10,6 +10,7 @@ import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
 import { getGovernmentJobs } from "@/lib/api/admin";
 import type { Job } from "@/lib/api/types";
+import { getJobEmployerName } from "@/lib/jobs/job-employer-name";
 import { cn } from "@/lib/utils";
 
 function statusLabel(status: string) {
@@ -154,7 +155,7 @@ export function AdminGovernmentJobsPage() {
                           <p className="text-[11px] text-on-surface-variant">{job.city}</p>
                         )}
                       </td>
-                      <td className="px-6 py-5 text-label-sm">{job.company.name}</td>
+                      <td className="px-6 py-5 text-label-sm">{getJobEmployerName(job)}</td>
                       <td className="px-6 py-5">
                         <span
                           className={cn(
@@ -170,6 +171,12 @@ export function AdminGovernmentJobsPage() {
                       </td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex justify-end gap-2">
+                          <Link
+                            href={`/admin/jobs/government/${job.id}/edit`}
+                            className="rounded-lg border border-outline-variant px-3 py-1.5 text-label-sm font-bold hover:bg-surface-container"
+                          >
+                            Edit
+                          </Link>
                           {job.status === "PENDING_REVIEW" && (
                             <Link
                               href={`/admin/jobs/${job.id}/review`}

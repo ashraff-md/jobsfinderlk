@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
 import { formatSalary } from "@/lib/api/jobs";
@@ -331,8 +330,6 @@ export function CompanyProfilePage({ company }: CompanyProfilePageProps) {
           </div>
         </div>
       </main>
-
-      <SiteFooter variant="dark" />
     </div>
   );
 }

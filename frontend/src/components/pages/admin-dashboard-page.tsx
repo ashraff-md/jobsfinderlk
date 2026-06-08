@@ -14,7 +14,6 @@ const STATS = [
   { icon: "group", label: "Total Candidates", value: "128,432", trend: "12.4%" },
   { icon: "work", label: "Active Engagements", value: "12,504", trend: "8.2%" },
   { icon: "verified", label: "Corporate Clients", value: "3,210", trend: "4.1%" },
-  { icon: "payments", label: "Gross Revenue", value: "$42.9k", trend: "24.5%" },
 ];
 
 const REQUISITIONS = [
@@ -54,9 +53,6 @@ const VERIFICATIONS = [
     statusIcon: "priority_high",
   },
 ];
-
-const CHART_HEIGHTS = [40, 55, 45, 70, 85, 95, 75];
-const ENGAGEMENT_HEIGHTS = [30, 40, 35, 50, 60, 75, 65];
 
 export function AdminDashboardPage() {
   const router = useRouter();
@@ -144,7 +140,7 @@ export function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 lg:grid-cols-3">
             {STATS.map((stat) => (
               <div
                 key={stat.label}
@@ -168,53 +164,7 @@ export function AdminDashboardPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-gutter lg:grid-cols-3">
-          <div className="professional-card rounded-xl p-8 shadow-sm lg:col-span-2">
-            <div className="mb-10 flex items-center justify-between">
-              <div>
-                <h3 className="text-headline-md font-bold text-primary">Revenue Distribution</h3>
-                <p className="text-label-sm text-on-surface-variant">
-                  Engagement fees vs. retainer billings
-                </p>
-              </div>
-              <div className="flex gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-primary" />
-                  <span className="text-[12px] font-label-bold">Retainers</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-secondary" />
-                  <span className="text-[12px] font-label-bold">Engagements</span>
-                </div>
-              </div>
-            </div>
-            <div className="relative flex h-72 items-end gap-3 px-2">
-              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-0 w-full border-b border-outline-variant/50" />
-                ))}
-              </div>
-              {CHART_HEIGHTS.map((height, i) => (
-                <div
-                  key={i}
-                  className={`flex-1 rounded-t transition-all ${
-                    i === 5 ? "bg-primary hover:bg-primary/90" : "bg-primary/10 hover:bg-primary/30"
-                  }`}
-                  style={{ height: `${height}%` }}
-                />
-              ))}
-              {ENGAGEMENT_HEIGHTS.map((height, i) => (
-                <div
-                  key={`eng-${i}`}
-                  className={`-ml-3 flex-1 rounded-t ${
-                    i === 5 ? "bg-secondary hover:bg-secondary/90" : "bg-secondary/10 hover:bg-secondary/30"
-                  }`}
-                  style={{ height: `${height}%` }}
-                />
-              ))}
-            </div>
-          </div>
-
+        <section>
           <div className="professional-card space-y-8 rounded-xl p-8 shadow-sm">
             <h3 className="text-headline-md font-bold text-primary">System Integrity</h3>
             <div className="space-y-6">

@@ -7,12 +7,14 @@ import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
 import { JobSearchBar } from "@/components/jobs/job-search-bar";
 import { JobSearchResultCard } from "@/components/jobs/job-search-result-card";
 import { JobSearchFiltersSidebar } from "@/components/jobs/job-search-filters-sidebar";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
-import { searchJobs, searchPublishedJobs } from "@/lib/api/jobs";
-import { loadSponsoredJobCards } from "@/lib/platform-ads/load-sponsored";
+import { searchJobs } from "@/lib/api/jobs";
+import { JOB_SLIDE_INTERVAL_MS } from "@/lib/jobs/featured-jobs";
 import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
+import { buildFeaturedCardSlides } from "@/lib/jobs/map-job-to-featured-card";
+import { loadSponsoredJobCards } from "@/lib/platform-ads/load-sponsored";
+import { SPONSORED_JOBS_BATCH_SIZE } from "@/lib/platform-ads/sponsored-rotation";
 import {
   buildJobSearchParams,
   DEFAULT_JOB_SEARCH_FILTERS,
@@ -21,6 +23,8 @@ import {
 import type { Job } from "@/lib/api/types";
 
 const JOBS_PER_PAGE_OPTIONS = [10, 20, 50] as const;
+const SPONSORED_CARDS_PER_SLIDE = 2;
+const SPONSORED_SLIDE_COUNT = 3;
 
 function sidebarFilterFields(filters: JobSearchFilters): Omit<JobSearchFilters, "q"> {
   const { q: _q, ...rest } = filters;
@@ -33,7 +37,9 @@ export function JobsSearchPage() {
   const [draftFilters, setDraftFilters] = useState<JobSearchFilters>(DEFAULT_JOB_SEARCH_FILTERS);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [sponsoredJobs, setSponsoredJobs] = useState<FeaturedJobCardItem[]>([]);
+  const [sponsoredSlides, setSponsoredSlides] = useState<FeaturedJobCardItem[][]>([]);
+  const [sponsoredSlide, setSponsoredSlide] = useState(0);
+  const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -163,13 +169,32 @@ export function JobsSearchPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const items = await loadSponsoredJobCards(3);
-      if (!cancelled) setSponsoredJobs(items);
+      const items = await loadSponsoredJobCards(SPONSORED_JOBS_BATCH_SIZE);
+      if (!cancelled) {
+        setSponsoredSlides(
+          buildFeaturedCardSlides(items, SPONSORED_CARDS_PER_SLIDE, SPONSORED_SLIDE_COUNT),
+        );
+        setSponsoredSlide(0);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (sponsoredCarouselPaused || sponsoredSlides.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setSponsoredSlide((current) => (current + 1) % sponsoredSlides.length);
+    }, JOB_SLIDE_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [sponsoredCarouselPaused, sponsoredSlides.length]);
+
+  useEffect(() => {
+    if (sponsoredSlide >= sponsoredSlides.length && sponsoredSlides.length > 0) {
+      setSponsoredSlide(0);
+    }
+  }, [sponsoredSlide, sponsoredSlides.length]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
@@ -215,13 +240,72 @@ export function JobsSearchPage() {
             onChange={(q) => patchFilters({ q })}
           />
 
-          {sponsoredJobs.length > 0 && (
-            <div className="rounded-xl border border-primary/10 bg-primary/5 p-8">
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {sponsoredJobs.map((job) => (
-                  <FeaturedJobCard key={job.href ?? job.title} job={job} titleLineClamp={3} />
-                ))}
+          {sponsoredSlides.length > 0 && (
+            <div
+              className="rounded-xl border border-primary/10 bg-primary/5 p-8"
+              onMouseEnter={() => setSponsoredCarouselPaused(true)}
+              onMouseLeave={() => setSponsoredCarouselPaused(false)}
+            >
+              <div className="w-full overflow-hidden">
+                <div
+                  className="flex w-full transition-transform duration-500 ease-out"
+                  style={{ transform: `translateX(-${sponsoredSlide * 100}%)` }}
+                >
+                  {sponsoredSlides.map((slide, slideIndex) => (
+                    <div
+                      key={slideIndex}
+                      className="grid w-full min-w-full max-w-full shrink-0 basis-full grid-cols-1 gap-5 sm:grid-cols-2"
+                    >
+                      {slide.map((job) => (
+                        <FeaturedJobCard key={job.href ?? `${job.title}-${slideIndex}`} job={job} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {sponsoredSlides.length > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    aria-label="Previous sponsored jobs"
+                    onClick={() =>
+                      setSponsoredSlide(
+                        (current) => (current - 1 + sponsoredSlides.length) % sponsoredSlides.length,
+                      )
+                    }
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
+                  >
+                    <Icon name="chevron_left" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {sponsoredSlides.map((_, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        aria-label={`Go to sponsored slide ${index + 1}`}
+                        aria-current={sponsoredSlide === index ? "true" : undefined}
+                        onClick={() => setSponsoredSlide(index)}
+                        className={`h-2.5 rounded-full transition-all ${
+                          sponsoredSlide === index
+                            ? "w-8 bg-primary"
+                            : "w-2.5 bg-outline-variant/60 hover:bg-primary/40"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Next sponsored jobs"
+                    onClick={() =>
+                      setSponsoredSlide((current) => (current + 1) % sponsoredSlides.length)
+                    }
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant transition-all hover:border-primary hover:bg-primary hover:text-on-primary"
+                  >
+                    <Icon name="chevron_right" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -337,8 +421,6 @@ export function JobsSearchPage() {
           {!loading && <HomeBannerAdsGrid columns={2} className="w-full pt-4" />}
         </section>
       </main>
-
-      <SiteFooter variant="dark" />
     </div>
   );
 }

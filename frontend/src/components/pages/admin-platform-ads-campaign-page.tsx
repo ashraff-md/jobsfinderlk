@@ -4,7 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PromotionScheduleFields, inferPromotionDaysFromRange, toDateInputValue } from "@/components/admin/platform-ads/promotion-schedule-fields";
+import {
+  PromotionScheduleFields,
+  inferBannerPromotionDaysFromRange,
+  inferSponsoredPromotionDaysFromRange,
+  toDateInputValue,
+} from "@/components/admin/platform-ads/promotion-schedule-fields";
 import { PublishedJobSearchField } from "@/components/admin/platform-ads/published-job-search-field";
 import { SelectedJobDetailsCard } from "@/components/admin/platform-ads/selected-job-details-card";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
@@ -23,6 +28,10 @@ import {
 } from "@/lib/api/admin";
 import type { Job } from "@/lib/api/types";
 import { buildBannerArtworkDraft } from "@/lib/platform-ads/banner-artwork";
+import {
+  formatBannerDestinationForInput,
+  normalizeBannerDestinationUrl,
+} from "@/lib/platform-ads/banner-destination";
 import { BANNER_SLIDES_PER_POSITION } from "@/lib/platform-ads/banner-rotation";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +87,7 @@ export function AdminPlatformAdsCampaignPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [campaignName, setCampaignName] = useState("");
-  const [destinationPath, setDestinationPath] = useState("jobs");
+  const [destinationPath, setDestinationPath] = useState("/jobs");
   const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
   const [artworkDataUrl, setArtworkDataUrl] = useState<string | null>(null);
   const [placementCount, setPlacementCount] = useState(0);
@@ -90,10 +99,10 @@ export function AdminPlatformAdsCampaignPage() {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const href = useMemo(() => {
-    const path = destinationPath.trim().replace(/^\//, "");
-    return path ? `/${path}` : "/jobs";
-  }, [destinationPath]);
+  const href = useMemo(
+    () => normalizeBannerDestinationUrl(destinationPath),
+    [destinationPath],
+  );
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -107,7 +116,7 @@ export function AdminPlatformAdsCampaignPage() {
           if (ad) {
             jobId = ad.jobId;
             setStartDate(toDateInputValue(ad.startsAt));
-            setPromotionDays(inferPromotionDaysFromRange(ad.startsAt, ad.endsAt));
+            setPromotionDays(inferSponsoredPromotionDaysFromRange(ad.startsAt, ad.endsAt));
           }
         }
         if (jobId) {
@@ -124,9 +133,9 @@ export function AdminPlatformAdsCampaignPage() {
       if (bannerCampaignIdParam) {
         const campaign = await getAdminBannerCampaign(bannerCampaignIdParam);
         setStartDate(toDateInputValue(campaign.startsAt));
-        setPromotionDays(inferPromotionDaysFromRange(campaign.startsAt, campaign.endsAt));
+        setPromotionDays(inferBannerPromotionDaysFromRange(campaign.startsAt, campaign.endsAt));
         setCampaignName(campaign.label);
-        setDestinationPath(campaign.href.replace(/^\//, ""));
+        setDestinationPath(formatBannerDestinationForInput(campaign.href));
         if (campaign.imageUrl) setArtworkUrl(campaign.imageUrl);
       }
     } catch (e) {
@@ -276,6 +285,7 @@ export function AdminPlatformAdsCampaignPage() {
                   />
                   {selectedJob && <SelectedJobDetailsCard job={selectedJob} />}
                   <PromotionScheduleFields
+                    mode="sponsored"
                     startDate={startDate}
                     onStartDateChange={setStartDate}
                     promotionDays={promotionDays}
@@ -297,6 +307,7 @@ export function AdminPlatformAdsCampaignPage() {
                       />
                     </label>
                     <PromotionScheduleFields
+                      mode="banner"
                       startDate={startDate}
                       onStartDateChange={setStartDate}
                       promotionDays={promotionDays}
@@ -366,17 +377,16 @@ export function AdminPlatformAdsCampaignPage() {
                     </div>
                     <label className="block">
                       <span className="mb-2 block font-label-bold">Destination URL</span>
-                      <div className="flex">
-                        <span className="inline-flex items-center rounded-l-lg border border-r-0 border-outline-variant bg-surface-container px-4 text-label-sm text-on-surface-variant">
-                          https://
-                        </span>
-                        <input
-                          value={destinationPath}
-                          onChange={(e) => setDestinationPath(e.target.value)}
-                          placeholder="jobsfinder.lk/jobs?q=Technology"
-                          className="flex-1 rounded-r-lg border border-outline-variant p-3 text-body-md focus:border-secondary focus:outline-none"
-                        />
-                      </div>
+                      <input
+                        value={destinationPath}
+                        onChange={(e) => setDestinationPath(e.target.value)}
+                        placeholder="https://yourcompany.com/careers or /jobs"
+                        type="text"
+                        className="w-full rounded-lg border border-outline-variant p-3 text-body-md focus:border-secondary focus:outline-none"
+                      />
+                      <p className="mt-2 text-label-sm text-on-surface-variant">
+                        Internal pages or external HTTPS links are supported.
+                      </p>
                     </label>
                   </div>
                 </FormSection>

@@ -18,7 +18,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-export const PROMOTION_PERIOD_DAYS = [3, 5, 7, 14, 30] as const;
+export const PROMOTION_PERIOD_DAYS = [3, 5, 7, 14, 30, 60] as const;
+export const BANNER_PROMOTION_PERIOD_DAYS = [7, 14, 30, 60] as const;
 export type PromotionPeriodDays = (typeof PROMOTION_PERIOD_DAYS)[number];
 
 export class BannerSlideDto {

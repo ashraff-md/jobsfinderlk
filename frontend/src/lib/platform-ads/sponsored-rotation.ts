@@ -1,7 +1,7 @@
 const SPONSORED_BATCH_OFFSET_KEY = "jobsfinder.sponsored.batchOffset";
 
-/** How many sponsored jobs appear per placement (jobs search, etc.). */
-export const SPONSORED_JOBS_BATCH_SIZE = 3;
+/** How many sponsored jobs appear per placement (jobs search carousel: 2 × 3 slides). */
+export const SPONSORED_JOBS_BATCH_SIZE = 6;
 
 export function readSponsoredBatchOffset(): number {
   if (typeof window === "undefined") return 0;

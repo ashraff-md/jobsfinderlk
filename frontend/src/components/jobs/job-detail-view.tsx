@@ -3,12 +3,22 @@ import type { ReactNode } from "react";
 import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
 import { JobDetailTallBanners } from "@/components/home/job-detail-tall-banners";
 import { ApplyButton } from "@/components/jobs/apply-button";
+import {
+  GovernmentJobDescriptionSections,
+  GovernmentJobSalarySection,
+} from "@/components/jobs/government-job-description-sections";
+import { JobApplicationInstructions } from "@/components/jobs/job-application-instructions";
 import { JobDetailCompanyReviews } from "@/components/jobs/job-detail-company-reviews";
 import { JobArtworkBanner } from "@/components/jobs/job-artwork-banner";
 import { Icon } from "@/components/ui/icon";
 import { formatSalary } from "@/lib/api/jobs";
 import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
 import type { Job } from "@/lib/api/types";
+import {
+  getJobEmployerLogo,
+  getJobEmployerName,
+  getJobLocationLabel,
+} from "@/lib/jobs/job-employer-name";
 import { cn } from "@/lib/utils";
 
 export const DEFAULT_JOB_ARTWORK =
@@ -65,13 +75,17 @@ type JobDetailViewProps = {
 
 export function JobDetailView({ job, preview = false, className }: JobDetailViewProps) {
   const { company } = job;
+  const employerName = getJobEmployerName(job);
+  const employerLogo = getJobEmployerLogo(job);
+  const govOrg = job.governmentOrganization;
+  const isGovernmentJob = job.jobSourceType === "GOVERNMENT";
   const artworkUrl = job.vacancyArtworkUrl ?? DEFAULT_JOB_ARTWORK;
   const responsibilities = parseBulletList(job.responsibilities);
   const requirements = parseBulletList(job.requirements);
   const requiredSkills = job.requiredSkills ?? [];
   const niceToHaveSkills = job.niceToHaveSkills ?? [];
   const postedLabel = preview ? "Pending publish" : `Posted ${timeAgo(job.publishedAt ?? job.createdAt)}`;
-  const locationLabel = job.location ?? job.city ?? "Sri Lanka";
+  const locationLabel = getJobLocationLabel(job);
   const closingLabel = job.applicationDeadline
     ? `Closes ${formatJobClosingDate(job.applicationDeadline)}`
     : formatJobClosingDate(null);
@@ -136,7 +150,7 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
           <div className="mb-6 flex flex-wrap items-center gap-6 text-on-surface-variant">
             <div className="flex items-center gap-2">
               <Icon name="corporate_fare" className="text-navy-deep" />
-              <span className="font-body-md font-semibold text-on-surface">{company.name}</span>
+              <span className="font-body-md font-semibold text-on-surface">{employerName}</span>
             </div>
             <div className="flex items-center gap-2">
               <Icon name="location_on" className="text-navy-deep" />
@@ -166,12 +180,16 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
           )}
 
           <div className={cn("space-y-12", metaTags.length === 0 && "mt-10")}>
-          <section>
-            <SectionHeading>About this role</SectionHeading>
-            <p className="mb-6 whitespace-pre-wrap font-body-lg leading-relaxed text-on-surface-variant">
-              {job.description}
-            </p>
-          </section>
+          {isGovernmentJob ? (
+            <GovernmentJobDescriptionSections description={job.description} />
+          ) : (
+            <section>
+              <SectionHeading>About this role</SectionHeading>
+              <p className="mb-6 whitespace-pre-wrap font-body-lg leading-relaxed text-on-surface-variant">
+                {job.description}
+              </p>
+            </section>
+          )}
 
           {responsibilities.length > 0 && (
             <section>
@@ -187,17 +205,19 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
             </section>
           )}
 
+          {isGovernmentJob && <GovernmentJobSalarySection description={job.description} />}
+
+          <JobApplicationInstructions job={job} />
+
           <section>
             <JobArtworkBanner
               artworkUrl={artworkUrl}
               title={job.title}
-              companyName={company.name}
+              companyName={employerName}
               showOverlay={!job.vacancyArtworkUrl}
               imageClassName="h-96 w-full"
             />
           </section>
-
-          {!preview && <JobDetailCompanyReviews />}
 
           {(requiredSkills.length > 0 || niceToHaveSkills.length > 0) && (
             <section>
@@ -243,65 +263,75 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
               <div className="rounded-xl border border-outline-variant bg-white p-6 shadow-sm">
                 <div className="mb-6 flex items-center gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-container text-2xl font-bold text-primary">
-                    {company.logoUrl ? (
+                    {employerLogo ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img alt="" className="h-full w-full object-cover" src={company.logoUrl} />
+                      <img alt="" className="h-full w-full object-cover" src={employerLogo} />
                     ) : (
-                      company.name.charAt(0)
+                      employerName.charAt(0)
                     )}
                   </div>
-                  <div>
-                    <h4 className="text-lg font-extrabold text-on-surface">{company.name}</h4>
-                    <p className="font-label-sm text-on-surface-variant">
-                      {job.industry ?? "Enterprise"} • {job.employmentType ?? "Full-time"}
-                    </p>
+                  <div className="min-w-0">
+                    <h4 className="text-lg font-extrabold text-on-surface">{employerName}</h4>
+                    {isGovernmentJob && govOrg ? (
+                      <div className="space-y-1 font-label-sm text-on-surface-variant">
+                        <p>{govOrg.organizationType}</p>
+                        {govOrg.parent?.name && (
+                          <p className="line-clamp-2">Under {govOrg.parent.name}</p>
+                        )}
+                        {(govOrg.district || govOrg.province) && (
+                          <p className="line-clamp-2">
+                            {[govOrg.district, govOrg.province].filter(Boolean).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="font-label-sm text-on-surface-variant">
+                        {job.industry ?? "Enterprise"}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {company.description && (
-                  <p className="mb-6 line-clamp-3 font-body-md text-on-surface-variant">{company.description}</p>
+                {isGovernmentJob && govOrg?.description ? (
+                  <p className="mb-6 line-clamp-3 font-body-md text-on-surface-variant">
+                    {govOrg.description}
+                  </p>
+                ) : (
+                  company.description && (
+                    <p className="mb-6 line-clamp-3 font-body-md text-on-surface-variant">
+                      {company.description}
+                    </p>
+                  )
                 )}
-                <Link
-                  href={`/companies/${company.slug}`}
-                  className="block w-full rounded-xl border border-navy-deep py-3 text-center font-bold text-navy-deep transition-all hover:bg-navy-deep/5"
-                >
-                  View Company
-                </Link>
+                {isGovernmentJob && govOrg?.website && (
+                  <a
+                    href={
+                      /^https?:\/\//i.test(govOrg.website)
+                        ? govOrg.website
+                        : `https://${govOrg.website.replace(/^\/+/, "")}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-6 inline-flex items-center gap-1.5 font-label-sm text-secondary hover:underline"
+                  >
+                    <Icon name="language" className="text-[16px]" />
+                    Official website
+                  </a>
+                )}
+                {!isGovernmentJob && (
+                  <Link
+                    href={`/companies/${company.slug}`}
+                    className="block w-full rounded-xl border border-navy-deep py-3 text-center font-bold text-navy-deep transition-all hover:bg-navy-deep/5"
+                  >
+                    View Company
+                  </Link>
+                )}
               </div>
 
-              <div className="relative overflow-hidden rounded-xl bg-navy-deep p-8 text-white shadow-xl">
-                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
-                <div className="relative z-10">
-                  <div className="mb-6 flex items-start justify-between">
-                    <div>
-                      <div className="mb-1 font-label-sm uppercase tracking-wider opacity-70">
-                        AI Match Score
-                      </div>
-                      <div className="text-xl font-extrabold text-white">94% Perfect Fit</div>
-                    </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5">
-                      <Icon name="psychology" className="text-white" />
-                    </div>
-                  </div>
-                  <div className="mb-8 space-y-4">
-                    <p className="font-body-md leading-relaxed opacity-90">
-                      Your profile perfectly aligns with the required experience for this role.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {(requiredSkills.length > 0 ? requiredSkills.slice(0, 3) : ["Role fit", "Experience"]).map(
-                        (tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-xl border border-white/10 bg-white/10 px-3 py-1 text-label-sm"
-                          >
-                            {tag}
-                          </span>
-                        ),
-                      )}
-                    </div>
-                  </div>
+              {job.applyViaOneClick && (
+                <div className="rounded-xl bg-navy-deep p-6 shadow-xl">
                   <ApplyButton slug={job.slug} />
                 </div>
-              </div>
+              )}
 
               <JobDetailTallBanners />
             </div>
@@ -310,9 +340,14 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
       </div>
 
       {!preview && (
-        <section className="mt-8" aria-label="Featured opportunities">
-          <HomeBannerAdsGrid columns={2} />
-        </section>
+        <>
+          <section className="mt-8" aria-label="Featured opportunities">
+            <HomeBannerAdsGrid columns={2} />
+          </section>
+          <div className="mt-8">
+            <JobDetailCompanyReviews />
+          </div>
+        </>
       )}
     </div>
   );

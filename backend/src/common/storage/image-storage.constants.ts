@@ -1,8 +1,10 @@
 export const IMAGE_UPLOAD_FOLDERS = {
   companyLogos: 'company-logos',
+  governmentOrgLogos: 'government-org-logos',
   lifeAtCompany: 'life-at-company',
   platformBanners: 'platform-banners',
   recruiterPhotos: 'recruiter-photos',
+  vacancyArtwork: 'vacancy-artwork',
 } as const;
 
 export type ImageUploadFolder =
@@ -30,7 +32,8 @@ export const BANNER_IMAGE_LIMITS: ImageDataLimits = {
   maxBytes: MAX_BANNER_IMAGE_BYTES,
 };
 
-export const IMAGE_DATA_PATTERN = /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i;
+export const IMAGE_DATA_PATTERN =
+  /^data:image\/(jpeg|jpg|png|webp|gif|svg\+xml);base64,/i;
 
 export const MIME_TO_EXT: Record<string, string> = {
   jpeg: 'jpg',
@@ -38,4 +41,5 @@ export const MIME_TO_EXT: Record<string, string> = {
   png: 'png',
   webp: 'webp',
   gif: 'gif',
+  'svg+xml': 'svg',
 };

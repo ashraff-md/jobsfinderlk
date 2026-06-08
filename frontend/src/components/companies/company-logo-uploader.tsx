@@ -8,7 +8,7 @@ import {
 } from "@/lib/companies/company-logo";
 import { cn } from "@/lib/utils";
 
-const ACCEPT = "image/png,image/jpeg,image/webp";
+const ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
 
 const labelClass = "font-label-bold text-on-surface-variant";
 
@@ -18,6 +18,7 @@ type CompanyLogoUploaderProps = {
   disabled?: boolean;
   variant?: "default" | "compact" | "brand";
   className?: string;
+  accept?: string;
 };
 
 export function CompanyLogoUploader({
@@ -26,6 +27,7 @@ export function CompanyLogoUploader({
   disabled = false,
   variant = "default",
   className,
+  accept = ACCEPT,
 }: CompanyLogoUploaderProps) {
   const compact = variant === "compact";
   const brand = variant === "brand";
@@ -114,7 +116,7 @@ export function CompanyLogoUploader({
         ref={inputRef}
         id={inputId}
         type="file"
-        accept={ACCEPT}
+        accept={accept}
         disabled={disabled}
         className="sr-only"
         onChange={(e) => {
@@ -243,7 +245,7 @@ export function CompanyLogoUploader({
             ref={inputRef}
             id={inputId}
             type="file"
-            accept={ACCEPT}
+            accept={accept}
             disabled={disabled}
             className="absolute inset-0 cursor-pointer opacity-0"
             onChange={(e) => {

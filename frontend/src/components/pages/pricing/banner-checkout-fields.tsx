@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
-import { buildBannerArtworkDraft } from "@/lib/platform-ads/banner-artwork";
+import {
+  bannerArtworkSizeHint,
+  buildBannerArtworkDraft,
+} from "@/lib/platform-ads/banner-artwork";
 import { cn } from "@/lib/utils";
 
 const inputClass =
@@ -96,9 +99,7 @@ export function BannerCheckoutFields({
             <Icon name="cloud_upload" className="mb-3 text-4xl text-outline" />
             <p className="font-label-bold text-label-bold">Upload your banner image</p>
             <p className="mt-1 text-center text-label-sm text-on-surface-variant">
-              {aspect === "wide"
-                ? "3×2 ratio recommended (e.g. 1200×800px). JPEG, PNG, or WebP up to 5MB."
-                : "2×5 ratio recommended. JPEG, PNG, or WebP up to 5MB."}
+              {bannerArtworkSizeHint(aspect)}
             </p>
             <input
               ref={fileInputRef}

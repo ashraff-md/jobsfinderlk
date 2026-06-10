@@ -252,3 +252,17 @@ export type Application = {
   createdAt: string;
   job: Job;
 };
+
+export type JobApplication = {
+  id: string;
+  status: string;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    seekerProfile?: {
+      fullName?: string | null;
+      headline?: string | null;
+    } | null;
+  };
+};

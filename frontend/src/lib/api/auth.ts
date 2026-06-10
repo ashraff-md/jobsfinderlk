@@ -97,6 +97,11 @@ export type UserProfile = {
       verified: boolean;
     };
   }>;
+  seekerProfile?: {
+    fullName?: string | null;
+    headline?: string | null;
+    resumeUrl?: string | null;
+  } | null;
 };
 
 export async function getProfile() {

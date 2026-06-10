@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   BannerCheckoutFields,
@@ -10,6 +10,11 @@ import {
 import { PublicPageLayout } from "@/components/layout/public-page-layout";
 import { Icon } from "@/components/ui/icon";
 import { getAccessToken, getProfile, getStoredUser } from "@/lib/api/auth";
+import {
+  jobSlotsForPlan,
+  recordEmployerPurchase,
+  type PurchaseProduct,
+} from "@/lib/employer/purchases";
 import { cn } from "@/lib/utils";
 
 type PaymentType = "card" | "bank" | "po";
@@ -24,10 +29,11 @@ function formatLkr(amount: number) {
 }
 
 export function CheckoutPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const plan = searchParams.get("plan") ?? "Growth Suite - 5 Job Slots";
-  const duration = searchParams.get("duration") ?? "30 days";
-  const product = searchParams.get("product") ?? "job-listings";
+  const plan = searchParams.get("plan") ?? "Growth Suite";
+  const duration = searchParams.get("duration") ?? "";
+  const product = (searchParams.get("product") ?? "job-listings") as PurchaseProduct;
   const aspectParam = searchParams.get("aspect");
   const bannerAspect: "wide" | "tall" = aspectParam === "tall" ? "tall" : "wide";
   const basePrice = Number(searchParams.get("price") ?? 10000);
@@ -54,6 +60,8 @@ export function CheckoutPage() {
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null);
   const [artworkDataUrl, setArtworkDataUrl] = useState<string | null>(null);
   const [bannerError, setBannerError] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -97,6 +105,32 @@ export function CheckoutPage() {
       : product === "banner-advertising"
         ? "Banner Advertising"
         : "Job Listings";
+
+  const handleCompletePurchase = () => {
+    setCheckoutError(null);
+    const user = getStoredUser();
+    if (!user?.id) {
+      setCheckoutError("Sign in as a recruiter to complete your purchase and track job slots.");
+      return;
+    }
+
+    setCompleting(true);
+    try {
+      recordEmployerPurchase({
+        userId: user.id,
+        product,
+        plan,
+        duration: duration || undefined,
+        total,
+        paymentMethod: paymentType,
+        jobSlots: product === "job-listings" ? jobSlotsForPlan(plan) : undefined,
+      });
+      router.push("/employer/settings#billing");
+    } catch {
+      setCheckoutError("Could not record your purchase. Please try again.");
+      setCompleting(false);
+    }
+  };
 
   const handleArtworkChange = (dataUrl: string | null, previewUrl: string | null) => {
     setArtworkDataUrl(dataUrl);
@@ -339,12 +373,19 @@ export function CheckoutPage() {
                   </span>
                 </div>
               </div>
+              {checkoutError && (
+                <p className="mb-stack-md rounded-lg border border-error/30 bg-error-container/30 px-4 py-3 text-sm text-error">
+                  {checkoutError}
+                </p>
+              )}
               <button
                 type="button"
-                className="flex w-full cursor-pointer items-center justify-center gap-stack-md rounded-lg bg-primary py-4 font-headline-md text-on-primary transition-all hover:bg-opacity-90 active:scale-[0.98]"
+                disabled={completing}
+                onClick={handleCompletePurchase}
+                className="flex w-full cursor-pointer items-center justify-center gap-stack-md rounded-lg bg-primary py-4 font-headline-md text-on-primary transition-all hover:bg-opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Icon name="lock" filled />
-                Complete Purchase
+                {completing ? "Processing…" : "Complete Purchase"}
               </button>
               <div className="mt-stack-lg space-y-stack-md border-t border-outline-variant pt-stack-md">
                 <div className="flex items-center gap-stack-md opacity-70">

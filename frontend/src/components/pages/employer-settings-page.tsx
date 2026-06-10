@@ -16,9 +16,19 @@ import {
   changePassword,
   getAccessToken,
   getProfile,
+  getStoredUser,
   updateEmployerProfile,
 } from "@/lib/api/auth";
 import { getEmployerJobs } from "@/lib/api/jobs";
+import {
+  formatLkr,
+  formatPaymentMethod,
+  formatPurchaseDate,
+  formatPurchaseProduct,
+  listEmployerPurchases,
+  totalPurchasedJobSlots,
+  type EmployerPurchase,
+} from "@/lib/employer/purchases";
 import { getVerificationStatus } from "@/lib/api/verification";
 import { signInPath } from "@/lib/auth/portal";
 
@@ -31,7 +41,9 @@ export function EmployerSettingsPage() {
   const [companyId, setCompanyId] = useState("");
   const [companySearch, setCompanySearch] = useState("");
   const [photo, setPhoto] = useState<RecruiterPhotoDraft | null>(null);
-  const [activeJobCount, setActiveJobCount] = useState<number | null>(null);
+  const [usedJobSlots, setUsedJobSlots] = useState<number | null>(null);
+  const [purchasedJobSlots, setPurchasedJobSlots] = useState(0);
+  const [purchases, setPurchases] = useState<EmployerPurchase[]>([]);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -62,6 +74,27 @@ export function EmployerSettingsPage() {
     const trimmed = fullName.trim();
     return trimmed || (email ? email.split("@")[0] : "Recruiter");
   }, [email, fullName]);
+
+  const purchaseSummary = useMemo(() => {
+    const totalSpent = purchases.reduce((sum, purchase) => sum + purchase.total, 0);
+    const remainingSlots =
+      usedJobSlots !== null ? Math.max(0, purchasedJobSlots - usedJobSlots) : null;
+    const listingPurchases = purchases.filter((p) => p.product === "job-listings").length;
+    const sponsoredPurchases = purchases.filter((p) => p.product === "sponsored-jobs").length;
+    const bannerPurchases = purchases.filter((p) => p.product === "banner-advertising").length;
+    const slotDisplay =
+      remainingSlots !== null ? `${remainingSlots}/${purchasedJobSlots}` : "—";
+    return {
+      count: purchases.length,
+      totalSpent,
+      remainingSlots,
+      slotDisplay,
+      listingPurchases,
+      sponsoredPurchases,
+      bannerPurchases,
+      promotionPurchases: sponsoredPurchases + bannerPurchases,
+    };
+  }, [purchases, purchasedJobSlots, usedJobSlots]);
 
   const avatarInitial = useMemo(
     () => (displayName.charAt(0) || "R").toUpperCase(),
@@ -125,11 +158,18 @@ export function EmployerSettingsPage() {
 
       try {
         const jobs = await getEmployerJobs();
-        const active = jobs.filter((j) => j.status === "PUBLISHED").length;
-        setActiveJobCount(active);
+        const used = jobs.filter(
+          (job) => job.status === "PUBLISHED" || job.status === "PENDING_REVIEW",
+        ).length;
+        setUsedJobSlots(used);
       } catch {
-        setActiveJobCount(null);
+        setUsedJobSlots(null);
       }
+
+      const userId = getStoredUser()?.id ?? profile.id;
+      const employerPurchases = listEmployerPurchases(userId);
+      setPurchases(employerPurchases);
+      setPurchasedJobSlots(totalPurchasedJobSlots(userId));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push(signInPath("employer"));
@@ -144,6 +184,25 @@ export function EmployerSettingsPage() {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    const refreshPurchases = () => {
+      const userId = getStoredUser()?.id;
+      if (!userId) return;
+      setPurchases(listEmployerPurchases(userId));
+      setPurchasedJobSlots(totalPurchasedJobSlots(userId));
+    };
+
+    window.addEventListener("employer-purchases-updated", refreshPurchases);
+    return () => window.removeEventListener("employer-purchases-updated", refreshPurchases);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || loadingProfile) return;
+    if (window.location.hash === "#billing") {
+      document.getElementById("billing")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [loadingProfile]);
 
   const handleSaveProfile = async () => {
     setProfileError(null);
@@ -296,7 +355,7 @@ export function EmployerSettingsPage() {
               </p>
             )}
 
-            <section className="col-span-12 rounded-lg border border-outline-variant bg-surface-container-lowest p-8 lg:col-span-7">
+            <section className="col-span-12 rounded-lg border border-outline-variant bg-surface-container-lowest p-8 lg:col-span-7 lg:row-start-1">
               <div className="mb-8 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-bold text-primary-container">Personal Information</h2>
@@ -443,11 +502,178 @@ export function EmployerSettingsPage() {
                     ) : null}
                   </div>
                 </div>
+
+                <div className="flex flex-col items-stretch justify-end gap-4 border-t border-outline-variant pt-8 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    className="px-8 py-3 font-label-bold text-on-surface-variant transition-colors hover:text-primary-container"
+                  >
+                    Discard Changes
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingProfile}
+                    onClick={handleSaveProfile}
+                    className="executive-shadow rounded-lg bg-secondary px-10 py-3 font-label-bold text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
+                  >
+                    {savingProfile ? "Saving…" : "Save Preferences"}
+                  </button>
+                </div>
               </div>
             </section>
 
-            <div className="col-span-12 flex flex-col gap-gutter lg:col-span-5">
-            <section className="flex flex-col rounded-lg border border-outline-variant bg-surface-container-lowest p-8">
+            <section
+              id="billing"
+              className="relative col-span-12 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-8 lg:col-span-12 lg:row-start-2"
+            >
+              <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-secondary/5 blur-3xl" />
+              <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-primary-container">Billing &amp; Purchases</h2>
+                  <p className="mt-1 font-body-md text-on-surface-variant">
+                    One-time purchases for job listings, sponsored placements, and banner
+                    advertising.
+                  </p>
+                </div>
+                <Link
+                  href="/pricing"
+                  className="inline-flex shrink-0 items-center justify-center rounded bg-primary-container px-5 py-2.5 font-label-bold text-label-sm text-white transition-all hover:bg-black"
+                >
+                  View Pricing
+                </Link>
+              </div>
+
+              <div className="mb-6 rounded border border-secondary/20 bg-secondary/5 p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-label-bold uppercase tracking-widest text-outline">
+                      Remaining Job Posting Slots
+                    </p>
+                    <p className="mt-2 text-headline-lg font-bold text-primary-container">
+                      {purchaseSummary.slotDisplay}
+                    </p>
+                    <p className="mt-1 text-label-sm text-on-surface-variant">
+                      {purchasedJobSlots > 0
+                        ? "Remaining slots from job listing packages"
+                        : "Listing packages add job posting slots; sponsorship and banners are separate purchases."}
+                    </p>
+                  </div>
+                  <Link
+                    href="/pricing"
+                    className="inline-flex shrink-0 items-center justify-center rounded border border-outline-variant bg-white px-4 py-2 font-label-bold text-secondary transition-colors hover:bg-surface-container-low"
+                  >
+                    View Pricing
+                  </Link>
+                </div>
+              </div>
+
+              <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="rounded border border-outline-variant bg-surface-container-low p-4">
+                  <p className="text-[11px] font-label-bold uppercase tracking-widest text-outline">
+                    Total Purchases
+                  </p>
+                  <p className="mt-2 text-headline-md font-bold text-primary-container">
+                    {purchaseSummary.count}
+                  </p>
+                  <p className="mt-1 text-[11px] text-outline">
+                    {purchaseSummary.listingPurchases} listings ·{" "}
+                    {purchaseSummary.sponsoredPurchases} sponsored ·{" "}
+                    {purchaseSummary.bannerPurchases} banners
+                  </p>
+                </div>
+                <div className="rounded border border-outline-variant bg-surface-container-low p-4">
+                  <p className="text-[11px] font-label-bold uppercase tracking-widest text-outline">
+                    Sponsored &amp; Banner Ads
+                  </p>
+                  <p className="mt-2 text-headline-md font-bold text-primary-container">
+                    {purchaseSummary.promotionPurchases}
+                  </p>
+                  <p className="mt-1 text-[11px] text-outline">
+                    Promotion purchases across your account
+                  </p>
+                </div>
+                <div className="rounded border border-outline-variant bg-surface-container-low p-4">
+                  <p className="text-[11px] font-label-bold uppercase tracking-widest text-outline">
+                    Total Spent
+                  </p>
+                  <p className="mt-2 text-headline-md font-bold text-primary-container">
+                    {purchaseSummary.count > 0 ? formatLkr(purchaseSummary.totalSpent) : "—"}
+                  </p>
+                  <p className="mt-1 text-[11px] text-outline">
+                    All listings, sponsorship, and banner purchases
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded border border-outline-variant">
+                <div className="border-b border-outline-variant bg-surface-container-low px-4 py-3">
+                  <h3 className="font-label-bold text-primary-container">Purchase History</h3>
+                </div>
+                {purchases.length === 0 ? (
+                  <div className="px-4 py-10 text-center">
+                    <Icon name="receipt_long" className="mx-auto mb-3 text-3xl text-outline" />
+                    <p className="font-body-md text-on-surface-variant">No purchases yet.</p>
+                    <p className="mt-1 text-label-sm text-outline">
+                      Purchase job listings, sponsored placements, or banner advertising from
+                      pricing.
+                    </p>
+                    <Link
+                      href="/pricing"
+                      className="mt-4 inline-flex font-label-bold text-secondary hover:underline"
+                    >
+                      Browse packages
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-surface-container-lowest text-[11px] font-bold uppercase tracking-widest text-outline">
+                        <tr>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Product</th>
+                          <th className="px-4 py-3">Package</th>
+                          <th className="px-4 py-3">Slots</th>
+                          <th className="px-4 py-3">Payment</th>
+                          <th className="px-4 py-3 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-outline-variant">
+                        {purchases.map((purchase) => (
+                          <tr key={purchase.id} className="hover:bg-surface-container-low/40">
+                            <td className="px-4 py-4 text-label-sm text-outline">
+                              {formatPurchaseDate(purchase.purchasedAt)}
+                            </td>
+                            <td className="px-4 py-4 text-label-sm text-on-surface">
+                              {formatPurchaseProduct(purchase.product)}
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className="font-label-bold text-primary-container">{purchase.plan}</p>
+                              {purchase.duration && (
+                                <p className="text-[11px] text-outline">{purchase.duration}</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 text-label-sm text-outline">
+                              {purchase.product === "job-listings"
+                                ? `+${purchase.jobSlots ?? 0}`
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-4 text-label-sm text-outline">
+                              {formatPaymentMethod(purchase.paymentMethod)}
+                            </td>
+                            <td className="px-4 py-4 text-right font-label-bold text-primary-container">
+                              {formatLkr(purchase.total)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="col-span-12 flex flex-col rounded-lg border border-outline-variant bg-surface-container-lowest p-8 lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:self-start">
               <div className="mb-4 flex items-center gap-2">
                 <Icon name="security" className="text-primary-container" />
                 <h2 className="text-lg font-bold text-primary-container">Security</h2>
@@ -511,76 +737,6 @@ export function EmployerSettingsPage() {
                 {savingPassword ? "Updating…" : "Update Password"}
               </button>
             </section>
-
-            <section className="relative overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-8">
-              <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-secondary/5 blur-3xl" />
-              <h2 className="mb-8 text-lg font-bold text-primary-container">Billing &amp; Plan</h2>
-              <div className="mb-4 rounded border border-outline-variant bg-surface-container-low p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="rounded bg-primary-container px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                      Enterprise Pro
-                    </span>
-                    <p className="mt-2 text-lg font-bold text-primary-container">
-                      $499
-                      <span className="font-body-md font-normal text-on-surface-variant">/mo</span>
-                    </p>
-                    <p className="font-label-sm text-on-surface-variant">Billing details coming soon</p>
-                  </div>
-                  <Icon name="workspace_premium" className="text-3xl text-secondary" filled />
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-outline-variant py-2">
-                  <span className="font-body-md text-on-surface">Published Job Posts</span>
-                  <span className="font-label-bold text-primary-container">
-                    {activeJobCount !== null ? activeJobCount : "—"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-outline-variant py-2">
-                  <span className="font-body-md text-on-surface">Team Seats</span>
-                  <span className="font-label-bold text-primary-container">—</span>
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <span className="font-body-md text-on-surface">Payment Method</span>
-                  <span className="font-label-bold text-on-surface-variant">Not configured</span>
-                </div>
-              </div>
-              <div className="mt-8 flex gap-3">
-                <Link
-                  href="/pricing"
-                  className="flex-1 rounded bg-primary-container py-3 text-center font-label-bold text-label-sm text-white transition-all hover:bg-black"
-                >
-                  Manage Subscription
-                </Link>
-                <button
-                  type="button"
-                  className="rounded border border-outline-variant px-4 py-3 transition-all hover:bg-surface-variant"
-                  aria-label="Download invoice"
-                >
-                  <Icon name="download" />
-                </button>
-              </div>
-            </section>
-            </div>
-
-            <div className="col-span-12 flex flex-col items-stretch justify-end gap-4 border-t border-outline-variant pt-8 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={handleDiscard}
-                className="px-8 py-3 font-label-bold text-on-surface-variant transition-colors hover:text-primary-container"
-              >
-                Discard Changes
-              </button>
-              <button
-                type="button"
-                disabled={savingProfile}
-                onClick={handleSaveProfile}
-                className="executive-shadow rounded-lg bg-secondary px-10 py-3 font-label-bold text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-              >
-                {savingProfile ? "Saving…" : "Save All Preferences"}
-              </button>
-            </div>
           </div>
         )}
       </div>

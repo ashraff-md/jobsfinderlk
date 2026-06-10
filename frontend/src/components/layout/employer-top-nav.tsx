@@ -10,6 +10,8 @@ function getPageTitle(pathname: string) {
   if (pathname.includes("/applicants")) return "Candidate Pipeline";
   if (pathname.startsWith("/employer/jobs/new")) return "Post a Job";
   if (pathname.startsWith("/employer/jobs")) return "Job Listings";
+  if (pathname.startsWith("/employer/ads/new")) return "Create Campaign";
+  if (pathname.startsWith("/employer/ads")) return "Advertising";
   if (pathname.startsWith("/employer/companies/new")) return "Register Company";
   if (pathname.startsWith("/employer/settings")) return "Recruiter Profile";
   return "Recruiter Dashboard";

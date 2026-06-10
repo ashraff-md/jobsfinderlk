@@ -8,79 +8,94 @@ import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth";
 import { signInPath } from "@/lib/auth/portal";
-import { getPendingCompanyRequests, getPendingJobs } from "@/lib/api/admin";
+import {
+  getAdminJobStats,
+  getAdminRecruiters,
+  getGovernmentJobs,
+  getPendingCompanyRequests,
+  getPendingJobs,
+  type AdminJobStats,
+} from "@/lib/api/admin";
+import type { CompanyRequest, Job } from "@/lib/api/types";
 
-const STATS = [
-  { icon: "group", label: "Total Candidates", value: "128,432", trend: "12.4%" },
-  { icon: "work", label: "Active Engagements", value: "12,504", trend: "8.2%" },
-  { icon: "verified", label: "Corporate Clients", value: "3,210", trend: "4.1%" },
-];
+function timeAgo(dateStr?: string | null) {
+  if (!dateStr) return "Recently";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return "Just now";
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
 
-const REQUISITIONS = [
-  {
-    icon: "shield_person",
-    iconBg: "bg-primary-fixed text-primary",
-    title: "Chief Technology Officer",
-    company: "Nebula Capital Partners",
-    time: "2h ago",
-  },
-  {
-    icon: "auto_awesome",
-    iconBg: "bg-secondary-fixed text-secondary",
-    title: "VP of Strategic Design",
-    company: "Quantum Creatives",
-    time: "5h ago",
-  },
-];
-
-const VERIFICATIONS = [
-  {
-    logo: "https://lh3.googleusercontent.com/aida-public/AB6AXuCzme4qCOmV5D4J80FNV6aojl80nXcC8LrGpdRTN1Pnsswsgzlvi_5teKWnpNZ_3oE_4zgqyJhx2v_vxJJr0J3ljWtrhpNNy97U3DrJehvZ5eer8QdubdylgKuLcdTqN820Zxuc_sfIV-l878SnNr6tGtzU_Pd2yHTM423FGo--qywh2aD-ebjtEKY9CR9ZXD1GTw79Hs0SRiKsQOXYNltcoXaGTN28MEGXNGLZEipd05HDZ19oDV3ApyMzoATj_Cne6Bt4pwarqsWD",
-    name: "SV Innovators",
-    meta: "Global HQ • USA",
-    evidence: "SEC Filings",
-    status: "IN REVIEW",
-    statusClass: "bg-surface-container text-primary",
-    statusIcon: "pending_actions",
-  },
-  {
-    logo: "https://lh3.googleusercontent.com/aida-public/AB6AXuD4CdPoIXgmZeik6Q7x7VrT_LCEHPLv13vxzpp217ylArUF0QLV1VGlPoceUd0as59f3dhimJJtlUtgjgGialk-NdbAqAIiR76Ce5udEurbRozpoDcgsUizlIGvtOnQpfiGCp1FZ_dpjl7EtnSKFcMKSWHRCGIBcazqxyvOskFyuDJKiHvA2QTqaDU8XHABzydJp7NuOqC9e-uLO1rSNXCvfR5CJTuCmZDSSycqQJPfPvf2lmfo45W11qLsq4bKK05g7pFEnMv0PFyE",
-    name: "Finance Partners",
-    meta: "Tax ID: #883921",
-    evidence: "Articles of Incorp.",
-    status: "URGENT",
-    statusClass: "bg-error-container text-error",
-    statusIcon: "priority_high",
-  },
-];
+function companyMeta(request: CompanyRequest) {
+  const parts = [request.city, request.industry].filter(Boolean);
+  if (parts.length > 0) return parts.join(" • ");
+  if (request.website) return request.website;
+  return request.requestedBy?.email ?? "Pending review";
+}
 
 export function AdminDashboardPage() {
   const router = useRouter();
-  const [pendingJobs, setPendingJobs] = useState(0);
-  const [pendingCompanies, setPendingCompanies] = useState(0);
+  const [stats, setStats] = useState<AdminJobStats | null>(null);
+  const [pendingJobs, setPendingJobs] = useState<Job[]>([]);
+  const [pendingCompanies, setPendingCompanies] = useState<CompanyRequest[]>([]);
+  const [pendingRecruiters, setPendingRecruiters] = useState(0);
+  const [governmentJobs, setGovernmentJobs] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const loadCounts = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
     if (!getAccessToken()) {
       router.push(signInPath("admin"));
       return;
     }
     try {
-      const [jobs, companies] = await Promise.all([
+      const [jobStats, jobs, companies, recruiters, govJobs] = await Promise.all([
+        getAdminJobStats(),
         getPendingJobs(),
         getPendingCompanyRequests(),
+        getAdminRecruiters({ status: "PENDING" }),
+        getGovernmentJobs(),
       ]);
-      setPendingJobs(jobs.length);
-      setPendingCompanies(companies.length);
+      setStats(jobStats);
+      setPendingJobs(jobs);
+      setPendingCompanies(companies);
+      setPendingRecruiters(recruiters.length);
+      setGovernmentJobs(govJobs.length);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push(signInPath("admin"));
       }
+    } finally {
+      setLoading(false);
     }
   }, [router]);
 
   useEffect(() => {
-    loadCounts();
-  }, [loadCounts]);
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const overviewStats = [
+    {
+      icon: "publish",
+      label: "Published Listings",
+      value: stats ? stats.published.toLocaleString() : "—",
+    },
+    {
+      icon: "pending_actions",
+      label: "Pending Review",
+      value: stats ? stats.pending.toLocaleString() : "—",
+    },
+    {
+      icon: "work",
+      label: "Total Listings",
+      value: stats ? stats.total.toLocaleString() : "—",
+    },
+  ];
+
+  const requisitions = pendingJobs.slice(0, 5);
+  const verifications = pendingCompanies.slice(0, 5);
 
   return (
     <RecruiterAdminShell activeNav="dashboard">
@@ -90,7 +105,7 @@ export function AdminDashboardPage() {
             <Link href="/admin/jobs" className="glass-card rounded-xl p-6 transition-shadow hover:shadow-md">
               <Icon name="pending_actions" className="rounded-lg bg-secondary-container/20 p-2 text-secondary" />
               <p className="mt-4 font-label-bold text-on-surface-variant">Pending Job Approvals</p>
-              <h3 className="text-headline-md">{pendingJobs}</h3>
+              <h3 className="text-headline-md">{loading ? "—" : pendingJobs.length}</h3>
             </Link>
             <Link
               href="/admin/jobs/government"
@@ -101,47 +116,29 @@ export function AdminDashboardPage() {
                 className="rounded-lg bg-primary-fixed/20 p-2 text-on-primary-fixed-variant"
               />
               <p className="mt-4 font-label-bold text-on-surface-variant">Government Postings</p>
-              <h3 className="text-headline-md">View all</h3>
+              <h3 className="text-headline-md">{loading ? "—" : governmentJobs}</h3>
             </Link>
             <Link href="/admin/companies" className="glass-card rounded-xl p-6 transition-shadow hover:shadow-md">
               <Icon name="business" className="rounded-lg bg-primary-fixed/20 p-2 text-on-primary-fixed-variant" />
               <p className="mt-4 font-label-bold text-on-surface-variant">Company Requests</p>
-              <h3 className="text-headline-md">{pendingCompanies}</h3>
+              <h3 className="text-headline-md">{loading ? "—" : pendingCompanies.length}</h3>
             </Link>
             <Link href="/admin/verifications" className="glass-card rounded-xl p-6 transition-shadow hover:shadow-md">
               <Icon name="verified_user" className="rounded-lg bg-tertiary-container/20 p-2 text-on-tertiary-container" />
               <p className="mt-4 font-label-bold text-on-surface-variant">Recruiter Verifications</p>
-              <h3 className="text-headline-md">24</h3>
+              <h3 className="text-headline-md">{loading ? "—" : pendingRecruiters}</h3>
             </Link>
           </div>
         </section>
 
         <section>
-          <div className="mb-6 flex items-end justify-between">
-            <div>
-              <h2 className="text-headline-lg text-primary">Platform Overview</h2>
-              <p className="text-on-surface-variant">Key performance indicators for Q4 cycle</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-lg border border-outline-variant px-3 py-1.5 text-label-bold font-semibold transition-all hover:bg-surface-container-low"
-              >
-                <Icon name="calendar_today" className="text-[18px]" />
-                Past 30 Days
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-lg bg-inverse-surface px-3 py-1.5 text-label-bold font-semibold text-white transition-all hover:opacity-90"
-              >
-                <Icon name="download" className="text-[18px]" />
-                Export Data
-              </button>
-            </div>
+          <div className="mb-6">
+            <h2 className="text-headline-lg text-primary">Platform Overview</h2>
+            <p className="text-on-surface-variant">Live job listing metrics across the platform</p>
           </div>
 
           <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 lg:grid-cols-3">
-            {STATS.map((stat) => (
+            {overviewStats.map((stat) => (
               <div
                 key={stat.label}
                 className="professional-card group rounded-xl p-6 shadow-sm transition-shadow hover:shadow-md"
@@ -150,65 +147,13 @@ export function AdminDashboardPage() {
                   <div className="rounded-lg bg-surface-container p-2 text-primary transition-all group-hover:bg-primary group-hover:text-white">
                     <Icon name={stat.icon} />
                   </div>
-                  <span className="flex items-center gap-0.5 text-label-sm font-bold text-secondary">
-                    <Icon name="trending_up" className="text-[16px]" />
-                    {stat.trend}
-                  </span>
                 </div>
                 <p className="text-[11px] font-label-bold uppercase tracking-wider text-on-surface-variant">
                   {stat.label}
                 </p>
-                <h3 className="mt-1 text-headline-md">{stat.value}</h3>
+                <h3 className="mt-1 text-headline-md">{loading ? "—" : stat.value}</h3>
               </div>
             ))}
-          </div>
-        </section>
-
-        <section>
-          <div className="professional-card space-y-8 rounded-xl p-8 shadow-sm">
-            <h3 className="text-headline-md font-bold text-primary">System Integrity</h3>
-            <div className="space-y-6">
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">AI Accuracy Rating</span>
-                  <span className="font-bold text-primary">94.2%</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container">
-                  <div className="h-full w-[94.2%] bg-primary" />
-                </div>
-              </div>
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Service Uptime</span>
-                  <span className="font-bold text-secondary">99.9%</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container">
-                  <div className="h-full w-[99.9%] bg-secondary" />
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4 border-t border-outline-variant pt-6">
-              <div className="flex items-center justify-between rounded-lg border border-error/20 bg-error-container/30 p-4">
-                <div className="flex items-center gap-3">
-                  <Icon name="gpp_maybe" className="text-error" />
-                  <div>
-                    <p className="font-bold text-error">Security Alerts</p>
-                    <p className="text-[11px] text-on-error-container">12 anomalies detected</p>
-                  </div>
-                </div>
-                <Icon name="chevron_right" className="text-outline" />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-outline-variant bg-surface-container-low p-4">
-                <div className="flex items-center gap-3">
-                  <Icon name="verified_user" className="text-primary" />
-                  <div>
-                    <p className="font-bold">Infrastructure</p>
-                    <p className="text-[11px] text-on-surface-variant">All nodes operating</p>
-                  </div>
-                </div>
-                <span className="h-2.5 w-2.5 rounded-full bg-secondary" />
-              </div>
-            </div>
           </div>
         </section>
 
@@ -230,34 +175,43 @@ export function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
-                  {REQUISITIONS.map((item) => (
-                    <tr key={item.title} className="transition-colors hover:bg-surface-container-low/30">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center rounded ${item.iconBg}`}
-                          >
-                            <Icon name={item.icon} />
-                          </div>
-                          <div>
-                            <p className="font-bold">{item.title}</p>
-                            <p className="text-[11px] text-on-surface-variant">{item.company}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-label-sm text-on-surface-variant">{item.time}</td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end gap-3">
-                          <button type="button" className="rounded p-1.5 text-outline transition-all hover:bg-error/5 hover:text-error">
-                            <Icon name="close" className="text-[20px]" />
-                          </button>
-                          <button type="button" className="rounded p-1.5 text-primary transition-all hover:bg-primary/5">
-                            <Icon name="check_circle" className="text-[20px]" />
-                          </button>
-                        </div>
+                  {requisitions.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-10 text-center text-sm text-on-surface-variant">
+                        {loading ? "Loading pending requisitions…" : "No jobs awaiting approval."}
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    requisitions.map((job) => (
+                      <tr key={job.id} className="transition-colors hover:bg-surface-container-low/30">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded bg-primary-fixed text-primary">
+                              <Icon name="work" />
+                            </div>
+                            <div>
+                              <p className="font-bold">{job.title}</p>
+                              <p className="text-[11px] text-on-surface-variant">
+                                {job.company?.name ?? job.requestedCompanyName ?? "Unknown company"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-label-sm text-on-surface-variant">
+                          {timeAgo(job.createdAt)}
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          <Link
+                            href={`/admin/jobs/${job.id}/review`}
+                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-label-bold font-semibold text-primary transition-colors hover:bg-primary/5"
+                          >
+                            Review
+                            <Icon name="chevron_right" className="text-[18px]" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -275,38 +229,52 @@ export function AdminDashboardPage() {
                 <thead className="bg-surface-container-low text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
                   <tr>
                     <th className="px-6 py-4">Organization</th>
-                    <th className="px-6 py-4">Evidence Type</th>
+                    <th className="px-6 py-4">Submitted</th>
                     <th className="px-6 py-4 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
-                  {VERIFICATIONS.map((item) => (
-                    <tr key={item.name} className="transition-colors hover:bg-surface-container-low/30">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            alt="Company Logo"
-                            className="h-9 w-9 rounded-sm border border-outline-variant object-cover"
-                            src={item.logo}
-                          />
-                          <div>
-                            <p className="font-bold">{item.name}</p>
-                            <p className="text-[11px] text-on-surface-variant">{item.meta}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-label-sm">{item.evidence}</td>
-                      <td className="px-6 py-5 text-right">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${item.statusClass}`}
-                        >
-                          <Icon name={item.statusIcon} className="text-[14px]" />
-                          {item.status}
-                        </span>
+                  {verifications.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-10 text-center text-sm text-on-surface-variant">
+                        {loading ? "Loading company requests…" : "No company requests awaiting review."}
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    verifications.map((item) => (
+                      <tr key={item.id} className="transition-colors hover:bg-surface-container-low/30">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            {item.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                alt=""
+                                className="h-9 w-9 rounded-sm border border-outline-variant object-cover"
+                                src={item.logoUrl}
+                              />
+                            ) : (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-outline-variant bg-surface-container-high text-primary">
+                                <Icon name="business" className="text-[18px]" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-bold">{item.companyName}</p>
+                              <p className="text-[11px] text-on-surface-variant">{companyMeta(item)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-label-sm text-on-surface-variant">
+                          {timeAgo(item.createdAt)}
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-1 text-[10px] font-bold text-primary">
+                            <Icon name="pending_actions" className="text-[14px]" />
+                            PENDING
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

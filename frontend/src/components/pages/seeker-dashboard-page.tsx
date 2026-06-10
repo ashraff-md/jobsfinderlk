@@ -1,70 +1,146 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SeekerShell } from "@/components/layout/seeker-shell";
 import { Icon } from "@/components/ui/icon";
+import { ApiError } from "@/lib/api/client";
+import { getAccessToken, getProfile } from "@/lib/api/auth";
+import { myApplications, formatSalary, searchPublishedJobs } from "@/lib/api/jobs";
+import type { Application, Job } from "@/lib/api/types";
+import { signInPath } from "@/lib/auth/portal";
 
 const QUICK_ACTIONS = [
-  { icon: "history_edu", title: "AI Resume Builder", subtitle: "Update with latest skills" },
-  { icon: "videocam", title: "Video Intro", subtitle: "Record 30s pitch" },
-  { icon: "verified", title: "Skill Assessment", subtitle: "Get verified badge" },
-];
+  { icon: "description", title: "My Applications", subtitle: "Track your pipeline", href: "/dashboard/applications" },
+  { icon: "bookmark", title: "Saved Jobs", subtitle: "Review bookmarked roles", href: "/dashboard/saved" },
+  { icon: "person", title: "Update Profile", subtitle: "Keep your profile current", href: "/dashboard/profile" },
+] as const;
 
-const LEARN_NEXT = [
-  { initials: "FM", title: "Framer Motion", progress: 30, active: true },
-  { initials: "AI", title: "AI Tooling", progress: 0, active: false },
-];
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
-const JOURNEY_STATS = [
-  { label: "Applied", value: "12", note: "+2 this week", border: "border-l-outline" },
-  { label: "In Review", value: "04", border: "border-l-secondary" },
-  { label: "Interviewing", value: "02", note: "Tomorrow, 10 AM", border: "border-l-primary-container", pulse: true },
-  { label: "Offers", value: "01", badge: "Action Required", border: "border-l-secondary" },
-];
+function displayName(fullName?: string | null, email?: string) {
+  if (fullName?.trim()) return fullName.trim();
+  if (email) return email.split("@")[0] ?? "there";
+  return "there";
+}
 
-const RECOMMENDED_JOBS = [
-  {
-    logo: "https://lh3.googleusercontent.com/aida-public/AB6AXuAiU4VGJeF7mAm9f6l-SaXswo8KTMoe0Uy6JzLA8h6KNI7fL0SeaH7QgN4ZkYy2EsnjkWNLAHaN8sNGDk9JvVh4dTfACxy5WhAkeHcjfq8tVzmqQElvjSFxNrwWIiq7qLBDT4JWu_czFVrth3B_AGQU4zPZigKhzodpAjdh1T-y1F62a8O6kIuPUD3Ke9P9-A_HPFf-GVfo4NIDwYuQa1HoMoFabmur5tkmyNsU8E9I5RpqHVla8Xy2HAijAEVcjg7fbYltNoZDjIQd",
-    match: "98% Match",
-    title: "Senior Product Designer",
-    company: "TechFlow Global • Colombo (Remote)",
-    tags: ["Full-time", "$120k - $160k"],
-    posted: "Posted 2 days ago",
-  },
-  {
-    logo: "https://lh3.googleusercontent.com/aida-public/AB6AXuCpvdk-fObuXVxD0D1I_0TW9q1b14MDjxcb4p5CQILW_BdSBo4sR5AdHd8gVb2Vvf_VFHkxUnPqizvguqXeQOT1apJLyh_FZl3ImGe10t6wxX2yQF-46L3y1EY6ZyVkTU58xXcejc3FivX1OEooiKexxNOPvtauMwr309fWThudyWbxtOdtjXPwwbraAOUcBXHj2ksWSCshZ7DUQym0XdMmaC5n46S03Yt4NgMcgXgWhwL3BXW1L_jQWAFUhcMK6lzAfpuzihlfzTjG",
-    match: "92% Match",
-    title: "Lead UI/UX Architect",
-    company: "Nexus Studio • Nugegoda",
-    tags: ["Contract", "$80/hr"],
-    posted: "Posted 5 hours ago",
-  },
-  {
-    logo: "https://lh3.googleusercontent.com/aida-public/AB6AXuDG57fqtDuk9wOfagoMPq_bftpuPofBhecT-hTywjVyt99e-Hp-nLIMpteryVfhg3spfFi-Io83F9VpkmnSm4NHRcWX70BBJKBuEm6rsBpl8xV3hCdjzGT7g0cRfec3wPO3dU6O4ejlIlUeHnm464zFacEmZGnYS9NdBA8n3T2-WPMWHY3iiEOAG7Wi_H-Z7lpI6neu-3hXq1ibnKdwXlXubAcPawl3TiRG7GEiZL9f9nDsOWKbkBZLeb9cSeKMRFZ-Q9Zm1cjQGI5s",
-    match: "89% Match",
-    title: "Design Systems Lead",
-    company: "Symmetry AI • Remote",
-    tags: ["Full-time", "$140k+"],
-    posted: "Posted 1 day ago",
-  },
-];
+function timeAgo(dateStr?: string | null) {
+  if (!dateStr) return "Recently";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
+function journeyBucket(status: string): "applied" | "review" | "interviewing" | "offers" {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("offer")) return "offers";
+  if (normalized.includes("interview")) return "interviewing";
+  if (normalized.includes("review") || normalized.includes("screen")) return "review";
+  return "applied";
+}
+
+function countByBucket(applications: Application[]) {
+  const counts = { applied: 0, review: 0, interviewing: 0, offers: 0 };
+  for (const application of applications) {
+    counts[journeyBucket(application.status)] += 1;
+  }
+  return counts;
+}
+
+function formatJobLocation(job: Job) {
+  if (job.location?.trim()) return job.location.trim();
+  const parts = [job.company.name, job.city, job.workArrangement].filter(Boolean);
+  return parts.join(" • ");
+}
+
+function formatJobTags(job: Job) {
+  const tags: string[] = [];
+  if (job.employmentType) tags.push(job.employmentType);
+  const salary = formatSalary(job.salaryMin, job.salaryMax);
+  if (salary !== "Salary negotiable") tags.push(salary);
+  return tags;
+}
 
 export function SeekerDashboardPage() {
+  const router = useRouter();
+  const [userName, setUserName] = useState("there");
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadDashboard = useCallback(async () => {
+    if (!getAccessToken()) {
+      router.push(signInPath("seeker"));
+      return;
+    }
+    try {
+      const [profile, apps, jobs] = await Promise.all([
+        getProfile(),
+        myApplications(),
+        searchPublishedJobs({ limit: 6 }),
+      ]);
+      setUserName(displayName(profile.seekerProfile?.fullName, profile.email));
+      setApplications(apps);
+      setRecommendedJobs(jobs.items);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push(signInPath("seeker"));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const journeyCounts = useMemo(() => countByBucket(applications), [applications]);
+
+  const journeyStats = [
+    { label: "Applied", value: journeyCounts.applied, border: "border-l-outline" },
+    { label: "In Review", value: journeyCounts.review, border: "border-l-secondary" },
+    { label: "Interviewing", value: journeyCounts.interviewing, border: "border-l-primary-container" },
+    { label: "Offers", value: journeyCounts.offers, border: "border-l-secondary" },
+  ];
+
   return (
-    <SeekerShell activeNav="dashboard" userName="Alex Silva">
+    <SeekerShell activeNav="dashboard" userName={userName}>
       <div className="mx-auto max-w-container-max">
         <section className="mb-10">
           <h1 className="text-3xl font-extrabold leading-[1.1] tracking-tight text-primary-container md:text-4xl lg:text-5xl">
-            Good morning, Alex.
+            {greeting()}, {userName}.
           </h1>
           <p className="mt-2 font-body-lg text-body-lg text-outline">
-            You have <span className="font-bold text-secondary">3 new AI-matched roles</span> today.
+            {loading ? (
+              "Loading your dashboard…"
+            ) : recommendedJobs.length > 0 ? (
+              <>
+                You have{" "}
+                <span className="font-bold text-secondary">
+                  {recommendedJobs.length} new opening{recommendedJobs.length === 1 ? "" : "s"}
+                </span>{" "}
+                to explore.
+              </>
+            ) : (
+              "Browse published roles to find your next opportunity."
+            )}
           </p>
         </section>
 
         <section className="mb-12 grid grid-cols-1 gap-gutter md:grid-cols-3">
           {QUICK_ACTIONS.map((action) => (
-            <button
+            <Link
               key={action.title}
-              type="button"
+              href={action.href}
               className="professional-card group flex items-center gap-4 rounded p-6 text-left transition-all hover:border-primary-container"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded bg-secondary/5 text-secondary transition-all group-hover:bg-secondary group-hover:text-on-secondary">
@@ -74,114 +150,22 @@ export function SeekerDashboardPage() {
                 <h3 className="font-bold text-primary-container">{action.title}</h3>
                 <p className="text-label-sm text-outline">{action.subtitle}</p>
               </div>
-            </button>
+            </Link>
           ))}
-        </section>
-
-        <section className="mb-12 grid grid-cols-1 gap-gutter lg:grid-cols-3">
-          <div className="professional-card relative flex flex-col items-center gap-8 overflow-hidden rounded p-8 md:flex-row lg:col-span-2">
-            <div className="relative">
-              <svg className="h-32 w-32 -rotate-90 transform">
-                <circle
-                  className="text-surface-container-high"
-                  cx="64"
-                  cy="64"
-                  fill="transparent"
-                  r="58"
-                  stroke="currentColor"
-                  strokeWidth="10"
-                />
-                <circle
-                  className="text-primary-container transition-all duration-1000"
-                  cx="64"
-                  cy="64"
-                  fill="transparent"
-                  r="58"
-                  stroke="currentColor"
-                  strokeDasharray="364.4"
-                  strokeDashoffset="43.7"
-                  strokeLinecap="round"
-                  strokeWidth="10"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-extrabold text-primary-container">88</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-outline">
-                  Score
-                </span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <h2 className="mb-2 text-headline-md text-primary-container">Resume Strength</h2>
-              <p className="mb-6 text-body-md text-outline">
-                Your resume is highly optimized for Product Design roles. Adding &apos;Advanced
-                Prototyping&apos; could boost matches by 15%.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="flex items-center gap-1 rounded bg-primary-container px-3 py-1 text-label-sm font-bold text-white">
-                  <Icon name="check_circle" className="text-[14px]" filled />
-                  Optimized
-                </span>
-                <span className="rounded border border-secondary/20 bg-secondary/5 px-3 py-1 text-label-sm font-bold text-secondary">
-                  3 New Suggestions
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="professional-card rounded p-8">
-            <h2 className="mb-6 border-b border-outline-variant pb-2 text-headline-md text-primary-container">
-              Learn Next
-            </h2>
-            <div className="space-y-5">
-              {LEARN_NEXT.map((course) => (
-                <div key={course.title} className="group flex cursor-pointer items-center gap-4">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded text-sm font-bold ${
-                      course.active
-                        ? "bg-primary-container text-white"
-                        : "bg-secondary/10 text-secondary"
-                    }`}
-                  >
-                    {course.initials}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold text-primary-container">{course.title}</h4>
-                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-container-low">
-                      <div
-                        className="h-full rounded-full bg-primary-container"
-                        style={{ width: `${course.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                  <Icon
-                    name="play_circle"
-                    className="text-outline transition-colors group-hover:text-secondary"
-                  />
-                </div>
-              ))}
-              <Link
-                href="/career-advice"
-                className="mt-6 block text-center font-bold text-label-bold text-secondary hover:underline"
-              >
-                Browse All Courses
-              </Link>
-            </div>
-          </div>
         </section>
 
         <section className="mb-12">
           <div className="mb-6 flex items-end justify-between">
             <h2 className="text-headline-lg text-primary-container">Application Journey</h2>
-            <button
-              type="button"
+            <Link
+              href="/dashboard/applications"
               className="font-bold text-label-bold text-secondary transition-all hover:underline"
             >
               View Pipeline
-            </button>
+            </Link>
           </div>
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-4">
-            {JOURNEY_STATS.map((stat) => (
+            {journeyStats.map((stat) => (
               <div
                 key={stat.label}
                 className={`professional-card rounded border-l-4 p-6 ${stat.border}`}
@@ -189,26 +173,9 @@ export function SeekerDashboardPage() {
                 <p className="mb-1 text-[11px] font-label-bold uppercase tracking-widest text-outline">
                   {stat.label}
                 </p>
-                <h4 className="text-headline-lg font-bold text-primary-container">{stat.value}</h4>
-                {stat.note && (
-                  <p
-                    className={`mt-2 text-label-sm font-medium ${
-                      stat.pulse
-                        ? "flex items-center gap-1 font-bold text-secondary"
-                        : "text-outline"
-                    }`}
-                  >
-                    {stat.pulse && (
-                      <span className="h-1.5 w-1.5 animate-ping rounded-full bg-secondary" />
-                    )}
-                    {stat.note}
-                  </p>
-                )}
-                {stat.badge && (
-                  <span className="mt-2 inline-block rounded bg-secondary/10 px-2 py-0.5 text-[10px] font-bold text-secondary">
-                    {stat.badge}
-                  </span>
-                )}
+                <h4 className="text-headline-lg font-bold text-primary-container">
+                  {loading ? "—" : String(stat.value).padStart(2, "0")}
+                </h4>
               </div>
             ))}
           </div>
@@ -218,64 +185,66 @@ export function SeekerDashboardPage() {
           <div className="mb-6 flex items-end justify-between">
             <div>
               <h2 className="text-headline-lg text-primary-container">Recommended for You</h2>
-              <p className="font-label-sm text-outline">
-                Based on your recent search for &apos;Product Designer&apos;
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded p-2 text-outline transition-colors hover:bg-surface-container-high hover:text-primary-container"
-              >
-                <Icon name="chevron_left" />
-              </button>
-              <button
-                type="button"
-                className="rounded p-2 text-outline transition-colors hover:bg-surface-container-high hover:text-primary-container"
-              >
-                <Icon name="chevron_right" />
-              </button>
+              <p className="font-label-sm text-outline">Recently published openings on JobsFinder</p>
             </div>
           </div>
-          <div className="no-scrollbar flex gap-gutter overflow-x-auto pb-6">
-            {RECOMMENDED_JOBS.map((job) => (
-              <div
-                key={job.title}
-                className="professional-card group min-w-[340px] cursor-pointer rounded p-6 transition-all hover:border-primary-container"
-              >
-                <div className="mb-6 flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded border border-outline-variant bg-surface-container-lowest p-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img alt="Company logo" className="max-h-full max-w-full object-contain" src={job.logo} />
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-secondary/20 bg-secondary/5 px-3 py-1 text-[10px] font-bold text-secondary">
-                    <Icon name="auto_awesome" className="text-[14px]" filled />
-                    {job.match}
-                  </span>
-                </div>
-                <h3 className="mb-1 text-body-lg font-bold text-primary-container transition-colors group-hover:text-secondary">
-                  {job.title}
-                </h3>
-                <p className="mb-4 text-sm text-outline">{job.company}</p>
-                <div className="mb-6 flex flex-wrap gap-2">
-                  {job.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded bg-surface-container-low px-2 py-1 text-[11px] font-bold text-primary-container"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between border-t border-outline-variant pt-4">
-                  <span className="text-label-sm font-medium text-outline">{job.posted}</span>
-                  <span className="flex items-center gap-1 font-bold text-label-bold text-secondary transition-transform group-hover:translate-x-1">
-                    Apply Now <Icon name="arrow_forward" className="text-sm" />
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          {loading ? (
+            <p className="text-outline">Loading recommendations…</p>
+          ) : recommendedJobs.length === 0 ? (
+            <p className="text-outline">No published jobs available right now. Check back soon.</p>
+          ) : (
+            <div className="no-scrollbar flex gap-gutter overflow-x-auto pb-6">
+              {recommendedJobs.map((job) => {
+                const tags = formatJobTags(job);
+                return (
+                  <Link
+                    key={job.id}
+                    href={`/jobs/${job.slug}`}
+                    className="professional-card group min-w-[340px] rounded p-6 transition-all hover:border-primary-container"
+                  >
+                    <div className="mb-6 flex items-start justify-between">
+                      <div className="flex h-14 w-14 items-center justify-center rounded border border-outline-variant bg-surface-container-lowest p-2">
+                        {job.company.logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            alt=""
+                            className="max-h-full max-w-full object-contain"
+                            src={job.company.logoUrl}
+                          />
+                        ) : (
+                          <Icon name="business" className="text-outline" />
+                        )}
+                      </div>
+                    </div>
+                    <h3 className="mb-1 text-body-lg font-bold text-primary-container transition-colors group-hover:text-secondary">
+                      {job.title}
+                    </h3>
+                    <p className="mb-4 text-sm text-outline">{formatJobLocation(job)}</p>
+                    {tags.length > 0 && (
+                      <div className="mb-6 flex flex-wrap gap-2">
+                        {tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded bg-surface-container-low px-2 py-1 text-[11px] font-bold text-primary-container"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between border-t border-outline-variant pt-4">
+                      <span className="text-label-sm font-medium text-outline">
+                        Posted {timeAgo(job.publishedAt ?? job.createdAt)}
+                      </span>
+                      <span className="flex items-center gap-1 font-bold text-label-bold text-secondary transition-transform group-hover:translate-x-1">
+                        View Job <Icon name="arrow_forward" className="text-sm" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </section>
       </div>
     </SeekerShell>

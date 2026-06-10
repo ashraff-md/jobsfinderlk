@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoutLink } from "@/components/auth/logout-link";
 import { EmployerTopNav } from "@/components/layout/employer-top-nav";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
 import { LOGO_URL } from "@/lib/assets";
 import { cn } from "@/lib/utils";
@@ -13,13 +14,15 @@ const SIDEBAR_NAV = [
   { href: "/employer", icon: "dashboard", label: "Dashboard", key: "dashboard" },
   { href: "/employer/applications", icon: "description", label: "Applications", key: "applications" },
   { href: "/employer/jobs", icon: "work", label: "Job Listings", key: "listings" },
+  { href: "/employer/ads", icon: "campaign", label: "Advertising", key: "ads" },
   { href: "/employer/settings", icon: "manage_accounts", label: "Profile", key: "settings" },
 ] as const;
 
 const MOBILE_NAV = [
   { href: "/employer", icon: "dashboard", label: "Home", key: "dashboard" },
-  { href: "/employer/applications", icon: "description", label: "Applications", key: "applications" },
-  { href: "/employer/jobs", icon: "work", label: "Listings", key: "listings" },
+  { href: "/employer/applications", icon: "description", label: "Applied", key: "applications" },
+  { href: "/employer/ads", icon: "campaign", label: "Ads", key: "ads" },
+  { href: "/employer/jobs", icon: "work", label: "Jobs", key: "listings" },
   { href: "/employer/settings", icon: "manage_accounts", label: "Profile", key: "settings" },
 ] as const;
 
@@ -43,6 +46,7 @@ function isActive(pathname: string, href: string, key?: EmployerNavKey) {
     if (pathname.includes("/applicants")) return false;
     return pathname.startsWith("/employer/jobs");
   }
+  if (key === "ads") return pathname.startsWith("/employer/ads");
   if (key === "settings") {
     return (
       pathname.startsWith("/employer/settings") ||
@@ -127,7 +131,7 @@ export function EmployerShell({
             href="/pricing"
             className="rounded bg-secondary p-3 text-center font-bold text-label-bold text-on-secondary transition-all hover:brightness-110"
           >
-            Upgrade to Pro
+            View Pricing
           </Link>
           <Link
             href="/help"
@@ -142,8 +146,8 @@ export function EmployerShell({
 
       <main
         className={cn(
-          "min-h-screen md:ml-64",
-          fullHeight ? "flex h-screen flex-col overflow-hidden pb-16 md:pb-0" : "pb-24 md:pb-0",
+          "flex min-h-screen flex-col md:ml-64",
+          fullHeight ? "h-screen overflow-hidden pb-16 md:pb-0" : "pb-24 md:pb-0",
         )}
       >
         <EmployerTopNav />
@@ -151,11 +155,13 @@ export function EmployerShell({
           className={cn(
             fullHeight
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-              : "p-margin-mobile md:p-margin-desktop",
+              : "flex-1 p-margin-mobile md:p-margin-desktop",
           )}
         >
           {children}
         </div>
+
+        {!fullHeight ? <SiteFooter className="mt-auto" /> : null}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around border-t border-white/10 bg-primary-container p-4 md:hidden">

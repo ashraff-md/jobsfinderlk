@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoutLink } from "@/components/auth/logout-link";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
 import { AVATAR_URL, LOGO_URL } from "@/lib/assets";
 import { cn } from "@/lib/utils";
@@ -109,10 +110,10 @@ export function SeekerShell({
 
         <div className="mt-auto flex flex-col gap-2">
           <Link
-            href="/pricing"
+            href="/jobs"
             className="rounded bg-secondary p-3 text-center font-bold text-label-bold text-on-secondary transition-all hover:brightness-110"
           >
-            Upgrade to Pro
+            Browse Jobs
           </Link>
           <Link
             href="/help"
@@ -127,8 +128,8 @@ export function SeekerShell({
 
       <main
         className={cn(
-          "min-h-screen md:ml-64",
-          fullHeight ? "flex h-screen flex-col overflow-hidden pb-16 md:pb-0" : "pb-24 md:pb-0",
+          "flex min-h-screen flex-col md:ml-64",
+          fullHeight ? "h-screen overflow-hidden pb-16 md:pb-0" : "pb-24 md:pb-0",
         )}
       >
         {showTopHeader && (
@@ -176,11 +177,13 @@ export function SeekerShell({
           className={cn(
             fullHeight
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-              : "p-margin-mobile md:p-margin-desktop",
+              : "flex-1 p-margin-mobile md:p-margin-desktop",
           )}
         >
           {children}
         </div>
+
+        {!fullHeight ? <SiteFooter className="mt-auto" /> : null}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around border-t border-white/10 bg-primary-container p-4 md:hidden">

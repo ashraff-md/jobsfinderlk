@@ -813,4 +813,76 @@ export class PlatformAdsService {
     await this.prisma.sponsoredAd.delete({ where: { id } });
     return this.listSponsoredForAdmin();
   }
+
+  private sponsoredScheduleStatus(
+    startsAt: Date,
+    endsAt: Date,
+    active: boolean,
+  ): 'Active' | 'Scheduled' | 'Inactive' {
+    if (!active) return 'Inactive';
+    const now = Date.now();
+    if (now < startsAt.getTime()) return 'Scheduled';
+    if (now > endsAt.getTime()) return 'Inactive';
+    return 'Active';
+  }
+
+  async listForEmployer(userId: string) {
+    await this.ensureDefaults();
+
+    const links = await this.prisma.employerUser.findMany({
+      where: { userId },
+      select: { companyId: true },
+    });
+    const companyIds = links.map((link) => link.companyId);
+
+    if (!companyIds.length) {
+      return {
+        campaigns: [],
+        stats: {
+          totalImpressions: 0,
+          activeCount: 0,
+          scheduledCount: 0,
+          expiredCount: 0,
+        },
+      };
+    }
+
+    const ads = await this.prisma.sponsoredAd.findMany({
+      where: { job: { companyId: { in: companyIds } } },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      include: { job: { include: jobWithCompany } },
+    });
+
+    let totalImpressions = 0;
+    let activeCount = 0;
+    let scheduledCount = 0;
+    let expiredCount = 0;
+
+    const campaigns = ads.map((ad) => {
+      totalImpressions += ad.viewCount;
+      const status = this.sponsoredScheduleStatus(
+        ad.startsAt,
+        ad.endsAt,
+        ad.active,
+      );
+      if (status === 'Active') activeCount += 1;
+      else if (status === 'Scheduled') scheduledCount += 1;
+      else expiredCount += 1;
+
+      return {
+        ...this.mapSponsoredAd(ad),
+        status,
+      };
+    });
+
+    return {
+      campaigns,
+      stats: {
+        totalImpressions,
+        activeCount,
+        scheduledCount,
+        expiredCount,
+      },
+    };
+  }
 }

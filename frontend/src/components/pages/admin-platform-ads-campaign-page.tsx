@@ -27,7 +27,10 @@ import {
   type PromotionPeriodDays,
 } from "@/lib/api/admin";
 import type { Job } from "@/lib/api/types";
-import { buildBannerArtworkDraft } from "@/lib/platform-ads/banner-artwork";
+import {
+  bannerArtworkSizeHint,
+  buildBannerArtworkDraft,
+} from "@/lib/platform-ads/banner-artwork";
 import {
   formatBannerDestinationForInput,
   normalizeBannerDestinationUrl,
@@ -349,9 +352,7 @@ export function AdminPlatformAdsCampaignPage() {
                         <Icon name="cloud_upload" className="mb-4 text-5xl text-outline" />
                         <p className="font-label-bold">Drag and drop your file here</p>
                         <p className="mt-1 text-label-sm text-on-surface-variant">
-                          {adType === "wide"
-                            ? "3×2 ratio recommended (e.g. 1200×800px). JPEG, PNG, or WebP up to 5MB."
-                            : "2×5 ratio recommended. JPEG, PNG, or WebP up to 5MB."}
+                          {bannerArtworkSizeHint(adType === "wide" ? "wide" : "tall")}
                         </p>
                         <input
                           ref={fileInputRef}

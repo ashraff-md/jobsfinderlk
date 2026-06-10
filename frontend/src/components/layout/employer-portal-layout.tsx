@@ -10,9 +10,7 @@ type EmployerPortalLayoutProps = {
 };
 
 function useEmployerFullHeight(pathname: string) {
-  return (
-    pathname.startsWith("/employer/applications") || pathname.includes("/applicants")
-  );
+  return pathname.includes("/applicants");
 }
 
 export function EmployerPortalLayout({ children }: EmployerPortalLayoutProps) {

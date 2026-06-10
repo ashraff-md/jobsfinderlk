@@ -66,13 +66,23 @@ export const ROUTE_META: Record<
     phase: "M1",
   },
   "/employer/applications": {
-    title: "Candidate Pipeline",
-    reference: "references2/applications/code.html",
+    title: "Application Pipeline",
+    reference: "ui_references/recruiter_applications/code.html",
     phase: "M1",
   },
   "/employer/jobs": {
     title: "Manage Job Listings",
     reference: "references2/job_listings_management/code.html",
+    phase: "M1",
+  },
+  "/employer/ads": {
+    title: "Ads Management",
+    reference: "ui_references/recruiter_ads_management_hub/code.html",
+    phase: "M1",
+  },
+  "/employer/ads/new": {
+    title: "Create Ad Campaign",
+    reference: "ui_references/recruiter_create_new_ad_campaign/code.html",
     phase: "M1",
   },
   "/employer/settings": {
@@ -207,7 +217,7 @@ export const ROUTE_META: Record<
   },
   "/admin/platform-ads": {
     title: "Ads Management",
-    reference: "ui_references/admin_platform_ads_management/code.html",
+    reference: "ui_references/admin_platform_ads_management_hub/code.html",
     phase: "M1",
   },
   "/admin/platform-ads/new": {

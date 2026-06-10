@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AdminAdTypeModal } from "@/components/admin/platform-ads/admin-ad-type-modal";
 import { AdminPostJobTypeDialog } from "@/components/admin/admin-post-job-type-dialog";
 import { LogoutLink } from "@/components/auth/logout-link";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Icon } from "@/components/ui/icon";
 import { getAccessToken, getProfile, getStoredUser } from "@/lib/api/auth";
 import { LOGO_URL } from "@/lib/assets";
@@ -231,6 +232,7 @@ export function RecruiterAdminShell({
 
         <main className="custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto bg-background">
           <div className="min-w-0 flex-1">{children}</div>
+          <SiteFooter className="mt-auto shrink-0" />
         </main>
       </div>
 

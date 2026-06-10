@@ -31,6 +31,13 @@ export type CampaignAdType = "Banner 3x2" | "Banner 2x5" | "Sponsored";
 
 export type CampaignStatus = "Active" | "Scheduled" | "Pending Review" | "Inactive";
 
+export type CampaignDisplayStatus =
+  | "Live"
+  | "Rotating"
+  | "Scheduled"
+  | "Inactive"
+  | "Expiring Today";
+
 export type PlatformCampaignRow = {
   id: string;
   advertiser: string;
@@ -38,9 +45,17 @@ export type PlatformCampaignRow = {
   initials: string;
   adType: CampaignAdType;
   status: CampaignStatus;
+  displayStatus: CampaignDisplayStatus;
+  typeIcon: string;
+  typeLabel: string;
+  placement: string;
   timeline: string;
   promotionEndDate: string;
+  startsAt: string;
+  endsAt: string;
+  scheduleProgress: number;
   views: number;
   ctr: string;
   editHref: string;
+  viewHref?: string;
 };

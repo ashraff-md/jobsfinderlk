@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminAdTypeModal } from "@/components/admin/platform-ads/admin-ad-type-modal";
-import { CampaignStatusBadge } from "@/components/admin/platform-ads/campaign-status-badge";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -20,6 +19,47 @@ import {
 } from "@/lib/platform-ads/sponsored-schedule";
 import { cn } from "@/lib/utils";
 
+const PAGE_SIZE = 10;
+
+type AdsTab = "active" | "pending" | "completed";
+
+const TABS: { key: AdsTab; label: string }[] = [
+  { key: "active", label: "Active Campaigns" },
+  { key: "pending", label: "Pending Review" },
+  { key: "completed", label: "Completed" },
+];
+
+const STAT_CARDS = [
+  {
+    icon: "ads_click",
+    iconClass: "text-secondary-container",
+    tag: "TOTAL",
+    label: "Active Ads",
+    showProgress: true,
+  },
+  {
+    icon: "pending_actions",
+    iconClass: "text-error",
+    tag: "URGENT",
+    label: "Pending Approvals",
+    showDelta: true,
+  },
+  {
+    icon: "payments",
+    iconClass: "text-on-surface",
+    tag: "MONTHLY",
+    label: "Total Revenue",
+    showTrend: true,
+  },
+  {
+    icon: "trending_up",
+    iconClass: "text-secondary",
+    tag: "PERFORMANCE",
+    label: "Avg. Click-Through Rate",
+    showBars: true,
+  },
+] as const;
+
 function initials(name: string) {
   return name
     .split(/\s+/)
@@ -30,76 +70,124 @@ function initials(name: string) {
     .slice(0, 2);
 }
 
-function formatViews(count: number) {
-  return count.toLocaleString();
+function scheduleProgress(startsAt: string, endsAt: string): number {
+  const start = new Date(startsAt).getTime();
+  const end = new Date(endsAt).getTime();
+  const now = Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  if (now <= start) return 0;
+  if (now >= end) return 100;
+  return Math.round(((now - start) / (end - start)) * 100);
+}
+
+function isExpiringSoon(endsAt: string): boolean {
+  const end = new Date(endsAt).getTime();
+  const now = Date.now();
+  return end > now && end - now <= 24 * 60 * 60 * 1000;
+}
+
+function displayStatusForRow(
+  status: CampaignStatus,
+  adType: PlatformCampaignRow["adType"],
+  endsAt: string,
+): PlatformCampaignRow["displayStatus"] {
+  if (status === "Scheduled") return "Scheduled";
+  if (status === "Inactive") return "Inactive";
+  if (isExpiringSoon(endsAt)) return "Expiring Today";
+  if (adType === "Sponsored") return "Live";
+  return "Rotating";
+}
+
+function formatCompactViews(count: number) {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M Impr.`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}k Impr.`;
+  return `${count.toLocaleString()} Impr.`;
 }
 
 function buildCampaignRows(
   bannerCampaigns: AdminBannerCampaign[],
   sponsored: AdminSponsoredAd[],
 ): PlatformCampaignRow[] {
-  const bannerRows: PlatformCampaignRow[] = bannerCampaigns.map((campaign) => ({
-    id: campaign.id,
-    advertiser: campaign.label,
-    sublabel: campaign.alt || "Banner campaign",
-    initials: initials(campaign.label),
-    adType: campaign.aspectRatio === "RATIO_3_2" ? "Banner 3x2" : "Banner 2x5",
-    status: sponsoredScheduleStatus(campaign.startsAt, campaign.endsAt, campaign.active),
-    timeline: formatScheduleRange(campaign.startsAt, campaign.endsAt),
-    promotionEndDate: formatPromotionEndDate(campaign.endsAt),
-    views: campaign.viewCount ?? 0,
-    ctr: "—",
-    editHref: `/admin/platform-ads/new?type=${campaign.aspectRatio === "RATIO_3_2" ? "wide" : "tall"}&bannerCampaignId=${campaign.id}`,
-  }));
+  const bannerRows: PlatformCampaignRow[] = bannerCampaigns.map((campaign) => {
+    const adType = campaign.aspectRatio === "RATIO_3_2" ? "Banner 3x2" : "Banner 2x5";
+    const status = sponsoredScheduleStatus(campaign.startsAt, campaign.endsAt, campaign.active);
+    return {
+      id: campaign.id,
+      advertiser: campaign.label,
+      sublabel: campaign.alt || "Banner campaign",
+      initials: initials(campaign.label),
+      adType,
+      status,
+      displayStatus: displayStatusForRow(status, adType, campaign.endsAt),
+      typeIcon: campaign.aspectRatio === "RATIO_3_2" ? "rectangle" : "vertical_distribute",
+      typeLabel: campaign.aspectRatio === "RATIO_3_2" ? "3×2 Banner" : "2×5 Banner",
+      placement:
+        campaign.aspectRatio === "RATIO_3_2" ? "Homepage, Job Details" : "Job Detail Sidebar",
+      timeline: formatScheduleRange(campaign.startsAt, campaign.endsAt),
+      promotionEndDate: formatPromotionEndDate(campaign.endsAt),
+      startsAt: campaign.startsAt,
+      endsAt: campaign.endsAt,
+      scheduleProgress: scheduleProgress(campaign.startsAt, campaign.endsAt),
+      views: campaign.viewCount ?? 0,
+      ctr: "—",
+      editHref: `/admin/platform-ads/new?type=${campaign.aspectRatio === "RATIO_3_2" ? "wide" : "tall"}&bannerCampaignId=${campaign.id}`,
+      viewHref: campaign.href.startsWith("/") ? campaign.href : campaign.href,
+    };
+  });
 
-  const sponsoredRows: PlatformCampaignRow[] = sponsored.map((ad) => ({
-    id: ad.id,
-    advertiser: ad.job.company.name,
-    sublabel: `Job · ${ad.job.title.slice(0, 40)}${ad.job.title.length > 40 ? "…" : ""}`,
-    initials: initials(ad.job.company.name),
-    adType: "Sponsored",
-    status: sponsoredScheduleStatus(ad.startsAt, ad.endsAt, ad.active),
-    timeline: formatScheduleRange(ad.startsAt, ad.endsAt),
-    promotionEndDate: formatPromotionEndDate(ad.endsAt),
-    views: ad.viewCount ?? 0,
-    ctr: "—",
-    editHref: `/admin/platform-ads/new?type=sponsored&sponsoredId=${ad.id}&jobId=${ad.jobId}`,
-  }));
+  const sponsoredRows: PlatformCampaignRow[] = sponsored.map((ad) => {
+    const status = sponsoredScheduleStatus(ad.startsAt, ad.endsAt, ad.active);
+    return {
+      id: ad.id,
+      advertiser: ad.job.company.name,
+      sublabel: ad.job.title,
+      initials: initials(ad.job.company.name),
+      adType: "Sponsored",
+      status,
+      displayStatus: displayStatusForRow(status, "Sponsored", ad.endsAt),
+      typeIcon: "campaign",
+      typeLabel: "Sponsored Job",
+      placement: "Homepage, Search Results",
+      timeline: formatScheduleRange(ad.startsAt, ad.endsAt),
+      promotionEndDate: formatPromotionEndDate(ad.endsAt),
+      startsAt: ad.startsAt,
+      endsAt: ad.endsAt,
+      scheduleProgress: scheduleProgress(ad.startsAt, ad.endsAt),
+      views: ad.viewCount ?? 0,
+      ctr: "—",
+      editHref: `/admin/platform-ads/new?type=sponsored&sponsoredId=${ad.id}&jobId=${ad.jobId}`,
+      viewHref: `/jobs/${ad.job.slug}`,
+    };
+  });
 
   return [...sponsoredRows, ...bannerRows];
 }
 
-const AD_TYPE_FILTERS = [
-  { value: "all", label: "All ad types" },
-  { value: "Banner 3x2", label: "Banner 3×2" },
-  { value: "Banner 2x5", label: "Banner 2×5" },
-  { value: "Sponsored", label: "Sponsored" },
-] as const;
+function statusDotClass(displayStatus: PlatformCampaignRow["displayStatus"]) {
+  if (displayStatus === "Live") return "bg-secondary animate-pulse";
+  if (displayStatus === "Rotating") return "bg-secondary";
+  if (displayStatus === "Expiring Today") return "bg-on-surface-variant opacity-40";
+  if (displayStatus === "Scheduled") return "bg-amber-500";
+  return "bg-on-surface-variant opacity-40";
+}
 
-const STATUS_FILTERS = [
-  { value: "all", label: "All statuses" },
-  { value: "Active", label: "Active" },
-  { value: "Scheduled", label: "Scheduled" },
-  { value: "Inactive", label: "Inactive" },
-] as const;
-
-const STAT_CARDS = [
-  { icon: "campaign", iconClass: "bg-secondary-container text-white", label: "Active campaigns" },
-  { icon: "visibility", iconClass: "bg-surface-container text-secondary", label: "Total impressions", sub: "Past 30 days" },
-  { icon: "ads_click", iconClass: "bg-surface-container text-secondary", label: "Average CTR", sub: "Standard performance" },
-  { icon: "payments", iconClass: "bg-primary-container text-white", label: "Revenue (LKR)", sub: "Projected: 28K" },
-] as const;
-
-const TABLE_COLUMNS = [
-  "Advertiser",
-  "Ad Type",
-  "Status",
-  "Timeline",
-  "Promotion end",
-  "Views",
-  "CTR",
-  "",
-] as const;
+function CampaignStatusIndicator({ status }: { status: PlatformCampaignRow["displayStatus"] }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className={cn("h-2 w-2 rounded-full", statusDotClass(status))} />
+      <span
+        className={cn(
+          "font-label-sm text-label-sm",
+          status === "Expiring Today" || status === "Inactive"
+            ? "text-on-surface-variant opacity-60"
+            : "text-primary",
+        )}
+      >
+        {status}
+      </span>
+    </div>
+  );
+}
 
 export function AdminPlatformAdsPage() {
   const [bannerCampaigns, setBannerCampaigns] = useState<AdminBannerCampaign[]>([]);
@@ -109,6 +197,9 @@ export function AdminPlatformAdsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [adTypeFilter, setAdTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState<AdsTab>("active");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const [adTypeModalOpen, setAdTypeModalOpen] = useState(false);
 
   const loadAll = useCallback(async () => {
@@ -137,9 +228,16 @@ export function AdminPlatformAdsPage() {
     [bannerCampaigns, sponsored],
   );
 
+  const activeCount = campaigns.filter((c) => c.status === "Active").length;
+  const pendingCount = campaigns.filter((c) => c.status === "Scheduled").length;
+  const totalViews = campaigns.reduce((sum, c) => sum + c.views, 0);
+
   const filteredCampaigns = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return campaigns.filter((c) => {
+      if (activeTab === "active" && c.status !== "Active") return false;
+      if (activeTab === "pending" && c.status !== "Scheduled") return false;
+      if (activeTab === "completed" && c.status !== "Inactive") return false;
       if (adTypeFilter !== "all" && c.adType !== adTypeFilter) return false;
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (!q) return true;
@@ -147,46 +245,48 @@ export function AdminPlatformAdsPage() {
         c.advertiser.toLowerCase().includes(q) ||
         c.sublabel.toLowerCase().includes(q) ||
         c.adType.toLowerCase().includes(q) ||
-        c.promotionEndDate.toLowerCase().includes(q)
+        c.placement.toLowerCase().includes(q)
       );
     });
-  }, [campaigns, searchQuery, adTypeFilter, statusFilter]);
+  }, [campaigns, searchQuery, adTypeFilter, statusFilter, activeTab]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredCampaigns.length / PAGE_SIZE));
+  const pagedCampaigns = filteredCampaigns.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, adTypeFilter, statusFilter, activeTab]);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 || adTypeFilter !== "all" || statusFilter !== "all";
 
-  const activeCount = campaigns.filter((c) => c.status === "Active").length;
-  const totalViews = campaigns.reduce((sum, c) => sum + c.views, 0);
+  const tabLabel = (tab: (typeof TABS)[number]) => {
+    if (tab.key === "pending" && pendingCount > 0) return `${tab.label} (${pendingCount})`;
+    return tab.label;
+  };
 
   return (
     <RecruiterAdminShell activeNav="platform-ads">
       <AdminAdTypeModal open={adTypeModalOpen} onClose={() => setAdTypeModalOpen(false)} />
       <AdminPageCanvas className="md:px-margin-desktop">
-        <div className="mb-stack-lg flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div className="mb-stack-lg flex flex-col items-end justify-between gap-4 md:flex-row">
           <div>
-            <h1 className="text-headline-lg tracking-tight text-on-surface">
-              Ads Performance Overview
+            <h1 className="font-headline-xl text-headline-xl tracking-tight text-primary">
+              Platform Advertising Management
             </h1>
-            <p className="mt-1 text-body-md text-on-surface-variant">
-              Real-time metrics for current advertising inventory.
+            <p className="mt-2 max-w-2xl font-body-lg text-body-lg text-on-surface-variant">
+              Oversee sponsored listings and banner inventory distribution across the Executive
+              ecosystem.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              className="rounded-lg border border-secondary bg-surface-container-lowest px-6 py-2.5 font-label-bold text-secondary transition-colors hover:bg-surface-container"
-            >
-              Generate Revenue Report
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdTypeModalOpen(true)}
-              className="flex items-center rounded-lg bg-secondary px-6 py-2.5 font-label-bold text-on-secondary shadow-sm transition-opacity hover:opacity-90"
-            >
-              <Icon name="add" className="mr-2 text-[18px]" />
-              Create New Ad Campaign
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setAdTypeModalOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-label-bold text-label-bold text-on-primary transition-all hover:bg-secondary active:scale-95"
+          >
+            <Icon name="add" />
+            Create Campaign
+          </button>
         </div>
 
         {error && (
@@ -195,183 +295,322 @@ export function AdminPlatformAdsPage() {
           </p>
         )}
 
-        <div className="mb-4 grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-stack-lg grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-4">
           {STAT_CARDS.map((card, index) => (
             <div
               key={card.label}
-              className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-colors hover:border-secondary"
+              className="border border-outline-variant bg-surface-container-lowest p-stack-md transition-colors hover:border-secondary"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg">
-                <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", card.iconClass)}>
-                  <Icon name={card.icon} className="text-[22px]" />
-                </div>
+              <div className="mb-4 flex items-start justify-between">
+                <Icon name={card.icon} className={cn("text-[22px]", card.iconClass)} />
+                <span className="text-xs font-bold text-on-surface-variant opacity-60">{card.tag}</span>
               </div>
-              <p className="text-[11px] font-label-bold uppercase tracking-wider text-on-surface-variant">
-                {card.label}
-              </p>
-              <h3 className="text-headline-md font-bold text-on-surface">
-                {index === 0
-                  ? String(activeCount)
-                  : index === 1
-                    ? formatViews(totalViews)
-                    : index === 2
-                      ? "4.2%"
-                      : "24,500"}
+              <h3 className="font-headline-md text-headline-md text-primary">
+                {loading
+                  ? "…"
+                  : index === 0
+                    ? String(activeCount)
+                    : index === 1
+                      ? String(pendingCount)
+                      : index === 2
+                        ? "LKR 284,500"
+                        : "3.2%"}
               </h3>
-              {"sub" in card && card.sub && (
-                <p className="mt-2 text-label-sm italic text-on-surface-variant">{card.sub}</p>
+              <p className="font-label-sm text-label-sm text-on-surface-variant">{card.label}</p>
+              {"showProgress" in card && card.showProgress && (
+                <div className="mt-4 h-1 overflow-hidden rounded-full bg-surface-variant">
+                  <div
+                    className="h-full bg-secondary"
+                    style={{
+                      width: `${campaigns.length > 0 ? Math.round((activeCount / campaigns.length) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+              )}
+              {"showDelta" in card && card.showDelta && pendingCount > 0 && (
+                <p className="mt-2 text-[10px] font-bold text-error">+{pendingCount} awaiting start</p>
+              )}
+              {"showTrend" in card && card.showTrend && (
+                <p className="mt-2 text-[10px] font-bold text-on-secondary-fixed-variant">
+                  ↑ 12.4% vs last month
+                </p>
+              )}
+              {"showBars" in card && card.showBars && (
+                <div className="mt-4 flex items-end gap-1">
+                  {[4, 6, 8, 5, 9].map((h, i) => (
+                    <div
+                      key={i}
+                      className={cn("w-1 bg-surface-variant", i >= 2 && "bg-secondary")}
+                      style={{ height: `${h * 4}px` }}
+                    />
+                  ))}
+                </div>
+              )}
+              {index === 1 && totalViews > 0 && (
+                <p className="mt-2 text-[10px] text-on-surface-variant opacity-60">
+                  {formatCompactViews(totalViews)} tracked
+                </p>
               )}
             </div>
           ))}
         </div>
 
-        <div className="mb-gutter flex flex-nowrap items-center gap-3 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-          <div className="relative min-w-[min(100%,280px)] flex-1">
-            <Icon
-              name="search"
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-outline"
-            />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search campaigns, advertisers…"
-              className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 font-body-md outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-            />
-          </div>
-          <select
-            value={adTypeFilter}
-            onChange={(e) => setAdTypeFilter(e.target.value)}
-            className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
-            aria-label="Filter by ad type"
-          >
-            {AD_TYPE_FILTERS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
-            aria-label="Filter by status"
-          >
-            {STATUS_FILTERS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("");
-                setAdTypeFilter("all");
-                setStatusFilter("all");
-              }}
-              className="shrink-0 font-label-bold text-secondary hover:underline"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-        <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-          <div className="flex items-center justify-between border-b border-outline-variant p-6">
-            <h2 className="text-xl font-bold text-on-surface">Campaign Management</h2>
-            <div className="flex items-center gap-3">
-              <span className="rounded-full bg-secondary-container/20 px-3 py-1 text-label-sm font-label-bold text-secondary">
-                {loading ? "…" : `${filteredCampaigns.length} shown`}
-              </span>
-              <button type="button" className="rounded-lg p-2 hover:bg-surface-container" aria-label="Export">
-                <Icon name="download" className="text-on-surface-variant" />
-              </button>
+        <div className="min-w-0">
+            <div className="mb-6 flex gap-8 overflow-x-auto border-b border-outline-variant">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    "whitespace-nowrap pb-4 font-label-bold text-label-bold transition-all",
+                    activeTab === tab.key
+                      ? "border-b-2 border-secondary text-secondary"
+                      : "text-on-surface-variant hover:text-secondary",
+                  )}
+                >
+                  {tabLabel(tab)}
+                </button>
+              ))}
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-surface-container-low text-xs font-label-bold uppercase tracking-wider text-on-surface-variant">
-                <tr>
-                  {TABLE_COLUMNS.map((h) => (
-                    <th key={h || "actions"} className="px-6 py-4">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant">
-                {loading ? (
-                  <tr>
-                    <td colSpan={TABLE_COLUMNS.length} className="px-6 py-10 text-on-surface-variant">
-                      Loading campaigns…
-                    </td>
-                  </tr>
-                ) : filteredCampaigns.length === 0 ? (
-                  <tr>
-                    <td colSpan={TABLE_COLUMNS.length} className="px-6 py-10 text-on-surface-variant">
-                      No campaigns match your filters.{" "}
+
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Icon
+                      name="search"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-outline"
+                    />
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by advertiser or campaign name..."
+                      className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-10 pr-4 outline-none transition-all focus:border-primary"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen((open) => !open)}
+                    className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 font-label-bold transition-colors hover:bg-surface-variant"
+                  >
+                    <Icon name="filter_list" className="text-sm" />
+                    Filter
+                  </button>
+                </div>
+
+                {filtersOpen && (
+                  <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
+                    <select
+                      value={adTypeFilter}
+                      onChange={(e) => setAdTypeFilter(e.target.value)}
+                      className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
+                      aria-label="Filter by ad type"
+                    >
+                      <option value="all">All ad types</option>
+                      <option value="Banner 3x2">Banner 3×2</option>
+                      <option value="Banner 2x5">Banner 2×5</option>
+                      <option value="Sponsored">Sponsored</option>
+                    </select>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
+                      aria-label="Filter by status"
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="Active">Active</option>
+                      <option value="Scheduled">Scheduled</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                    {hasActiveFilters && (
                       <button
                         type="button"
-                        onClick={() => setAdTypeModalOpen(true)}
+                        onClick={() => {
+                          setSearchQuery("");
+                          setAdTypeFilter("all");
+                          setStatusFilter("all");
+                        }}
                         className="font-label-bold text-secondary hover:underline"
                       >
-                        Create one
+                        Clear
                       </button>
-                      .
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCampaigns.map((row) => (
-                    <tr key={row.id} className="group transition-colors hover:bg-surface-container-low">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="mr-3 flex h-8 w-8 items-center justify-center rounded bg-surface-container text-xs font-bold text-secondary">
-                            {row.initials}
-                          </div>
-                          <div>
-                            <p className="font-label-bold text-on-surface">{row.advertiser}</p>
-                            <p className="text-[10px] text-on-surface-variant">{row.sublabel}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm">{row.adType}</td>
-                      <td className="px-6 py-4">
-                        <CampaignStatusBadge status={row.status} />
-                      </td>
-                      <td className="px-6 py-4 text-xs text-on-surface-variant">{row.timeline}</td>
-                      <td className="px-6 py-4 text-sm font-label-bold text-on-surface">
-                        {row.promotionEndDate}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-label-bold tabular-nums text-on-surface">
-                        {formatViews(row.views)}
-                      </td>
-                      <td className="px-6 py-4 font-label-bold">{row.ctr}</td>
-                      <td className="px-6 py-4 text-right">
-                        <Link
-                          href={row.editHref}
-                          className="inline-flex rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-secondary"
-                          aria-label={`Edit ${row.advertiser}`}
-                        >
-                          <Icon name="edit" className="text-[20px]" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
+                    )}
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-center border-t border-outline-variant bg-surface-container-lowest p-4">
-            <button
-              type="button"
-              onClick={() => setAdTypeModalOpen(true)}
-              className="text-sm font-label-bold text-secondary hover:underline"
-            >
-              Create New Campaign
-            </button>
-          </div>
+
+                <div className="overflow-hidden border border-outline-variant bg-surface-container-lowest">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-left">
+                      <thead className="border-b border-outline-variant bg-surface-container font-label-bold text-label-sm uppercase text-on-surface-variant">
+                        <tr>
+                          <th className="px-6 py-4">Advertiser</th>
+                          <th className="px-6 py-4">Type / Placement</th>
+                          <th className="px-6 py-4">Engagement</th>
+                          <th className="px-6 py-4">Schedule</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-outline-variant">
+                        {loading ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-10 text-on-surface-variant">
+                              Loading campaigns…
+                            </td>
+                          </tr>
+                        ) : pagedCampaigns.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-10 text-on-surface-variant">
+                              No campaigns match your filters.{" "}
+                              <button
+                                type="button"
+                                onClick={() => setAdTypeModalOpen(true)}
+                                className="font-label-bold text-secondary hover:underline"
+                              >
+                                Create one
+                              </button>
+                              .
+                            </td>
+                          </tr>
+                        ) : (
+                          pagedCampaigns.map((row) => (
+                            <tr
+                              key={row.id}
+                              className="group transition-colors hover:bg-surface-container-low"
+                            >
+                              <td className="px-6 py-5">
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={cn(
+                                      "flex h-10 w-10 items-center justify-center rounded border border-outline-variant text-xs font-bold",
+                                      row.adType === "Sponsored"
+                                        ? "bg-primary-container text-on-primary-container"
+                                        : "bg-surface-variant text-primary",
+                                    )}
+                                  >
+                                    {row.initials}
+                                  </div>
+                                  <div>
+                                    <p className="font-label-bold text-label-bold text-primary">
+                                      {row.advertiser}
+                                    </p>
+                                    <p className="text-[11px] text-on-surface-variant opacity-60">
+                                      {row.sublabel}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5">
+                                <div className="mb-1 inline-flex items-center gap-1 rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-bold uppercase">
+                                  <Icon name={row.typeIcon} className="text-xs" />
+                                  {row.typeLabel}
+                                </div>
+                                <p className="font-label-sm text-label-sm text-on-surface-variant">
+                                  {row.placement}
+                                </p>
+                              </td>
+                              <td className="px-6 py-5">
+                                <p className="font-label-bold text-label-bold">
+                                  {formatCompactViews(row.views)}
+                                </p>
+                                <p
+                                  className={cn(
+                                    "text-[11px] font-bold",
+                                    row.ctr !== "—" ? "text-secondary" : "text-on-surface-variant opacity-60",
+                                  )}
+                                >
+                                  {row.ctr !== "—" ? `${row.ctr} CTR` : "CTR pending"}
+                                </p>
+                              </td>
+                              <td className="px-6 py-5">
+                                <p className="font-label-sm text-label-sm">{row.timeline}</p>
+                                <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-surface-variant">
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full",
+                                      row.displayStatus === "Expiring Today"
+                                        ? "bg-on-surface-variant opacity-40"
+                                        : "bg-secondary",
+                                    )}
+                                    style={{ width: `${row.scheduleProgress}%` }}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-6 py-5">
+                                <CampaignStatusIndicator status={row.displayStatus} />
+                              </td>
+                              <td className="px-6 py-5 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Link
+                                    href={row.editHref}
+                                    className="rounded p-2 transition-colors hover:bg-surface-variant"
+                                    title="Edit"
+                                    aria-label={`Edit ${row.advertiser}`}
+                                  >
+                                    <Icon name="edit" className="text-on-surface-variant" />
+                                  </Link>
+                                  {row.viewHref && (
+                                    <a
+                                      href={row.viewHref}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="rounded p-2 transition-colors hover:bg-surface-variant"
+                                      title="View"
+                                      aria-label={`View ${row.advertiser}`}
+                                    >
+                                      <Icon name="open_in_new" className="text-on-surface-variant" />
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-between gap-3 border-t border-outline-variant bg-surface-container-lowest px-6 py-4 sm:flex-row">
+                    <p className="text-label-sm text-on-surface-variant">
+                      Showing {pagedCampaigns.length} of {filteredCampaigns.length} campaigns
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={page <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        className="rounded border border-outline-variant px-3 py-1 transition-colors hover:bg-surface-variant disabled:opacity-40"
+                        aria-label="Previous page"
+                      >
+                        <Icon name="chevron_left" className="text-sm" />
+                      </button>
+                      {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => i + 1).map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setPage(n)}
+                          className={cn(
+                            "rounded px-3 py-1 transition-colors",
+                            page === n
+                              ? "bg-primary text-on-primary"
+                              : "border border-outline-variant hover:bg-surface-variant",
+                          )}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={page >= pageCount}
+                        onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                        className="rounded border border-outline-variant px-3 py-1 transition-colors hover:bg-surface-variant disabled:opacity-40"
+                        aria-label="Next page"
+                      >
+                        <Icon name="chevron_right" className="text-sm" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
         </div>
       </AdminPageCanvas>
     </RecruiterAdminShell>

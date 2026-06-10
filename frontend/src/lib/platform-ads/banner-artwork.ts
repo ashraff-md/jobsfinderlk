@@ -20,6 +20,13 @@ export function bannerArtworkBounds(
   return variant === "wide" ? WIDE_BANNER_BOUNDS : TALL_BANNER_BOUNDS;
 }
 
+export function bannerArtworkSizeHint(variant: "wide" | "tall"): string {
+  if (variant === "wide") {
+    return "3×2 ratio — 1200×800px recommended (max 1200×800px). JPEG, PNG, or WebP up to 5MB.";
+  }
+  return "2×5 ratio — 480×1200px recommended (max 480×1200px). JPEG, PNG, or WebP up to 5MB.";
+}
+
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

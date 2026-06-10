@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -21,6 +23,8 @@ import {
 } from './dto/auth.dto';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { VerificationService } from './verification.service';
+import { EmployerPurchasesService } from './employer-purchases.service';
+import { CompaniesService } from '../companies/companies.service';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +33,10 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly verification: VerificationService,
+    private readonly employerPurchases: EmployerPurchasesService,
     private readonly imageStorage: ImageStorageService,
+    @Inject(forwardRef(() => CompaniesService))
+    private readonly companiesService: CompaniesService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -133,8 +140,15 @@ export class AuthService {
       },
     });
     if (!user) throw new UnauthorizedException();
+
+    const listingAllowance =
+      user.role === UserRole.EMPLOYER
+        ? await this.employerPurchases.getListingAllowance(userId)
+        : undefined;
+
     return {
       ...user,
+      listingAllowance,
       employerUsers: user.employerUsers.map((link) => ({
         ...link,
         photoUrl: this.imageStorage.resolvePublicUrl(link.photoUrl),
@@ -179,6 +193,14 @@ export class AuthService {
     const fullName = dto.fullName?.trim();
     const title = dto.title?.trim();
     const contactNo = dto.contactNo?.trim();
+
+    if (dto.contactNo !== undefined) {
+      await this.verification.assertPhoneVerifiedForProfileSave(
+        userId,
+        link,
+        contactNo || null,
+      );
+    }
 
     let photoUrl: string | null | undefined;
     if (dto.photoUrl !== undefined) {
@@ -252,17 +274,39 @@ export class AuthService {
     let resolvedCompanyId = companyId;
 
     if (!resolvedCompanyId && companyName?.trim()) {
+      const trimmedName = companyName.trim();
       const matched = await this.prisma.company.findFirst({
-        where: { name: { equals: companyName.trim(), mode: 'insensitive' } },
+        where: { name: { equals: trimmedName, mode: 'insensitive' } },
         select: { id: true },
       });
       resolvedCompanyId = matched?.id;
-    }
 
-    if (companyName?.trim() && !resolvedCompanyId) {
-      throw new BadRequestException(
-        'We could not find that company. Check the spelling and try again.',
-      );
+      if (!resolvedCompanyId) {
+        const similar = await this.companiesService.findSimilar({
+          name: trimmedName,
+        });
+        const strongMatch = similar.find((item) => item.score >= 0.92);
+        if (strongMatch) {
+          throw new BadRequestException(
+            `A similar company already exists: ${strongMatch.name}. Select it from the suggestions.`,
+          );
+        }
+
+        if (link) {
+          const renamed = await this.companiesService.renameOwnedPlaceholderCompany(
+            userId,
+            link.companyId,
+            trimmedName,
+          );
+          if (renamed) {
+            return link;
+          }
+        }
+
+        throw new BadRequestException(
+          'We could not find that company. Select an existing company from the suggestions or register a new company.',
+        );
+      }
     }
 
     if (resolvedCompanyId) {
@@ -273,23 +317,27 @@ export class AuthService {
         throw new NotFoundException('Company not found');
       }
 
-      const existingForCompany = await this.prisma.employerUser.findUnique({
-        where: { userId_companyId: { userId, companyId: resolvedCompanyId } },
-      });
-
-      if (existingForCompany) {
-        return existingForCompany;
-      }
-
-      if (link) {
-        return this.prisma.employerUser.update({
-          where: { id: link.id },
-          data: { companyId: resolvedCompanyId },
+      if (!link) {
+        return this.prisma.employerUser.create({
+          data: { userId, companyId: resolvedCompanyId },
         });
       }
 
-      return this.prisma.employerUser.create({
-        data: { userId, companyId: resolvedCompanyId },
+      if (link.companyId === resolvedCompanyId) {
+        return link;
+      }
+
+      await this.prisma.employerUser.deleteMany({
+        where: {
+          userId,
+          companyId: resolvedCompanyId,
+          id: { not: link.id },
+        },
+      });
+
+      return this.prisma.employerUser.update({
+        where: { id: link.id },
+        data: { companyId: resolvedCompanyId },
       });
     }
 

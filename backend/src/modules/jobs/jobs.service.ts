@@ -14,6 +14,7 @@ import {
 import { detectScamContent, slugify, uniqueSlug } from '../../common/utils/slug.util';
 import { assertValidApplicationDeadline } from '../../common/utils/application-deadline.util';
 import { ImageStorageService } from '../../common/storage/image-storage.service';
+import { EmployerPurchasesService } from '../auth/employer-purchases.service';
 import { VerificationService } from '../auth/verification.service';
 import { GovernmentOrganizationsService } from '../government-organizations/government-organizations.service';
 import { CreateJobDto, JobQueryDto, UpdateJobDto } from './dto/job.dto';
@@ -98,6 +99,7 @@ export class JobsService {
     private readonly governmentOrganizationsService: GovernmentOrganizationsService,
     private readonly imageStorage: ImageStorageService,
     private readonly verification: VerificationService,
+    private readonly employerPurchases: EmployerPurchasesService,
   ) {}
 
   private mapGovernmentOrganization<
@@ -122,6 +124,7 @@ export class JobsService {
 
   private mapJobForPublic<
     T extends {
+      jobDocumentUrl?: string | null;
       vacancyArtworkUrl?: string | null;
       company: { logoUrl?: string | null; lifeAtCompanyImages?: string[] };
       governmentOrganization?: {
@@ -132,6 +135,7 @@ export class JobsService {
   >(job: T): T {
     return {
       ...job,
+      jobDocumentUrl: this.imageStorage.resolvePublicUrl(job.jobDocumentUrl),
       vacancyArtworkUrl: this.imageStorage.resolvePublicUrl(job.vacancyArtworkUrl),
       company: this.imageStorage.withPublicUrls(job.company),
       ...(job.governmentOrganization !== undefined
@@ -281,6 +285,9 @@ export class JobsService {
 
     if (userRole === UserRole.EMPLOYER) {
       await this.verification.assertRecruiterCanPostJobs(userId);
+      if (dto.publish) {
+        await this.employerPurchases.assertCanUseListingSlot(userId);
+      }
     }
 
     const isGovernmentAdminPost =
@@ -395,7 +402,7 @@ export class JobsService {
         applicationExternalUrl: dto.applicationExternalUrl,
         walkInDetails: dto.walkInDetails,
         registeredPostDetails: dto.registeredPostDetails?.trim() || null,
-        jobDocumentUrl: dto.jobDocumentUrl,
+        jobDocumentUrl: await this.imageStorage.saveJobDocument(dto.jobDocumentUrl),
         vacancyArtworkUrl: await this.imageStorage.saveVacancyArtwork(
           dto.vacancyArtworkUrl,
         ),
@@ -406,6 +413,7 @@ export class JobsService {
         expiresAt: dto.applicationDeadline
           ? new Date(dto.applicationDeadline)
           : null,
+        postedById: userId,
       },
       include: JOB_PUBLIC_INCLUDE,
     });
@@ -616,6 +624,11 @@ export class JobsService {
         ? await this.imageStorage.saveVacancyArtwork(dto.vacancyArtworkUrl)
         : undefined;
 
+    const jobDocumentUrl =
+      dto.jobDocumentUrl !== undefined
+        ? await this.imageStorage.saveJobDocument(dto.jobDocumentUrl)
+        : undefined;
+
     return this.prisma.job.update({
       where: { id },
       data: {
@@ -703,6 +716,7 @@ export class JobsService {
           registeredPostDetails: dto.registeredPostDetails?.trim() || null,
         }),
         ...(vacancyArtworkUrl !== undefined && { vacancyArtworkUrl }),
+        ...(jobDocumentUrl !== undefined && { jobDocumentUrl }),
         ...(dto.jobSourceType !== undefined && {
           jobSourceType: dto.jobSourceType.trim() || null,
         }),
@@ -785,7 +799,10 @@ export class JobsService {
     if (!companyIds.length) return [];
 
     return this.prisma.job.findMany({
-      where: { companyId: { in: companyIds } },
+      where: {
+        postedById: userId,
+        companyId: { in: companyIds },
+      },
       include: {
         company: true,
         _count: { select: { applications: true } },

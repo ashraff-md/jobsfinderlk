@@ -29,17 +29,25 @@ export function savePlatformAdsConfig(config: PlatformAdsSlotConfig) {
 
 export type CampaignAdType = "Banner 3x2" | "Banner 2x5" | "Sponsored";
 
-export type CampaignStatus = "Active" | "Scheduled" | "Pending Review" | "Inactive";
+export type CampaignStatus =
+  | "Active"
+  | "Scheduled"
+  | "Pending Review"
+  | "Rejected"
+  | "Inactive";
 
 export type CampaignDisplayStatus =
   | "Live"
   | "Rotating"
   | "Scheduled"
+  | "Rejected"
   | "Inactive"
   | "Expiring Today";
 
 export type PlatformCampaignRow = {
   id: string;
+  campaignKind: "sponsored" | "banner";
+  reviewStatus: "PENDING" | "APPROVED" | "REJECTED";
   advertiser: string;
   sublabel: string;
   initials: string;
@@ -55,6 +63,7 @@ export type PlatformCampaignRow = {
   endsAt: string;
   scheduleProgress: number;
   views: number;
+  clicks: number;
   ctr: string;
   editHref: string;
   viewHref?: string;

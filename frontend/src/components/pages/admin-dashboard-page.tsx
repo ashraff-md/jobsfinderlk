@@ -230,7 +230,7 @@ export function AdminDashboardPage() {
                   <tr>
                     <th className="px-6 py-4">Organization</th>
                     <th className="px-6 py-4">Submitted</th>
-                    <th className="px-6 py-4 text-right">Status</th>
+                    <th className="px-6 py-4 text-right">Review</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
@@ -267,10 +267,13 @@ export function AdminDashboardPage() {
                           {timeAgo(item.createdAt)}
                         </td>
                         <td className="px-6 py-5 text-right">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-1 text-[10px] font-bold text-primary">
-                            <Icon name="pending_actions" className="text-[14px]" />
-                            PENDING
-                          </span>
+                          <Link
+                            href={`/admin/companies/${item.id}`}
+                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-label-bold font-semibold text-primary transition-colors hover:bg-primary/5"
+                          >
+                            <Icon name="edit" className="text-[16px]" />
+                            Edit
+                          </Link>
                         </td>
                       </tr>
                     ))

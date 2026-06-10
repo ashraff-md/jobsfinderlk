@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BANNER_SLIDE_INTERVAL_MS,
   BANNER_SLIDES_PER_POSITION,
 } from "@/lib/platform-ads/banner-rotation";
 import type { HomeBannerCard } from "@/lib/home/home-banner-ads";
 import { isExternalBannerUrl } from "@/lib/platform-ads/banner-destination";
+import {
+  recordBannerClicks,
+  recordBannerImpressions,
+} from "@/lib/platform-ads/record-impressions";
 import { cn } from "@/lib/utils";
 
 type HomeBannerCardCarouselProps = {
@@ -22,10 +26,33 @@ export function HomeBannerCardCarousel({
   const slides = card.slides.slice(0, BANNER_SLIDES_PER_POSITION);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIndex(0);
   }, [slides[0]?.imageUrl, slides[1]?.imageUrl, slides[2]?.imageUrl]);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.5));
+      },
+      { threshold: [0, 0.5, 1] },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const activeSlide = slides[index];
+    if (!activeSlide?.campaignId) return;
+    recordBannerImpressions([activeSlide.campaignId]);
+  }, [index, isVisible, slides]);
 
   useEffect(() => {
     if (paused || slides.length <= 1) return;
@@ -46,11 +73,16 @@ export function HomeBannerCardCarousel({
     "group relative block w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-sm transition-all hover:border-secondary/50 hover:shadow-md",
     aspectClassName,
   );
+  const handleBannerClick = () => {
+    if (active.campaignId) recordBannerClicks([active.campaignId]);
+  };
+
   const linkHandlers = {
     onMouseEnter: () => setPaused(true),
     onMouseLeave: () => setPaused(false),
     onFocus: () => setPaused(true),
     onBlur: () => setPaused(false),
+    onClick: handleBannerClick,
   };
 
   const slideContent = (
@@ -92,22 +124,26 @@ export function HomeBannerCardCarousel({
 
   if (external) {
     return (
-      <a
-        href={active.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={active.alt}
-        className={linkClassName}
-        {...linkHandlers}
-      >
-        {slideContent}
-      </a>
+      <div ref={containerRef}>
+        <a
+          href={active.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={active.alt}
+          className={linkClassName}
+          {...linkHandlers}
+        >
+          {slideContent}
+        </a>
+      </div>
     );
   }
 
   return (
-    <Link href={active.href} aria-label={active.alt} className={linkClassName} {...linkHandlers}>
-      {slideContent}
-    </Link>
+    <div ref={containerRef}>
+      <Link href={active.href} aria-label={active.alt} className={linkClassName} {...linkHandlers}>
+        {slideContent}
+      </Link>
+    </div>
   );
 }

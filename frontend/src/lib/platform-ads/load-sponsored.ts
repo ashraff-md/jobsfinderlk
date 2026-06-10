@@ -34,7 +34,10 @@ export async function loadSponsoredJobCards(
     const { jobs, totalActive } = await getPlatformSponsoredJobs(limit, offset);
     if (jobs.length > 0) {
       advanceSponsoredBatchOffset(totalActive, limit);
-      return jobs.map((job) => jobToSponsoredCardItem(job));
+      return jobs.map(({ sponsoredAdId, job }) => ({
+        ...jobToSponsoredCardItem(job),
+        sponsoredAdId,
+      }));
     }
   } catch {
     /* use featured fallback */

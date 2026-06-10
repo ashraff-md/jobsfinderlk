@@ -7,94 +7,103 @@ type CompaniesDirectoryPageProps = {
   companies?: Company[];
 };
 
-const SECTORS = [
-  "All Sectors",
-  "Technology & SaaS",
-  "Banking & Finance",
-  "Manufacturing",
-  "Logistics",
-  "Hospitality",
-];
+type CompanyCardItem = {
+  name: string;
+  industry: string;
+  logoUrl?: string | null;
+  badge?: { label: string; className: string };
+  stats: Array<{ icon: string; text: string }>;
+  footer: { label: string; className: string };
+  slug: string;
+};
 
-const COMPANIES = [
-  {
-    name: "Commercial Bank",
-    industry: "Banking & Financial Services",
-    icon: "account_balance",
-    badge: { label: "Hiring Now", className: "text-green-600 bg-green-50" },
-    stats: [
-      { icon: "groups", text: "5,000+ Team Members" },
-      { icon: "workspace_premium", text: "Top Tier Stability Rating" },
-    ],
-    footer: { label: "4 Open Roles", className: "text-secondary" },
-    slug: "commercial-bank",
-  },
-  {
-    name: "MAS Holdings",
-    industry: "Manufacturing & Textiles",
-    icon: "precision_manufacturing",
-    stats: [
-      { icon: "groups", text: "90,000+ Global Team" },
-      { icon: "eco", text: "Innovation Leader" },
-    ],
-    footer: { label: "Talent Pool Only", className: "text-on-surface-variant" },
-    slug: "mas-holdings",
-  },
-  {
-    name: "Sysco LABS",
-    industry: "Tech Hub & Global Services",
-    icon: "cloud",
-    badge: { label: "Fast Growing", className: "text-secondary bg-secondary/10" },
-    stats: [
-      { icon: "groups", text: "1,200+ Team Members" },
-      { icon: "verified", text: "Fortune 50 Subsidiary" },
-    ],
-    footer: { label: "18 Open Roles", className: "text-secondary" },
-    slug: "sysco-labs",
-  },
-  {
-    name: "Hayleys PLC",
-    industry: "Conglomerate",
-    icon: "factory",
-    stats: [
-      { icon: "groups", text: "30,000+ Team Members" },
-      { icon: "history_edu", text: "140 Year Heritage" },
-    ],
-    footer: { label: "7 Open Roles", className: "text-secondary" },
-    slug: "hayleys-plc",
-  },
-  {
-    name: "Expolanka",
-    industry: "Logistics & Freight",
-    icon: "local_shipping",
-    stats: [
-      { icon: "groups", text: "3,500+ Global Team" },
-      { icon: "public", text: "Global Market Reach" },
-    ],
-    footer: { label: "No Openings", className: "text-on-surface-variant" },
-    slug: "expolanka",
-  },
-];
+function mapCompanyToCard(company: Company): CompanyCardItem {
+  const openRoles = company._count?.jobs ?? 0;
+  const location = company.location ?? company.city;
+  const stats: CompanyCardItem["stats"] = [];
 
-export function CompaniesDirectoryPage({ companies: apiCompanies }: CompaniesDirectoryPageProps) {
-  const list =
-    apiCompanies && apiCompanies.length > 0
-      ? apiCompanies.map((c) => ({
-          name: c.name,
-          industry: c.description?.slice(0, 48) ?? "Enterprise",
-          icon: "business" as const,
-          badge:
-            (c._count?.jobs ?? 0) > 0
-              ? { label: "Hiring Now", className: "text-green-600 bg-green-50" }
-              : undefined,
-          stats: [{ icon: "work" as const, text: `${c._count?.jobs ?? 0} Open Roles` }],
-          footer: {
-            label: `${c._count?.jobs ?? 0} Open Role${(c._count?.jobs ?? 0) === 1 ? "" : "s"}`,
-            className: (c._count?.jobs ?? 0) > 0 ? "text-secondary" : "text-on-surface-variant",
-          },
-          slug: c.slug,
-        }))
-      : COMPANIES;
+  if (location) {
+    stats.push({ icon: "location_on", text: location });
+  }
+  stats.push({
+    icon: "work",
+    text: `${openRoles} Open Role${openRoles === 1 ? "" : "s"}`,
+  });
+
+  return {
+    name: company.name,
+    industry: company.industry ?? company.companyType ?? "Enterprise",
+    logoUrl: company.logoUrl,
+    badge:
+      openRoles > 0
+        ? { label: "Hiring Now", className: "text-green-600 bg-green-50" }
+        : undefined,
+    stats,
+    footer: {
+      label:
+        openRoles > 0
+          ? `${openRoles} Open Role${openRoles === 1 ? "" : "s"}`
+          : "No Openings",
+      className: openRoles > 0 ? "text-secondary" : "text-on-surface-variant",
+    },
+    slug: company.slug,
+  };
+}
+
+function buildSectors(companies: Company[]) {
+  const industries = [
+    ...new Set(
+      companies.map((company) => company.industry?.trim()).filter(Boolean) as string[],
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  return ["All Sectors", ...industries];
+}
+
+function hiringIntensityLabel(companies: Company[]) {
+  if (companies.length === 0) return "—";
+  const hiringCount = companies.filter((company) => (company._count?.jobs ?? 0) > 0).length;
+  const ratio = hiringCount / companies.length;
+  if (ratio >= 0.5) return "High";
+  if (ratio >= 0.2) return "Medium";
+  return "Low";
+}
+
+function topSectorByOpenings(companies: Company[]) {
+  const totals = new Map<string, number>();
+
+  for (const company of companies) {
+    const industry = company.industry?.trim() || "Other";
+    totals.set(industry, (totals.get(industry) ?? 0) + (company._count?.jobs ?? 0));
+  }
+
+  let topSector = "—";
+  let topCount = 0;
+  for (const [industry, count] of totals) {
+    if (count > topCount) {
+      topCount = count;
+      topSector = industry;
+    }
+  }
+
+  return topSector;
+}
+
+function pickFeaturedCompany(companies: Company[]) {
+  if (companies.length === 0) return null;
+
+  return [...companies].sort((a, b) => (b._count?.jobs ?? 0) - (a._count?.jobs ?? 0))[0];
+}
+
+export function CompaniesDirectoryPage({ companies = [] }: CompaniesDirectoryPageProps) {
+  const list = companies.map(mapCompanyToCard);
+  const sectors = buildSectors(companies);
+  const featuredCompany = pickFeaturedCompany(companies);
+  const featuredOpenRoles = featuredCompany?._count?.jobs ?? 0;
+  const featuredImage =
+    featuredCompany?.lifeAtCompanyImages?.[0] ??
+    featuredCompany?.logoUrl ??
+    null;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-on-surface">
@@ -144,75 +153,110 @@ export function CompaniesDirectoryPage({ companies: apiCompanies }: CompaniesDir
           </div>
         </section>
 
-        <div className="no-scrollbar mb-stack-lg flex items-center gap-3 overflow-x-auto pb-4">
-          <span className="mr-4 font-label-bold text-label-bold text-on-surface-variant">Common Sectors:</span>
-          {SECTORS.map((sector, i) => (
-            <button
-              key={sector}
-              type="button"
-              className={
-                i === 0
-                  ? "whitespace-nowrap rounded-full bg-primary px-4 py-1.5 font-label-bold text-label-bold text-on-primary"
-                  : "whitespace-nowrap rounded-full border border-outline-variant bg-surface-container-high px-4 py-1.5 font-label-bold text-label-bold text-on-surface-variant transition-colors hover:bg-surface-container-highest"
-              }
-            >
-              {sector}
-            </button>
-          ))}
-        </div>
+        {sectors.length > 1 ? (
+          <div className="no-scrollbar mb-stack-lg flex items-center gap-3 overflow-x-auto pb-4">
+            <span className="mr-4 font-label-bold text-label-bold text-on-surface-variant">
+              Common Sectors:
+            </span>
+            {sectors.map((sector, index) => (
+              <button
+                key={sector}
+                type="button"
+                className={
+                  index === 0
+                    ? "whitespace-nowrap rounded-full bg-primary px-4 py-1.5 font-label-bold text-label-bold text-on-primary"
+                    : "whitespace-nowrap rounded-full border border-outline-variant bg-surface-container-high px-4 py-1.5 font-label-bold text-label-bold text-on-surface-variant transition-colors hover:bg-surface-container-highest"
+                }
+              >
+                {sector}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <div className="mb-stack-lg grid grid-cols-1 gap-gutter lg:grid-cols-12">
-          <div className="executive-shadow group relative overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest transition-all hover:border-secondary lg:col-span-8">
-            <div className="absolute right-6 top-6 z-10">
-              <span className="flex items-center gap-1 rounded-full bg-secondary-container px-3 py-1 font-label-sm text-label-sm text-on-secondary-container shadow-sm">
-                <Icon name="star" className="text-[14px]" filled />
-                PREMIUM PLACEMENT
-              </span>
-            </div>
-            <div className="relative aspect-[21/9] w-full overflow-hidden bg-surface-dim">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt="WSO2 headquarters"
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQFiylGjN_j32Wic3n9q9FuPnUSrwfO3MbA6fOQe1JigKJvRMSUgH8iRKAPJQBm7iBU32OErlRep6Ko67rME6JkVA7xhLo20pWgGEYhL4qLhYzRVPPtowFyViqHhzdAlzjPc3pmtJxeTcmql97Onzz4iJXtVOIdoP3nhFQJnvhz2ZmsIjQqTqx4hQmvVSKAuynwdp695M0VDReeeI-EUkGfFe_6ecGKMR48li91KGiGwtRdBCbrjOgrGJ5RmNf5ioIISj7Htue--5u"
-              />
-            </div>
-            <div className="flex flex-col items-end justify-between gap-6 p-8 md:flex-row">
-              <div className="flex flex-col gap-2">
-                <div className="mb-2 flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center border border-outline-variant bg-white p-2 shadow-sm">
-                    <Icon name="corporate_fare" className="text-3xl text-secondary" />
-                  </div>
-                  <div>
-                    <h3 className="font-headline-md text-headline-md text-primary">WSO2 Global</h3>
-                    <p className="font-label-bold text-label-bold text-secondary">Technology & Open Source</p>
-                  </div>
-                </div>
-                <p className="max-w-lg font-body-md text-body-md text-on-surface-variant">
-                  The world&apos;s leading open-source integration vendor, powering digital transformation for global
-                  enterprises from their Colombo hub.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="rounded bg-surface-container px-3 py-1 font-label-sm text-label-sm text-on-surface-variant">
-                    800+ Employees
-                  </span>
-                  <span className="rounded bg-surface-container px-3 py-1 font-label-sm text-label-sm text-on-surface-variant">
-                    12 Open Roles
-                  </span>
-                  <span className="flex items-center gap-1 rounded bg-on-secondary-fixed-variant/10 px-3 py-1 font-label-sm text-label-sm text-on-secondary-fixed-variant">
-                    <Icon name="bolt" className="text-[14px]" />
-                    AI Efficiency Rank: Top 1%
-                  </span>
-                </div>
+          {featuredCompany ? (
+            <div className="executive-shadow group relative overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest transition-all hover:border-secondary lg:col-span-8">
+              <div className="absolute right-6 top-6 z-10">
+                <span className="flex items-center gap-1 rounded-full bg-secondary-container px-3 py-1 font-label-sm text-label-sm text-on-secondary-container shadow-sm">
+                  <Icon name="star" className="text-[14px]" filled />
+                  {featuredOpenRoles > 0 ? "HIRING NOW" : "FEATURED"}
+                </span>
               </div>
-              <Link
-                href="/companies/wso2"
-                className="w-full rounded bg-primary px-8 py-3 text-center font-label-bold text-label-bold text-on-primary transition-all hover:bg-on-surface-variant md:w-auto"
-              >
-                View Ecosystem
-              </Link>
+              <div className="relative aspect-[21/9] w-full overflow-hidden bg-surface-dim">
+                {featuredImage ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    alt={`${featuredCompany.name} workplace`}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    src={featuredImage}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-surface-container-low">
+                    <Icon name="corporate_fare" className="text-6xl text-outline" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col items-end justify-between gap-6 p-8 md:flex-row">
+                <div className="flex flex-col gap-2">
+                  <div className="mb-2 flex items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center border border-outline-variant bg-white p-2 shadow-sm">
+                      {featuredCompany.logoUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          alt=""
+                          src={featuredCompany.logoUrl}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <Icon name="corporate_fare" className="text-3xl text-secondary" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-headline-md text-headline-md text-primary">
+                        {featuredCompany.name}
+                      </h3>
+                      <p className="font-label-bold text-label-bold text-secondary">
+                        {featuredCompany.industry ?? featuredCompany.companyType ?? "Enterprise"}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="max-w-lg font-body-md text-body-md text-on-surface-variant">
+                    {featuredCompany.description ??
+                      `Explore careers and opportunities at ${featuredCompany.name}.`}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {(featuredCompany.location ?? featuredCompany.city) ? (
+                      <span className="rounded bg-surface-container px-3 py-1 font-label-sm text-label-sm text-on-surface-variant">
+                        {featuredCompany.location ?? featuredCompany.city}
+                      </span>
+                    ) : null}
+                    <span className="rounded bg-surface-container px-3 py-1 font-label-sm text-label-sm text-on-surface-variant">
+                      {featuredOpenRoles} Open Role{featuredOpenRoles === 1 ? "" : "s"}
+                    </span>
+                    {featuredCompany.verified ? (
+                      <span className="flex items-center gap-1 rounded bg-on-secondary-fixed-variant/10 px-3 py-1 font-label-sm text-label-sm text-on-secondary-fixed-variant">
+                        <Icon name="verified" className="text-[14px]" />
+                        Verified Employer
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <Link
+                  href={`/companies/${featuredCompany.slug}`}
+                  className="w-full rounded bg-primary px-8 py-3 text-center font-label-bold text-label-bold text-on-primary transition-all hover:bg-on-surface-variant md:w-auto"
+                >
+                  View Ecosystem
+                </Link>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-8 lg:col-span-8">
+              <p className="text-center font-body-md text-on-surface-variant">
+                Verified companies will appear here once they are listed on JobsFinder.lk.
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-gutter lg:col-span-4">
             <div className="flex grow flex-col justify-between rounded-xl bg-primary p-8 text-on-primary">
@@ -225,15 +269,19 @@ export function CompaniesDirectoryPage({ companies: apiCompanies }: CompaniesDir
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between border-b border-white/10 pb-2">
                   <span className="font-body-md text-body-md opacity-80">Listed Companies</span>
-                  <span className="font-label-bold text-label-bold">482</span>
+                  <span className="font-label-bold text-label-bold">{companies.length}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/10 pb-2">
                   <span className="font-body-md text-body-md opacity-80">Hiring Intensity</span>
-                  <span className="font-label-bold text-label-bold text-green-400">High</span>
+                  <span className="font-label-bold text-label-bold text-green-400">
+                    {hiringIntensityLabel(companies)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="font-body-md text-body-md opacity-80">Top Sector</span>
-                  <span className="font-label-bold text-label-bold">FinTech</span>
+                  <span className="font-label-bold text-label-bold">
+                    {topSectorByOpenings(companies)}
+                  </span>
                 </div>
               </div>
               <button
@@ -253,19 +301,24 @@ export function CompaniesDirectoryPage({ companies: apiCompanies }: CompaniesDir
                 Based on your executive profile, these institutions match your leadership style.
               </p>
               <div className="mb-6 flex -space-x-3">
-                {["J", "H", "M"].map((letter, i) => (
+                {list.slice(0, 3).map((company, index) => (
                   <div
-                    key={letter}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 border-surface-container-high font-bold ${["bg-blue-100", "bg-red-100", "bg-green-100"][i]}`}
+                    key={company.slug}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 border-surface-container-high font-bold ${["bg-blue-100", "bg-red-100", "bg-green-100"][index]}`}
                   >
-                    {letter}
+                    {company.name.charAt(0).toUpperCase()}
                   </div>
                 ))}
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-surface-container-high bg-surface-container text-xs">
-                  +5
-                </div>
+                {list.length > 3 ? (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-surface-container-high bg-surface-container text-xs">
+                    +{list.length - 3}
+                  </div>
+                ) : null}
               </div>
-              <Link href="/dashboard/profile" className="flex items-center gap-2 font-label-bold text-label-bold text-secondary hover:underline">
+              <Link
+                href="/dashboard/profile"
+                className="flex items-center gap-2 font-label-bold text-label-bold text-secondary hover:underline"
+              >
                 Start Career Scan
                 <Icon name="arrow_forward" className="text-sm" />
               </Link>
@@ -285,85 +338,84 @@ export function CompaniesDirectoryPage({ companies: apiCompanies }: CompaniesDir
           </div>
         </div>
 
-        <div className="mb-stack-lg grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3">
-          {list.map((company) => (
-            <Link
-              key={company.slug}
-              href={`/companies/${company.slug}`}
-              className="group flex flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-6 transition-all hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="mb-6 flex items-start justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded bg-surface-container-low p-2">
-                  <Icon name={company.icon} className="text-secondary" />
-                </div>
-                {company.badge && (
-                  <span className={`rounded px-2 py-0.5 font-label-sm text-label-sm ${company.badge.className}`}>
-                    {company.badge.label}
-                  </span>
-                )}
-              </div>
-              <h4 className="mb-1 font-headline-md text-primary">{company.name}</h4>
-              <p className="mb-4 font-label-sm text-label-sm uppercase tracking-wide text-on-surface-variant">
-                {company.industry}
-              </p>
-              <div className="mb-6 grow space-y-3">
-                {company.stats.map((stat) => (
-                  <div key={stat.text} className="flex items-center gap-2">
-                    <Icon name={stat.icon} className="text-sm text-outline" />
-                    <span className="font-body-md text-body-md text-on-surface-variant">{stat.text}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between border-t border-outline-variant pt-4">
-                <span className={`font-label-bold text-label-bold ${company.footer.className}`}>
-                  {company.footer.label}
-                </span>
-                <span className="rounded-full p-2 transition-transform group-hover:translate-x-1 hover:bg-surface-container">
-                  <Icon name="chevron_right" />
-                </span>
-              </div>
-            </Link>
-          ))}
-
-          <div className="flex flex-col items-center justify-center rounded-xl bg-secondary p-6 text-center text-on-secondary">
-            <Icon name="add_business" className="mb-4 text-4xl" />
-            <h4 className="mb-2 font-headline-md text-headline-md">List Your Organization</h4>
-            <p className="mb-6 font-body-md text-body-md opacity-80">
-              Gain access to the island&apos;s most qualified executive talent pool.
+        {list.length === 0 ? (
+          <div className="mb-stack-lg rounded-xl border border-outline-variant bg-surface-container-low p-12 text-center">
+            <Icon name="business" className="mx-auto mb-4 text-4xl text-outline" />
+            <p className="font-body-md text-on-surface-variant">
+              No verified companies are listed yet. Check back soon or register your organization.
             </p>
             <Link
-              href="/employer/jobs/new"
-              className="rounded bg-white px-6 py-2 font-label-bold text-label-bold text-secondary transition-all hover:bg-on-secondary-container"
+              href="/employer/companies/new"
+              className="mt-6 inline-flex rounded bg-secondary px-6 py-2 font-label-bold text-on-secondary"
             >
-              Submit Application
+              Register Company
             </Link>
           </div>
-        </div>
+        ) : (
+          <div className="mb-stack-lg grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3">
+            {list.map((company) => (
+              <Link
+                key={company.slug}
+                href={`/companies/${company.slug}`}
+                className="group flex flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-6 transition-all hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="mb-6 flex items-start justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded bg-surface-container-low p-2">
+                    {company.logoUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        alt=""
+                        src={company.logoUrl}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <Icon name="business" className="text-secondary" />
+                    )}
+                  </div>
+                  {company.badge ? (
+                    <span className={`rounded px-2 py-0.5 font-label-sm text-label-sm ${company.badge.className}`}>
+                      {company.badge.label}
+                    </span>
+                  ) : null}
+                </div>
+                <h4 className="mb-1 font-headline-md text-primary">{company.name}</h4>
+                <p className="mb-4 font-label-sm text-label-sm uppercase tracking-wide text-on-surface-variant">
+                  {company.industry}
+                </p>
+                <div className="mb-6 grow space-y-3">
+                  {company.stats.map((stat) => (
+                    <div key={stat.text} className="flex items-center gap-2">
+                      <Icon name={stat.icon} className="text-sm text-outline" />
+                      <span className="font-body-md text-body-md text-on-surface-variant">{stat.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between border-t border-outline-variant pt-4">
+                  <span className={`font-label-bold text-label-bold ${company.footer.className}`}>
+                    {company.footer.label}
+                  </span>
+                  <span className="rounded-full p-2 transition-transform group-hover:translate-x-1 hover:bg-surface-container">
+                    <Icon name="chevron_right" />
+                  </span>
+                </div>
+              </Link>
+            ))}
 
-        <div className="mt-8 flex items-center justify-center gap-2">
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container">
-            <Icon name="arrow_back" />
-          </button>
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded bg-primary font-label-bold text-label-bold text-on-primary">
-            1
-          </button>
-          {[2, 3].map((page) => (
-            <button
-              key={page}
-              type="button"
-              className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant font-label-bold text-label-bold transition-colors hover:bg-surface-container"
-            >
-              {page}
-            </button>
-          ))}
-          <span className="mx-2">...</span>
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant font-label-bold text-label-bold transition-colors hover:bg-surface-container">
-            12
-          </button>
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container">
-            <Icon name="arrow_forward" />
-          </button>
-        </div>
+            <div className="flex flex-col items-center justify-center rounded-xl bg-secondary p-6 text-center text-on-secondary">
+              <Icon name="add_business" className="mb-4 text-4xl" />
+              <h4 className="mb-2 font-headline-md text-headline-md">List Your Organization</h4>
+              <p className="mb-6 font-body-md text-body-md opacity-80">
+                Gain access to the island&apos;s most qualified executive talent pool.
+              </p>
+              <Link
+                href="/employer/companies/new"
+                className="rounded bg-white px-6 py-2 font-label-bold text-label-bold text-secondary transition-all hover:bg-on-secondary-container"
+              >
+                Submit Application
+              </Link>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

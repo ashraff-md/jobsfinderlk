@@ -250,8 +250,13 @@ export class CompanyRequestsService {
       where: { id },
     });
     if (!request) throw new NotFoundException('Company request not found');
-    if (request.status !== CompanyRequestStatus.PENDING) {
-      throw new BadRequestException('Only pending requests can be edited');
+    if (
+      request.status !== CompanyRequestStatus.PENDING &&
+      request.status !== CompanyRequestStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        'Only pending or approved requests can be edited',
+      );
     }
 
     const address =
@@ -310,6 +315,22 @@ export class CompanyRequestsService {
       where: { id },
       data,
     });
+
+    const companyId =
+      request.status === CompanyRequestStatus.APPROVED
+        ? request.mergedIntoId ?? request.placeholderCompanyId
+        : request.status === CompanyRequestStatus.PENDING
+          ? request.placeholderCompanyId
+          : null;
+
+    if (companyId) {
+      const updated = await this.prisma.companyRequest.findUnique({
+        where: { id },
+      });
+      if (updated) {
+        await this.companiesService.syncFromApprovedRequest(companyId, updated);
+      }
+    }
 
     return this.findByIdForAdmin(id);
   }

@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { dashboardPath, getAccessToken, getStoredUser } from "@/lib/api/auth";
 import type { UserRole } from "@/lib/api/types";
 import { AVATAR_URL, LOGO_URL } from "@/lib/assets";
 
 export function PublicHeader() {
+  const pathname = usePathname();
   const [sessionRole, setSessionRole] = useState<UserRole | null>(null);
   const [ready, setReady] = useState(false);
+  const showPostVacancy = !pathname.startsWith("/employer/jobs/new");
 
   useEffect(() => {
     const syncSession = () => {
@@ -36,12 +39,14 @@ export function PublicHeader() {
         </Link>
 
         <div className="flex items-center gap-3 md:gap-4">
-          <Link
-            href="/employer/jobs/new"
-            className="executive-shadow rounded-lg bg-primary px-4 py-2.5 text-label-bold text-on-primary transition-all hover:opacity-90 active:scale-95 md:px-6"
-          >
-            Post a Vacancy
-          </Link>
+          {showPostVacancy ? (
+            <Link
+              href="/employer/jobs/new"
+              className="executive-shadow rounded-lg bg-primary px-4 py-2.5 text-label-bold text-on-primary transition-all hover:opacity-90 active:scale-95 md:px-6"
+            >
+              Post a Vacancy
+            </Link>
+          ) : null}
           {ready && isLoggedIn && sessionRole ? (
             <Link
               href={dashboardPath(sessionRole)}

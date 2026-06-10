@@ -1,3 +1,5 @@
+import type { PurchaseProduct } from "@/lib/employer/purchases";
+
 export type EmployerAdType = "sponsored" | "banner-wide" | "banner-tall";
 
 export const EMPLOYER_DURATION_OPTIONS = [7, 14, 30, 60] as const;
@@ -43,35 +45,41 @@ export function adTypeLabel(adType: EmployerAdType): string {
   return "Leaderboard Ad";
 }
 
-export function checkoutHrefForCampaign(input: {
+export function parsePromotionDaysFromDuration(
+  duration?: string,
+): EmployerDurationDays | undefined {
+  const match = duration?.trim().match(/^(\d+)/);
+  const days = match ? Number(match[1]) : NaN;
+  return EMPLOYER_DURATION_OPTIONS.includes(days as EmployerDurationDays)
+    ? (days as EmployerDurationDays)
+    : undefined;
+}
+
+export function campaignStartsAtIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function campaignPurchaseMeta(input: {
   adType: EmployerAdType;
   days: EmployerDurationDays;
   campaignName: string;
-  jobId?: string;
-}) {
-  const { total } = calculateCampaignTotal(input.adType, input.days);
+}): { product: PurchaseProduct; plan: string; duration: string } {
   const durationLabel = `${input.days} Days`;
+  const name = input.campaignName.trim() || "Campaign";
 
   if (input.adType === "sponsored") {
-    const params = new URLSearchParams({
+    return {
       product: "sponsored-jobs",
-      plan: `${input.campaignName} (${durationLabel})`,
+      plan: `${name} (${durationLabel})`,
       duration: durationLabel,
-      price: String(total),
-    });
-    if (input.jobId) params.set("jobId", input.jobId);
-    return `/pricing/checkout?${params.toString()}`;
+    };
   }
 
-  const aspect = input.adType === "banner-wide" ? "wide" : "tall";
   const bannerType =
     input.adType === "banner-wide" ? "Medium Banner (3x2)" : "Vertical Banner (2x5)";
-  const params = new URLSearchParams({
+  return {
     product: "banner-advertising",
     plan: `${bannerType} — ${durationLabel}`,
     duration: durationLabel,
-    price: String(total),
-    aspect,
-  });
-  return `/pricing/checkout?${params.toString()}`;
+  };
 }

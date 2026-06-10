@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckoutBillingFields } from "@/components/checkout/checkout-billing-fields";
+import { CheckoutPaymentMethods } from "@/components/checkout/checkout-payment-methods";
+import { CheckoutPromoCodeSection } from "@/components/checkout/checkout-promo-code-section";
 import {
   BannerCheckoutFields,
   GuestContactFields,
@@ -11,22 +14,17 @@ import { PublicPageLayout } from "@/components/layout/public-page-layout";
 import { Icon } from "@/components/ui/icon";
 import { getAccessToken, getProfile, getStoredUser } from "@/lib/api/auth";
 import {
-  jobSlotsForPlan,
-  recordEmployerPurchase,
-  type PurchaseProduct,
-} from "@/lib/employer/purchases";
-import { cn } from "@/lib/utils";
-
-type PaymentType = "card" | "bank" | "po";
-
-const VAT_RATE = 0.08;
-
-const inputClass =
-  "w-full rounded-lg border border-outline-variant bg-surface-bright p-stack-md font-body-md text-body-md outline-none focus:border-primary focus:shadow-[0_0_0_1px_#0d1c2e]";
-
-function formatLkr(amount: number) {
-  return `LKR ${amount.toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+  recordEmployerPurchaseApi,
+  type EmployerAdCampaignPayload,
+} from "@/lib/api/employer-billing";
+import { parsePromotionDaysFromDuration } from "@/lib/employer/employer-campaigns";
+import {
+  calculateCheckoutTotal,
+  formatCheckoutLkr,
+  type AppliedPromoCode,
+  type CheckoutPaymentType,
+} from "@/lib/checkout/checkout-utils";
+import type { PurchaseProduct } from "@/lib/employer/purchases";
 
 export function CheckoutPage() {
   const router = useRouter();
@@ -40,7 +38,7 @@ export function CheckoutPage() {
 
   const isBannerCheckout = product === "banner-advertising";
 
-  const [paymentType, setPaymentType] = useState<PaymentType>("card");
+  const [paymentType, setPaymentType] = useState<CheckoutPaymentType>("card");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profileLoading, setProfileLoading] = useState(isBannerCheckout);
 
@@ -60,6 +58,7 @@ export function CheckoutPage() {
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null);
   const [artworkDataUrl, setArtworkDataUrl] = useState<string | null>(null);
   const [bannerError, setBannerError] = useState<string | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromoCode | null>(null);
   const [completing, setCompleting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -96,8 +95,14 @@ export function CheckoutPage() {
   }, []);
 
   const subtotal = Number.isFinite(basePrice) ? basePrice : 10000;
-  const vat = Math.round(subtotal * VAT_RATE);
-  const total = subtotal + vat;
+  const checkoutTotals = useMemo(
+    () => calculateCheckoutTotal(subtotal, appliedPromo?.discountAmount ?? 0),
+    [appliedPromo?.discountAmount, subtotal],
+  );
+
+  useEffect(() => {
+    setAppliedPromo(null);
+  }, [product, subtotal]);
 
   const productLabel =
     product === "sponsored-jobs"
@@ -106,25 +111,43 @@ export function CheckoutPage() {
         ? "Banner Advertising"
         : "Job Listings";
 
-  const handleCompletePurchase = () => {
+  const handleCompletePurchase = async () => {
     setCheckoutError(null);
-    const user = getStoredUser();
-    if (!user?.id) {
+    if (!getAccessToken() || !getStoredUser()?.id) {
       setCheckoutError("Sign in as a recruiter to complete your purchase and track job slots.");
       return;
     }
 
+    let adCampaign: EmployerAdCampaignPayload | undefined;
+    if (isBannerCheckout) {
+      const promotionDays = parsePromotionDaysFromDuration(duration);
+      if (!campaignName.trim() || !artworkDataUrl || !promotionDays) {
+        setCheckoutError("Complete your banner campaign details before checkout.");
+        return;
+      }
+      adCampaign = {
+        aspectRatio: bannerAspect === "tall" ? "RATIO_2_5" : "RATIO_3_2",
+        label: campaignName.trim(),
+        href: destinationPath.trim() || "/jobs",
+        imageUrl: artworkDataUrl,
+        promotionDays,
+        startsAt: new Date().toISOString().slice(0, 10),
+      };
+    }
+
     setCompleting(true);
     try {
-      recordEmployerPurchase({
-        userId: user.id,
+      await recordEmployerPurchaseApi({
         product,
         plan,
         duration: duration || undefined,
-        total,
+        subtotal,
+        total: checkoutTotals.total,
+        promoCode: appliedPromo?.code,
         paymentMethod: paymentType,
-        jobSlots: product === "job-listings" ? jobSlotsForPlan(plan) : undefined,
+        adCampaign,
       });
+      window.dispatchEvent(new Event("employer-purchases-updated"));
       router.push("/employer/settings#billing");
     } catch {
       setCheckoutError("Could not record your purchase. Please try again.");
@@ -197,144 +220,31 @@ export function CheckoutPage() {
               </>
             )}
 
-            <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-stack-lg">
-              <div className="mb-stack-lg flex items-center gap-stack-md">
-                <Icon name="business" className="text-secondary" />
-                <h1 className="font-headline-md text-headline-md">Billing Information</h1>
-              </div>
-              <form className="grid grid-cols-1 gap-stack-md md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="block font-label-bold text-label-bold">Company Name</label>
-                  <input
-                    className={inputClass}
-                    placeholder="e.g. Acme Corp Institutional"
-                    type="text"
-                    value={isBannerCheckout && !isLoggedIn ? guestCompany : companyName}
-                    onChange={(e) =>
-                      isBannerCheckout && !isLoggedIn
-                        ? setGuestCompany(e.target.value)
-                        : setCompanyName(e.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="block font-label-bold text-label-bold">Headquarters Address</label>
-                  <input
-                    className={inputClass}
-                    placeholder="Street, Building, Suite"
-                    type="text"
-                    value={isBannerCheckout && !isLoggedIn ? guestAddress : address}
-                    onChange={(e) =>
-                      isBannerCheckout && !isLoggedIn
-                        ? setGuestAddress(e.target.value)
-                        : setAddress(e.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block font-label-bold text-label-bold">
-                    VAT Number <span className="font-normal text-on-surface-variant">(Optional)</span>
-                  </label>
-                  <input
-                    className={inputClass}
-                    placeholder="TAX-1234567"
-                    type="text"
-                    value={vatNumber}
-                    onChange={(e) => setVatNumber(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block font-label-bold text-label-bold">Postal Code</label>
-                  <input
-                    className={inputClass}
-                    placeholder="00100"
-                    type="text"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                  />
-                </div>
-              </form>
-            </section>
+            <CheckoutPromoCodeSection
+              product={product}
+              subtotal={subtotal}
+              appliedPromo={appliedPromo}
+              onAppliedPromoChange={setAppliedPromo}
+            />
 
-            <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-stack-lg">
-              <div className="mb-stack-lg flex items-center gap-stack-md">
-                <Icon name="payments" className="text-secondary" />
-                <h2 className="font-headline-md text-headline-md">Payment Method</h2>
-              </div>
-              <div className="space-y-stack-md">
-                <PaymentOption
-                  id="card"
-                  selected={paymentType === "card"}
-                  onSelect={() => setPaymentType("card")}
-                  icon="credit_card"
-                  title="Credit / Debit Card"
-                  badge={
-                    <div className="flex gap-2">
-                      <div className="h-5 w-8 rounded-sm bg-outline-variant" />
-                      <div className="h-5 w-8 rounded-sm bg-outline-variant" />
-                    </div>
-                  }
-                >
-                  <div
-                    className={cn(
-                      "mt-2 grid grid-cols-1 gap-stack-md md:grid-cols-2",
-                      paymentType !== "card" && "hidden",
-                    )}
-                  >
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="font-label-sm text-label-sm text-on-surface-variant">
-                        Card Number
-                      </label>
-                      <input
-                        className={inputClass}
-                        placeholder="0000 0000 0000 0000"
-                        type="text"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="font-label-sm text-label-sm text-on-surface-variant">
-                        Expiry Date
-                      </label>
-                      <input className={inputClass} placeholder="MM / YY" type="text" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="font-label-sm text-label-sm text-on-surface-variant">CVV</label>
-                      <input className={inputClass} placeholder="***" type="password" />
-                    </div>
-                  </div>
-                </PaymentOption>
+            <CheckoutBillingFields
+              companyName={isBannerCheckout && !isLoggedIn ? guestCompany : companyName}
+              onCompanyNameChange={
+                isBannerCheckout && !isLoggedIn ? setGuestCompany : setCompanyName
+              }
+              address={isBannerCheckout && !isLoggedIn ? guestAddress : address}
+              onAddressChange={isBannerCheckout && !isLoggedIn ? setGuestAddress : setAddress}
+              vatNumber={vatNumber}
+              onVatNumberChange={setVatNumber}
+              postalCode={postalCode}
+              onPostalCodeChange={setPostalCode}
+            />
 
-                <PaymentOption
-                  id="bank"
-                  selected={paymentType === "bank"}
-                  onSelect={() => setPaymentType("bank")}
-                  icon="account_balance"
-                  title="Local Bank Transfer"
-                >
-                  <p className="mt-2 font-label-sm text-label-sm text-on-surface-variant">
-                    Direct wire to our local HNB or Sampath Bank accounts. Details provided after
-                    confirmation.
-                  </p>
-                </PaymentOption>
-
-                <PaymentOption
-                  id="po"
-                  selected={paymentType === "po"}
-                  onSelect={() => setPaymentType("po")}
-                  icon="description"
-                  title="Institutional Purchase Order (PO)"
-                  badge={
-                    <span className="rounded-full bg-secondary-fixed px-2 py-0.5 text-[10px] font-bold text-on-secondary-fixed">
-                      NET-30
-                    </span>
-                  }
-                >
-                  <p className="mt-2 font-label-sm text-label-sm text-on-surface-variant">
-                    For established corporate partners. Subject to credit verification.
-                  </p>
-                </PaymentOption>
-              </div>
-            </section>
+            <CheckoutPaymentMethods
+              paymentType={paymentType}
+              onPaymentTypeChange={setPaymentType}
+              idPrefix="pricing-"
+            />
           </div>
 
           <aside className="mt-stack-lg lg:col-span-5 lg:mt-0">
@@ -354,22 +264,30 @@ export function CheckoutPage() {
                       <p className="font-label-sm text-label-sm text-secondary">Banner artwork attached</p>
                     )}
                   </div>
-                  <span className="font-label-bold">{formatLkr(subtotal)}</span>
+                  <span className="font-label-bold">{formatCheckoutLkr(subtotal)}</span>
                 </div>
               </div>
               <div className="mb-stack-lg space-y-stack-sm border-t border-outline-variant pt-stack-md">
                 <div className="flex justify-between font-body-md text-body-md">
                   <span className="text-on-surface-variant">Subtotal</span>
-                  <span>{formatLkr(subtotal)}</span>
+                  <span>{formatCheckoutLkr(subtotal)}</span>
                 </div>
+                {appliedPromo && (
+                  <div className="flex justify-between font-body-md text-body-md">
+                    <span className="text-on-surface-variant">Promo ({appliedPromo.code})</span>
+                    <span className="text-secondary">
+                      - {formatCheckoutLkr(appliedPromo.discountAmount)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between font-body-md text-body-md">
                   <span className="text-on-surface-variant">VAT (8%)</span>
-                  <span>{formatLkr(vat)}</span>
+                  <span>{formatCheckoutLkr(checkoutTotals.vat)}</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between border-t border-outline pt-2">
                   <span className="font-headline-md text-headline-md">Total</span>
                   <span className="font-headline-md text-headline-md text-primary">
-                    {formatLkr(total)}
+                    {formatCheckoutLkr(checkoutTotals.total)}
                   </span>
                 </div>
               </div>
@@ -417,52 +335,5 @@ export function CheckoutPage() {
         </div>
       </main>
     </PublicPageLayout>
-  );
-}
-
-function PaymentOption({
-  id,
-  selected,
-  onSelect,
-  icon,
-  title,
-  badge,
-  children,
-}: {
-  id: string;
-  selected: boolean;
-  onSelect: () => void;
-  icon: string;
-  title: string;
-  badge?: ReactNode;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="relative">
-      <input
-        checked={selected}
-        className="peer sr-only"
-        id={id}
-        name="payment_type"
-        onChange={onSelect}
-        type="radio"
-      />
-      <label
-        htmlFor={id}
-        className={cn(
-          "flex cursor-pointer flex-col rounded-lg border border-outline-variant p-stack-md transition-all hover:bg-surface-container-low",
-          selected && "border-secondary bg-surface-container-low",
-        )}
-      >
-        <div className="mb-stack-md flex items-center justify-between">
-          <div className="flex items-center gap-stack-md">
-            <Icon name={icon} />
-            <span className="font-label-bold text-label-bold">{title}</span>
-          </div>
-          {badge}
-        </div>
-        {children}
-      </label>
-    </div>
   );
 }

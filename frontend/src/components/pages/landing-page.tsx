@@ -274,9 +274,6 @@ export function LandingPage() {
                   className="border-b border-white/20 pb-0.5 text-white/80 transition-colors hover:text-white"
                 >
                   {sector.name}
-                  {sector.totalJobs > 0 ? (
-                    <span className="ml-1 text-white/50">({sector.totalJobs.toLocaleString()})</span>
-                  ) : null}
                 </Link>
               ))}
             </div>

@@ -39,11 +39,19 @@ export function CompanyAutocomplete({
 }: CompanyAutocompleteProps) {
   const listId = useId();
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const [focused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<CompanySuggestion[]>([]);
 
   useEffect(() => {
+    if (!focused) {
+      setSuggestions([]);
+      setOpen(false);
+      setLoading(false);
+      return;
+    }
+
     if (!value.trim() || value.trim().length < 2) {
       setSuggestions([]);
       setOpen(false);
@@ -72,7 +80,7 @@ export function CompanyAutocomplete({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [value]);
+  }, [focused, value]);
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -84,14 +92,16 @@ export function CompanyAutocomplete({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const showCreateLinkOption = showCreateLink && value.trim().length >= 2 && !selectedCompanyId;
-  const showDropdown = open && (loading || suggestions.length > 0);
+  const showCreateLinkOption =
+    focused && showCreateLink && value.trim().length >= 2 && !selectedCompanyId;
+  const showDropdown = focused && open && (loading || suggestions.length > 0);
 
   return (
     <div ref={wrapperRef} className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <label className="font-label-bold text-on-surface-variant" htmlFor={listId}>
           {label}
+          {required ? <span className="text-error"> *</span> : null}
         </label>
         {showCreateLinkOption && (
           <p className="text-label-sm text-on-surface-variant">
@@ -113,7 +123,10 @@ export function CompanyAutocomplete({
             onClear?.();
             onQueryChange(e.target.value);
           }}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            window.setTimeout(() => setFocused(false), 150);
+          }}
           placeholder={placeholder}
           required={required}
           autoComplete="off"
@@ -142,9 +155,11 @@ export function CompanyAutocomplete({
                 <button
                   key={company.id}
                   type="button"
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
                     onSelect(company);
                     setOpen(false);
+                    setFocused(false);
                   }}
                   className="flex w-full items-start gap-3 border-b border-outline-variant/40 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-container-low"
                 >

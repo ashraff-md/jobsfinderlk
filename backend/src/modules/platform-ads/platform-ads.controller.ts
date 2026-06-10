@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
@@ -9,6 +9,10 @@ import { PlatformAdsService } from './platform-ads.service';
 import {
   ListBannerSlotsQueryDto,
   ListPublicSponsoredQueryDto,
+  RecordBannerClicksDto,
+  RecordBannerImpressionsDto,
+  RecordSponsoredClicksDto,
+  RecordSponsoredImpressionsDto,
 } from './dto/platform-ads.dto';
 
 @ApiTags('platform-ads')
@@ -19,6 +23,26 @@ export class PlatformAdsController {
   @Get('banners')
   listBanners(@Query() query: ListBannerSlotsQueryDto) {
     return this.platformAdsService.listPublicBanners(query.aspectRatio);
+  }
+
+  @Post('banners/impressions')
+  recordBannerImpressions(@Body() dto: RecordBannerImpressionsDto) {
+    return this.platformAdsService.recordBannerImpressions(dto.campaignIds);
+  }
+
+  @Post('sponsored/impressions')
+  recordSponsoredImpressions(@Body() dto: RecordSponsoredImpressionsDto) {
+    return this.platformAdsService.recordSponsoredImpressions(dto.sponsoredAdIds);
+  }
+
+  @Post('banners/clicks')
+  recordBannerClicks(@Body() dto: RecordBannerClicksDto) {
+    return this.platformAdsService.recordBannerClicks(dto.campaignIds);
+  }
+
+  @Post('sponsored/clicks')
+  recordSponsoredClicks(@Body() dto: RecordSponsoredClicksDto) {
+    return this.platformAdsService.recordSponsoredClicks(dto.sponsoredAdIds);
   }
 
   @Get('banners/:key')

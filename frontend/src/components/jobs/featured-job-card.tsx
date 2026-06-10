@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
+import { recordSponsoredClicks } from "@/lib/platform-ads/record-impressions";
 
 type FeaturedJobCardProps = {
   job: FeaturedJobCardItem;
@@ -40,6 +41,9 @@ export function FeaturedJobCard({
       </div>
       <Link
         href={job.href ?? ctaHref}
+        onClick={() => {
+          if (job.sponsoredAdId) recordSponsoredClicks([job.sponsoredAdId]);
+        }}
         className="mt-auto w-full rounded-lg border border-primary py-2 text-center text-xs font-label-bold text-primary transition-all hover:bg-primary hover:text-on-primary"
       >
         {job.href ? "View role" : ctaLabel}

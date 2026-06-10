@@ -34,12 +34,14 @@ export function EmployerTopNav() {
           <Icon name="notifications" />
         </button>
 
-        <Link
-          href="/employer/jobs/new"
-          className="rounded bg-primary-container px-4 py-2 font-label-bold text-white transition-all hover:bg-black sm:px-6"
-        >
-          Post a Job
-        </Link>
+        {!pathname.startsWith("/employer/jobs/new") ? (
+          <Link
+            href="/employer/jobs/new"
+            className="rounded bg-primary-container px-4 py-2 font-label-bold text-white transition-all hover:bg-black sm:px-6"
+          >
+            Post a Job
+          </Link>
+        ) : null}
       </div>
     </header>
   );

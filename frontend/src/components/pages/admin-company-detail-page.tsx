@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { CompanyLogoUploader } from "@/components/companies/company-logo-uploader";
 import { LifeAtCompanyUploader } from "@/components/companies/life-at-company-uploader";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
@@ -23,6 +24,7 @@ import {
   MAX_LIFE_AT_IMAGES,
   type LifeAtImageDraft,
 } from "@/lib/companies/life-at-images";
+import type { CompanyLogoDraft } from "@/lib/companies/company-logo";
 import { INDUSTRY_SUGGESTIONS } from "@/lib/jobs/post-job.constants";
 import type { CompanyRequest } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -82,6 +84,8 @@ export function AdminCompanyDetailPage() {
   const [companyType, setCompanyType] = useState<string>(COMPANY_TYPES[0]);
   const [description, setDescription] = useState("");
   const [lifeAtImages, setLifeAtImages] = useState<LifeAtImageDraft[]>([]);
+  const [logo, setLogo] = useState<CompanyLogoDraft | null>(null);
+  const [savedLogoUrl, setSavedLogoUrl] = useState<string | null>(null);
 
   const applyRequestToForm = useCallback((data: CompanyRequest) => {
     setCompanyName(data.companyName);
@@ -93,6 +97,13 @@ export function AdminCompanyDetailPage() {
     setCompanyType(data.companyType ?? COMPANY_TYPES[0]);
     setDescription(data.description ?? "");
     setLifeAtImages(lifeAtDraftsFromUrls(data.lifeAtCompanyImages ?? []));
+    const nextLogoUrl = data.logoUrl ?? null;
+    setSavedLogoUrl(nextLogoUrl);
+    setLogo(
+      nextLogoUrl
+        ? { name: "company-logo", previewUrl: nextLogoUrl, dataUrl: nextLogoUrl }
+        : null,
+    );
   }, []);
 
   const load = useCallback(async () => {
@@ -126,6 +137,8 @@ export function AdminCompanyDetailPage() {
   }, [load]);
 
   const isPending = request?.status === "PENDING";
+  const isApproved = request?.status === "APPROVED";
+  const isEditable = isPending || isApproved;
 
   const validateForm = () => {
     if (!companyName.trim()) return "Company name is required.";
@@ -134,20 +147,26 @@ export function AdminCompanyDetailPage() {
     return null;
   };
 
-  const buildPayload = () => ({
-    companyName: companyName.trim(),
-    industry: industry.trim(),
-    website: website.trim() || undefined,
-    emailDomain: emailDomain.trim() || undefined,
-    address: address.trim() || undefined,
-    city: city.trim(),
-    companyType,
-    description: description.trim() || undefined,
-    lifeAtCompanyImages: lifeAtImages.map((image) => image.dataUrl),
-  });
+  const buildPayload = () => {
+    const currentLogoUrl = logo?.dataUrl ?? null;
+    const logoChanged = currentLogoUrl !== savedLogoUrl;
+
+    return {
+      companyName: companyName.trim(),
+      industry: industry.trim(),
+      website: website.trim() || undefined,
+      emailDomain: emailDomain.trim() || undefined,
+      address: address.trim() || undefined,
+      city: city.trim(),
+      companyType,
+      description: description.trim() || undefined,
+      lifeAtCompanyImages: lifeAtImages.map((image) => image.dataUrl),
+      ...(logoChanged ? { logoUrl: currentLogoUrl ?? "" } : {}),
+    };
+  };
 
   const saveChanges = async (): Promise<CompanyRequest | null> => {
-    if (!request || !isPending) return request;
+    if (!request || !isEditable) return request;
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -261,11 +280,11 @@ export function AdminCompanyDetailPage() {
             <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="flex items-start gap-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-surface-container-high">
-                  {request.logoUrl ? (
+                  {(logo?.previewUrl ?? request.logoUrl) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       alt=""
-                      src={request.logoUrl}
+                      src={logo?.previewUrl ?? request.logoUrl ?? ""}
                       className="h-full w-full object-contain"
                     />
                   ) : (
@@ -274,7 +293,11 @@ export function AdminCompanyDetailPage() {
                 </div>
                 <div>
                   <h1 className="text-headline-lg">
-                    {isPending ? "Review & edit application" : request.companyName}
+                    {isPending
+                      ? "Review & edit application"
+                      : isApproved
+                        ? "Edit approved company"
+                        : request.companyName}
                   </h1>
                   <p className="text-on-surface-variant">
                     Request ID: {request.id} · Submitted{" "}
@@ -296,7 +319,7 @@ export function AdminCompanyDetailPage() {
 
             <div className="grid grid-cols-12 gap-gutter">
               <div className="col-span-12 space-y-6 lg:col-span-8">
-                {isPending ? (
+                {isEditable ? (
                   <form
                     className="space-y-6"
                     onSubmit={(e) => {
@@ -306,6 +329,14 @@ export function AdminCompanyDetailPage() {
                   >
                     <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-stack-lg">
                       <h3 className="mb-4 text-headline-md">Entity Information</h3>
+                      <div className="mb-6">
+                        <CompanyLogoUploader
+                          logo={logo}
+                          onChange={setLogo}
+                          disabled={busy}
+                          variant="brand"
+                        />
+                      </div>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2 sm:col-span-2">
                           <label className={labelClass} htmlFor="admin-company-name">
@@ -582,13 +613,16 @@ export function AdminCompanyDetailPage() {
 
               <div className="col-span-12 lg:col-span-4">
                 <div className="sticky top-24 space-y-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-stack-lg">
-                  <h3 className="font-label-bold">Review Actions</h3>
+                  <h3 className="font-label-bold">
+                    {isPending ? "Review Actions" : "Company Actions"}
+                  </h3>
 
-                  {isPending && (
+                  {isEditable && (
                     <>
                       <p className="text-label-sm text-on-surface-variant">
-                        Edit fields on the left, then save or approve. Approve and merge save your
-                        edits automatically.
+                        {isPending
+                          ? "Edit fields on the left, then save or approve. Approve and merge save your edits automatically."
+                          : "Changes are saved to the live company profile recruiters and job seekers see on the platform."}
                       </p>
                       <button
                         type="button"
@@ -627,7 +661,9 @@ export function AdminCompanyDetailPage() {
 
                   {request.mergedInto && (
                     <div className="rounded-lg bg-surface-container-low p-3 text-body-md">
-                      <p className="text-label-sm text-on-surface-variant">Merged into</p>
+                      <p className="text-label-sm text-on-surface-variant">
+                        {isApproved ? "Live company profile" : "Merged into"}
+                      </p>
                       <p className="mt-1 font-label-bold">{request.mergedInto.name}</p>
                     </div>
                   )}

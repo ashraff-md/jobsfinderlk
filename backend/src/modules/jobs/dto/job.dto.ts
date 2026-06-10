@@ -434,6 +434,11 @@ export class UpdateJobDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  jobDocumentUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   vacancyArtworkUrl?: string;
 
   @ApiPropertyOptional()

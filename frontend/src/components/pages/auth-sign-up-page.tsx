@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import { dashboardPath, register } from "@/lib/api/auth";
 import { LOGO_URL } from "@/lib/assets";
+import { authRoleFromSignInParam, isSafeReturnUrl } from "@/lib/auth/portal";
 import { cn } from "@/lib/utils";
 
 const BOARDROOM_URL =
@@ -78,7 +79,10 @@ function AuthBrandingPanel({ imageRef }: { imageRef: React.RefObject<HTMLImageEl
 
 export function AuthSignUpPage() {
   const router = useRouter();
-  const [role, setRole] = useState<AuthRole>("seeker");
+  const searchParams = useSearchParams();
+  const [role, setRole] = useState<AuthRole>(() =>
+    authRoleFromSignInParam(searchParams.get("role")),
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -119,7 +123,12 @@ export function AuthSignUpPage() {
         role: role === "seeker" ? "SEEKER" : "EMPLOYER",
         fullName: role === "seeker" ? fullName : undefined,
       });
-      router.push(dashboardPath(data.user.role));
+      const returnUrl = searchParams.get("returnUrl");
+      if (returnUrl && isSafeReturnUrl(returnUrl, data.user.role)) {
+        router.push(returnUrl);
+      } else {
+        router.push(dashboardPath(data.user.role));
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Registration failed. Please try again.");
     } finally {

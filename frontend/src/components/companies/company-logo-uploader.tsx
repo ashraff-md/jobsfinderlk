@@ -39,13 +39,17 @@ export function CompanyLogoUploader({
 
   useEffect(() => {
     return () => {
-      if (logo?.previewUrl) URL.revokeObjectURL(logo.previewUrl);
+      if (logo?.previewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(logo.previewUrl);
+      }
     };
   }, [logo?.previewUrl]);
 
   const clearLogo = () => {
     setError(null);
-    if (logo?.previewUrl) URL.revokeObjectURL(logo.previewUrl);
+    if (logo?.previewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(logo.previewUrl);
+    }
     onChange(null);
   };
 
@@ -58,7 +62,9 @@ export function CompanyLogoUploader({
 
     void buildCompanyLogoDraft(file)
       .then((draft) => {
-        if (logo?.previewUrl) URL.revokeObjectURL(logo.previewUrl);
+        if (logo?.previewUrl?.startsWith("blob:")) {
+          URL.revokeObjectURL(logo.previewUrl);
+        }
         onChange(draft);
       })
       .catch((err: Error) => setError(err.message));

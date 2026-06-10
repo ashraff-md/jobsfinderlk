@@ -275,6 +275,15 @@ export function AdminCompaniesPage() {
                     </td>
                     <td className="px-stack-lg py-4">
                       <div className="flex justify-end gap-2">
+                        {(request.status === "PENDING" || request.status === "APPROVED") && (
+                          <Link
+                            href={`/admin/companies/${request.id}`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-3 py-1.5 font-label-bold text-primary transition-colors hover:bg-surface-container-low"
+                          >
+                            <Icon name="edit" className="text-[16px]" />
+                            Edit
+                          </Link>
+                        )}
                         {request.status === "PENDING" && (
                           <>
                             <button
@@ -295,12 +304,14 @@ export function AdminCompaniesPage() {
                             </button>
                           </>
                         )}
-                        <Link
-                          href={`/admin/companies/${request.id}`}
-                          className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
-                        >
-                          Details
-                        </Link>
+                        {request.status !== "PENDING" && request.status !== "APPROVED" && (
+                          <Link
+                            href={`/admin/companies/${request.id}`}
+                            className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
+                          >
+                            Details
+                          </Link>
+                        )}
                       </div>
                     </td>
                   </tr>

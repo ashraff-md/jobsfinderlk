@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { mkdir, writeFile } from 'fs/promises';
 import { join, posix } from 'path';
@@ -120,12 +120,25 @@ export class ImageStorageService implements OnModuleInit {
     if (!input?.trim()) return null;
 
     const trimmed = input.trim();
-    if (isImageDataUrl(trimmed, limits)) {
-      return this.saveDataUrl(folder, trimmed, limits);
+    if (trimmed.startsWith('data:image/')) {
+      if (!isImageDataUrl(trimmed, limits)) {
+        throw new BadRequestException(
+          'Image is too large. Use JPG, PNG, or WebP under 2MB.',
+        );
+      }
+      const saved = await this.saveDataUrl(folder, trimmed, limits);
+      if (!saved) {
+        throw new BadRequestException(
+          'Image could not be saved. Use JPG, PNG, or WebP under 2MB.',
+        );
+      }
+      return saved;
     }
 
     const existing = this.extractStoredPath(trimmed);
     if (existing) return existing;
+
+    if (this.isStoredPath(trimmed)) return trimmed.replace(/^\//, '');
 
     return null;
   }
@@ -155,15 +168,39 @@ export class ImageStorageService implements OnModuleInit {
   }
 
   async saveVacancyArtwork(input?: string | null): Promise<string | null> {
+    return this.saveUploadedAsset(
+      IMAGE_UPLOAD_FOLDERS.vacancyArtwork,
+      input,
+      VACANCY_ARTWORK_LIMITS,
+    );
+  }
+
+  async saveJobDocument(input?: string | null): Promise<string | null> {
+    return this.saveUploadedAsset(
+      IMAGE_UPLOAD_FOLDERS.jobDocuments,
+      input,
+      VACANCY_ARTWORK_LIMITS,
+    );
+  }
+
+  /** Persist a data URL to disk or keep an existing stored path. */
+  async saveUploadedAsset(
+    folder: ImageUploadFolder,
+    input?: string | null,
+    limits: ImageDataLimits = VACANCY_ARTWORK_LIMITS,
+  ): Promise<string | null> {
     if (!input?.trim()) return null;
 
     const trimmed = input.trim();
-    if (isVacancyArtworkDataUrl(trimmed, VACANCY_ARTWORK_LIMITS)) {
-      const parsed = parseVacancyArtworkDataUrl(trimmed, VACANCY_ARTWORK_LIMITS);
-      if (!parsed) return null;
+    if (isVacancyArtworkDataUrl(trimmed, limits)) {
+      const parsed = parseVacancyArtworkDataUrl(trimmed, limits);
+      if (!parsed) {
+        throw new BadRequestException(
+          'File is too large or invalid. Use JPG, PNG, WebP, or PDF.',
+        );
+      }
 
       const filename = `${randomUUID()}.${parsed.ext}`;
-      const folder = IMAGE_UPLOAD_FOLDERS.vacancyArtwork;
       const relativePath = posix.join(folder, filename);
       const absolutePath = join(this.uploadRoot, folder, filename);
 
@@ -175,6 +212,8 @@ export class ImageStorageService implements OnModuleInit {
 
     const existing = this.extractStoredPath(trimmed);
     if (existing) return existing;
+
+    if (this.isStoredPath(trimmed)) return trimmed.replace(/^\//, '');
 
     return null;
   }
@@ -195,6 +234,21 @@ export class ImageStorageService implements OnModuleInit {
     return paths;
   }
 
+  /** Returns a relative path suitable for database storage, or null if not a stored upload. */
+  normalizeStoredPath(input?: string | null): string | null {
+    if (!input?.trim()) return null;
+
+    const trimmed = input.trim();
+    if (trimmed.startsWith('data:')) return null;
+
+    const extracted = this.extractStoredPath(trimmed);
+    if (extracted) return extracted;
+
+    if (this.isStoredPath(trimmed)) return trimmed.replace(/^\//, '');
+
+    return null;
+  }
+
   extractStoredPath(input: string): string | null {
     const trimmed = input.trim();
     if (!trimmed) return null;
@@ -210,6 +264,13 @@ export class ImageStorageService implements OnModuleInit {
       return trimmed.slice(pathPrefix.length);
     }
 
+    // Accept our upload path from any host, e.g. when the API returns a full URL.
+    const uploadsSegment = `${this.publicPath.replace(/^\//, '')}/`;
+    const uploadsIndex = trimmed.indexOf(uploadsSegment);
+    if (uploadsIndex >= 0) {
+      return trimmed.slice(uploadsIndex + uploadsSegment.length);
+    }
+
     return null;
   }
 
@@ -218,10 +279,21 @@ export class ImageStorageService implements OnModuleInit {
 
     const path = storedPath.trim();
     if (path.startsWith('data:')) return null;
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
 
-    const rel = path.replace(/^\//, '');
-    return `${this.publicBaseUrl}${this.publicPath}/${rel}`;
+    const relative =
+      this.extractStoredPath(path) ??
+      (this.isStoredPath(path) ? path.replace(/^\//, '') : null);
+
+    if (relative) {
+      return `${this.publicBaseUrl}${this.publicPath}/${relative}`;
+    }
+
+    // Legacy rows that still store external URLs directly.
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+
+    return null;
   }
 
   withPublicUrls<T extends { logoUrl?: string | null; lifeAtCompanyImages?: string[] }>(

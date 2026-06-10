@@ -37,19 +37,17 @@ export function RecruiterPhotoUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const revokePreview = (url?: string) => {
+    if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
-    return () => {
-      if (photo?.previewUrl?.startsWith("blob:")) {
-        URL.revokeObjectURL(photo.previewUrl);
-      }
-    };
+    return () => revokePreview(photo?.previewUrl);
   }, [photo?.previewUrl]);
 
   const clearPhoto = () => {
     setError(null);
-    if (photo?.previewUrl?.startsWith("blob:")) {
-      URL.revokeObjectURL(photo.previewUrl);
-    }
+    revokePreview(photo?.previewUrl);
     onChange(null);
   };
 
@@ -62,9 +60,7 @@ export function RecruiterPhotoUploader({
 
     void buildRecruiterPhotoDraft(file)
       .then((draft) => {
-        if (photo?.previewUrl?.startsWith("blob:")) {
-          URL.revokeObjectURL(photo.previewUrl);
-        }
+        revokePreview(photo?.previewUrl);
         onChange(draft);
       })
       .catch((err: Error) => setError(err.message));

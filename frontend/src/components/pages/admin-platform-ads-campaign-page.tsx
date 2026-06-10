@@ -6,8 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   PromotionScheduleFields,
-  inferBannerPromotionDaysFromRange,
-  inferSponsoredPromotionDaysFromRange,
   toDateInputValue,
 } from "@/components/admin/platform-ads/promotion-schedule-fields";
 import { PublishedJobSearchField } from "@/components/admin/platform-ads/published-job-search-field";
@@ -15,15 +13,20 @@ import { SelectedJobDetailsCard } from "@/components/admin/platform-ads/selected
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import {
+  approveAdminBannerCampaign,
+  approveAdminSponsoredAd,
   createAdminBannerCampaign,
   createAdminSponsoredAd,
   getAdminBannerCampaign,
   getAdminBannerSlots,
   getAdminJob,
-  getAdminSponsoredAds,
+  getAdminSponsoredAd,
+  rejectAdminBannerCampaign,
+  rejectAdminSponsoredAd,
   updateAdminBannerCampaign,
   updateAdminSponsoredAd,
   type BannerAspectRatio,
+  type PlatformAdReviewStatus,
   type PromotionPeriodDays,
 } from "@/lib/api/admin";
 import type { Job } from "@/lib/api/types";
@@ -99,8 +102,13 @@ export function AdminPlatformAdsCampaignPage() {
   const [promotionDays, setPromotionDays] = useState<PromotionPeriodDays>(7);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState<PlatformAdReviewStatus | null>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+
+  const isEditingExisting = Boolean(sponsoredIdParam || bannerCampaignIdParam);
 
   const href = useMemo(
     () => normalizeBannerDestinationUrl(destinationPath),
@@ -112,19 +120,18 @@ export function AdminPlatformAdsCampaignPage() {
     setError(null);
     try {
       if (adType === "sponsored") {
-        let jobId = jobIdParam;
         if (sponsoredIdParam) {
-          const ads = await getAdminSponsoredAds();
-          const ad = ads.find((a) => a.id === sponsoredIdParam);
-          if (ad) {
-            jobId = ad.jobId;
-            setStartDate(toDateInputValue(ad.startsAt));
-            setPromotionDays(inferSponsoredPromotionDaysFromRange(ad.startsAt, ad.endsAt));
-          }
+          const ad = await getAdminSponsoredAd(sponsoredIdParam);
+          setStartDate(toDateInputValue(ad.startsAt));
+          setPromotionDays(ad.promotionDays);
+          setReviewStatus(ad.reviewStatus ?? "APPROVED");
+          setReviewNotes(ad.reviewNotes ?? "");
+          setSelectedJob(ad.job);
+          return;
         }
-        if (jobId) {
-          const job = await getAdminJob(jobId);
-          if (job.status === "PUBLISHED") setSelectedJob(job);
+        if (jobIdParam) {
+          const job = await getAdminJob(jobIdParam);
+          setSelectedJob(job);
         }
         return;
       }
@@ -136,10 +143,12 @@ export function AdminPlatformAdsCampaignPage() {
       if (bannerCampaignIdParam) {
         const campaign = await getAdminBannerCampaign(bannerCampaignIdParam);
         setStartDate(toDateInputValue(campaign.startsAt));
-        setPromotionDays(inferBannerPromotionDaysFromRange(campaign.startsAt, campaign.endsAt));
+        setPromotionDays(campaign.promotionDays);
         setCampaignName(campaign.label);
         setDestinationPath(formatBannerDestinationForInput(campaign.href));
         if (campaign.imageUrl) setArtworkUrl(campaign.imageUrl);
+        setReviewStatus(campaign.reviewStatus ?? "APPROVED");
+        setReviewNotes(campaign.reviewNotes ?? "");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load campaign data");
@@ -162,59 +171,95 @@ export function AdminPlatformAdsCampaignPage() {
     setArtworkDataUrl(draft.dataUrl);
   };
 
+  const reviewStatusLabel = (status: PlatformAdReviewStatus | null) => {
+    if (status === "PENDING") return "Pending review";
+    if (status === "REJECTED") return "Rejected";
+    if (status === "APPROVED") return "Approved";
+    return "—";
+  };
+
+  const persistCampaignChanges = async () => {
+    if (adType === "sponsored") {
+      if (!selectedJob) {
+        throw new Error("Search and select an active published job listing.");
+      }
+      if (selectedJob.status !== "PUBLISHED") {
+        throw new Error("Only published jobs can be sponsored.");
+      }
+      if (sponsoredIdParam) {
+        await updateAdminSponsoredAd(sponsoredIdParam, {
+          startsAt: startDate,
+          promotionDays,
+        });
+      } else {
+        await createAdminSponsoredAd({
+          jobId: selectedJob.id,
+          startsAt: startDate,
+          promotionDays,
+        });
+      }
+      return;
+    }
+
+    if (!bannerCampaignIdParam && !artworkDataUrl) {
+      throw new Error("Upload banner artwork.");
+    }
+    const label = campaignName.trim() || "Campaign banner";
+    if (bannerCampaignIdParam) {
+      await updateAdminBannerCampaign(bannerCampaignIdParam, {
+        label,
+        href,
+        alt: label,
+        startsAt: startDate,
+        promotionDays,
+        ...(artworkDataUrl ? { imageUrl: artworkDataUrl } : {}),
+      });
+    } else {
+      await createAdminBannerCampaign({
+        aspectRatio: BANNER_ASPECT[adType],
+        label,
+        href,
+        alt: label,
+        imageUrl: artworkDataUrl!,
+        startsAt: startDate,
+        promotionDays,
+      });
+    }
+  };
+
+  const moderateCampaign = async (action: "approve" | "reject") => {
+    if (!isEditingExisting) return;
+    const trimmedNotes = reviewNotes.trim();
+    if (action === "reject" && !trimmedNotes) {
+      setError("Review notes are required when rejecting a campaign.");
+      return;
+    }
+    setReviewing(true);
+    setError(null);
+    try {
+      await persistCampaignChanges();
+      const body = { reviewNotes: trimmedNotes || undefined };
+      if (action === "approve") {
+        if (sponsoredIdParam) await approveAdminSponsoredAd(sponsoredIdParam, body);
+        else if (bannerCampaignIdParam) await approveAdminBannerCampaign(bannerCampaignIdParam, body);
+      } else if (sponsoredIdParam) {
+        await rejectAdminSponsoredAd(sponsoredIdParam, body);
+      } else if (bannerCampaignIdParam) {
+        await rejectAdminBannerCampaign(bannerCampaignIdParam, body);
+      }
+      router.push("/admin/platform-ads");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update review status.");
+    } finally {
+      setReviewing(false);
+    }
+  };
+
   const submit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      if (adType === "sponsored") {
-        if (!selectedJob) {
-          setError("Search and select an active published job listing.");
-          return;
-        }
-        if (selectedJob.status !== "PUBLISHED") {
-          setError("Only published jobs can be sponsored.");
-          return;
-        }
-        if (sponsoredIdParam) {
-          await updateAdminSponsoredAd(sponsoredIdParam, {
-            startsAt: startDate,
-            promotionDays,
-          });
-        } else {
-          await createAdminSponsoredAd({
-            jobId: selectedJob.id,
-            startsAt: startDate,
-            promotionDays,
-          });
-        }
-      } else {
-        const image = artworkDataUrl ?? artworkUrl ?? undefined;
-        if (!image) {
-          setError("Upload banner artwork.");
-          return;
-        }
-        const label = campaignName.trim() || "Campaign banner";
-        if (bannerCampaignIdParam) {
-          await updateAdminBannerCampaign(bannerCampaignIdParam, {
-            label,
-            href,
-            alt: label,
-            startsAt: startDate,
-            promotionDays,
-            ...(artworkDataUrl ? { imageUrl: artworkDataUrl } : {}),
-          });
-        } else {
-          await createAdminBannerCampaign({
-            aspectRatio: BANNER_ASPECT[adType],
-            label,
-            href,
-            alt: label,
-            imageUrl: image,
-            startsAt: startDate,
-            promotionDays,
-          });
-        }
-      }
+      await persistCampaignChanges();
       router.push("/admin/platform-ads");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save campaign");
@@ -237,7 +282,11 @@ export function AdminPlatformAdsCampaignPage() {
               {TYPE_LABELS[adType]}
             </p>
             <h1 className="text-headline-lg tracking-tight text-primary">
-              {sponsoredIdParam || bannerCampaignIdParam ? "Edit Campaign" : "Create Campaign"}
+              {isEditingExisting
+                ? reviewStatus === "PENDING"
+                  ? "Review Campaign"
+                  : "Edit Campaign"
+                : "Create Campaign"}
             </h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
               {adType === "sponsored"
@@ -251,21 +300,23 @@ export function AdminPlatformAdsCampaignPage() {
               </p>
             )}
           </div>
-          <div className="flex gap-stack-md">
+          <div className="flex flex-wrap justify-end gap-stack-md">
             <Link
               href="/admin/platform-ads"
               className="rounded-lg border border-outline px-6 py-2 font-label-bold transition-colors hover:bg-surface-container"
             >
               Cancel
             </Link>
-            <button
-              type="button"
-              disabled={submitting || loading}
-              onClick={() => void submit()}
-              className="rounded-lg bg-primary px-6 py-2 font-label-bold text-on-primary shadow-lg shadow-primary/10 transition-all hover:opacity-90 disabled:opacity-50"
-            >
-              {submitting ? "Saving…" : "Schedule Campaign"}
-            </button>
+            {!(isEditingExisting && reviewStatus === "PENDING") && (
+              <button
+                type="button"
+                disabled={submitting || loading || reviewing}
+                onClick={() => void submit()}
+                className="rounded-lg bg-primary px-6 py-2 font-label-bold text-on-primary shadow-lg shadow-primary/10 transition-all hover:opacity-90 disabled:opacity-50"
+              >
+                {submitting ? "Saving…" : isEditingExisting ? "Save Changes" : "Schedule Campaign"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -393,6 +444,7 @@ export function AdminPlatformAdsCampaignPage() {
                 </FormSection>
               </>
             )}
+
           </div>
 
           <div className="col-span-12 lg:col-span-4">
@@ -435,6 +487,68 @@ export function AdminPlatformAdsCampaignPage() {
                   )}
                 </div>
               </div>
+
+              {isEditingExisting && (
+                <div className="mt-stack-lg space-y-stack-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-stack-lg">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-label-bold text-label-bold">Review status</span>
+                    <span
+                      className={cn(
+                        "rounded-full px-3 py-1 text-label-sm font-label-bold",
+                        reviewStatus === "PENDING" && "bg-amber-100 text-amber-900",
+                        reviewStatus === "APPROVED" && "bg-secondary-container text-on-secondary-container",
+                        reviewStatus === "REJECTED" && "bg-error-container text-on-error-container",
+                      )}
+                    >
+                      {reviewStatusLabel(reviewStatus)}
+                    </span>
+                  </div>
+
+                  <label className="block">
+                    <span className="mb-2 block font-label-bold">
+                      Review notes
+                      {reviewStatus === "PENDING" && (
+                        <span className="ml-1 font-normal text-on-surface-variant">
+                          (required for rejection)
+                        </span>
+                      )}
+                    </span>
+                    <textarea
+                      value={reviewNotes}
+                      onChange={(e) => setReviewNotes(e.target.value)}
+                      readOnly={reviewStatus !== "PENDING"}
+                      rows={4}
+                      placeholder={
+                        reviewStatus === "PENDING"
+                          ? "Add notes for the recruiter. Required if you reject this campaign."
+                          : "No review notes recorded."
+                      }
+                      className="w-full rounded-lg border border-outline-variant p-3 text-body-md focus:border-secondary focus:outline-none read-only:bg-surface-container-low read-only:text-on-surface-variant"
+                    />
+                  </label>
+
+                  {reviewStatus === "PENDING" && (
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        disabled={reviewing || loading || !reviewNotes.trim()}
+                        onClick={() => void moderateCampaign("reject")}
+                        className="rounded-lg border border-outline-variant px-4 py-2 font-label-bold text-label-sm text-on-surface-variant transition-colors hover:bg-surface-variant disabled:opacity-50"
+                      >
+                        {reviewing ? "Processing…" : "Reject"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={reviewing || loading}
+                        onClick={() => void moderateCampaign("approve")}
+                        className="rounded-lg bg-secondary px-4 py-2 font-label-bold text-label-sm text-on-secondary transition-all hover:opacity-90 disabled:opacity-50"
+                      >
+                        {reviewing ? "Processing…" : "Approve"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

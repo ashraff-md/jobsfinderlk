@@ -226,6 +226,8 @@ export type AdminBannerSlot = {
   slides: AdminBannerSlide[];
 };
 
+export type PlatformAdReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 export type AdminBannerCampaign = {
   id: string;
   label: string;
@@ -234,10 +236,15 @@ export type AdminBannerCampaign = {
   imageUrl?: string | null;
   alt: string;
   active: boolean;
+  reviewStatus: PlatformAdReviewStatus;
+  reviewNotes?: string;
+  submittedById?: string;
+  promotionDays: PromotionPeriodDays;
   startsAt: string;
   endsAt: string;
   sortOrder: number;
   viewCount: number;
+  clickCount?: number;
 };
 
 export type CreateAdminBannerCampaignBody = {
@@ -265,10 +272,19 @@ export type AdminSponsoredAd = {
   jobId: string;
   sortOrder: number;
   active: boolean;
+  reviewStatus: PlatformAdReviewStatus;
+  reviewNotes?: string;
+  submittedById?: string;
+  promotionDays: PromotionPeriodDays;
   viewCount: number;
+  clickCount?: number;
   startsAt: string;
   endsAt: string;
   job: Job;
+};
+
+export type ModeratePlatformAdBody = {
+  reviewNotes?: string;
 };
 
 export type PromotionPeriodDays = 3 | 5 | 7 | 14 | 30 | 60;
@@ -354,6 +370,12 @@ export async function getAdminSponsoredAds() {
   });
 }
 
+export async function getAdminSponsoredAd(id: string) {
+  return apiFetch<AdminSponsoredAd>(`/admin/platform-ads/sponsored/${id}`, {
+    token: getAccessToken(),
+  });
+}
+
 export async function createAdminSponsoredAd(body: CreateAdminSponsoredAdBody) {
   return apiFetch<AdminSponsoredAd[]>("/admin/platform-ads/sponsored", {
     method: "POST",
@@ -382,6 +404,38 @@ export async function deleteAdminSponsoredAd(id: string) {
   return apiFetch<AdminSponsoredAd[]>(`/admin/platform-ads/sponsored/${id}`, {
     method: "DELETE",
     token: getAccessToken(),
+  });
+}
+
+export async function approveAdminBannerCampaign(id: string, body?: ModeratePlatformAdBody) {
+  return apiFetch<AdminBannerCampaign>(`/admin/platform-ads/banner-campaigns/${id}/approve`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export async function rejectAdminBannerCampaign(id: string, body?: ModeratePlatformAdBody) {
+  return apiFetch<AdminBannerCampaign>(`/admin/platform-ads/banner-campaigns/${id}/reject`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export async function approveAdminSponsoredAd(id: string, body?: ModeratePlatformAdBody) {
+  return apiFetch<AdminSponsoredAd[]>(`/admin/platform-ads/sponsored/${id}/approve`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export async function rejectAdminSponsoredAd(id: string, body?: ModeratePlatformAdBody) {
+  return apiFetch<AdminSponsoredAd[]>(`/admin/platform-ads/sponsored/${id}/reject`, {
+    method: "PATCH",
+    token: getAccessToken(),
+    body: JSON.stringify(body ?? {}),
   });
 }
 

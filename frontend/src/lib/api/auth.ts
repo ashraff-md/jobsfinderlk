@@ -70,12 +70,15 @@ export async function register(input: {
   return data;
 }
 
+import type { ListingAllowance } from "./employer-billing";
+
 export type UserProfile = {
   id: string;
   email: string;
   role: UserRole;
   emailVerified: boolean;
   createdAt: string;
+  listingAllowance?: ListingAllowance;
   adminProfile?: {
     firstName?: string | null;
     lastName?: string | null;

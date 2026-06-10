@@ -93,6 +93,13 @@ export class ApplicationsService {
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
     if (!job) throw new NotFoundException('Job not found');
 
+    if (job.postedById) {
+      if (job.postedById !== userId) {
+        throw new ForbiddenException('Not authorized for this job');
+      }
+      return;
+    }
+
     const link = await this.prisma.employerUser.findFirst({
       where: { userId, companyId: job.companyId },
     });

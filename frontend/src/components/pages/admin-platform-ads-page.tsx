@@ -15,16 +15,17 @@ import type { CampaignStatus, PlatformCampaignRow } from "@/lib/platform-ads/adm
 import {
   formatPromotionEndDate,
   formatScheduleRange,
-  sponsoredScheduleStatus,
+  platformAdCampaignStatus,
 } from "@/lib/platform-ads/sponsored-schedule";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
-type AdsTab = "active" | "pending" | "completed";
+type AdsTab = "overview" | "active" | "pending" | "completed";
 
 const TABS: { key: AdsTab; label: string }[] = [
-  { key: "active", label: "Active Campaigns" },
+  { key: "overview", label: "Overview" },
+  { key: "active", label: "Active" },
   { key: "pending", label: "Pending Review" },
   { key: "completed", label: "Completed" },
 ];
@@ -45,18 +46,16 @@ const STAT_CARDS = [
     showDelta: true,
   },
   {
-    icon: "payments",
+    icon: "visibility",
     iconClass: "text-on-surface",
-    tag: "MONTHLY",
-    label: "Total Revenue",
-    showTrend: true,
+    tag: "TOTAL",
+    label: "Total Impressions",
   },
   {
     icon: "trending_up",
     iconClass: "text-secondary",
-    tag: "PERFORMANCE",
-    label: "Avg. Click-Through Rate",
-    showBars: true,
+    tag: "AVERAGE",
+    label: "Avg. Views per Campaign",
   },
 ] as const;
 
@@ -91,6 +90,8 @@ function displayStatusForRow(
   adType: PlatformCampaignRow["adType"],
   endsAt: string,
 ): PlatformCampaignRow["displayStatus"] {
+  if (status === "Pending Review") return "Scheduled";
+  if (status === "Rejected") return "Rejected";
   if (status === "Scheduled") return "Scheduled";
   if (status === "Inactive") return "Inactive";
   if (isExpiringSoon(endsAt)) return "Expiring Today";
@@ -98,10 +99,23 @@ function displayStatusForRow(
   return "Rotating";
 }
 
-function formatCompactViews(count: number) {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M Impr.`;
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}k Impr.`;
-  return `${count.toLocaleString()} Impr.`;
+function formatCompactCount(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return value.toLocaleString();
+}
+
+function formatCompactImpressions(count: number) {
+  return `${formatCompactCount(count)} Impr.`;
+}
+
+function formatCtr(clicks: number, views: number) {
+  if (views <= 0) return "—";
+  return `${((clicks / views) * 100).toFixed(1)}% CTR`;
+}
+
+function formatViewsCtaLine(views: number, clicks: number) {
+  return `${formatCompactCount(views)} views · ${formatCompactCount(clicks)} CTA`;
 }
 
 function buildCampaignRows(
@@ -110,9 +124,16 @@ function buildCampaignRows(
 ): PlatformCampaignRow[] {
   const bannerRows: PlatformCampaignRow[] = bannerCampaigns.map((campaign) => {
     const adType = campaign.aspectRatio === "RATIO_3_2" ? "Banner 3x2" : "Banner 2x5";
-    const status = sponsoredScheduleStatus(campaign.startsAt, campaign.endsAt, campaign.active);
+    const status = platformAdCampaignStatus(
+      campaign.reviewStatus ?? "APPROVED",
+      campaign.startsAt,
+      campaign.endsAt,
+      campaign.active,
+    );
     return {
       id: campaign.id,
+      campaignKind: "banner",
+      reviewStatus: campaign.reviewStatus ?? "APPROVED",
       advertiser: campaign.label,
       sublabel: campaign.alt || "Banner campaign",
       initials: initials(campaign.label),
@@ -129,16 +150,24 @@ function buildCampaignRows(
       endsAt: campaign.endsAt,
       scheduleProgress: scheduleProgress(campaign.startsAt, campaign.endsAt),
       views: campaign.viewCount ?? 0,
-      ctr: "—",
+      clicks: campaign.clickCount ?? 0,
+      ctr: formatCtr(campaign.clickCount ?? 0, campaign.viewCount ?? 0),
       editHref: `/admin/platform-ads/new?type=${campaign.aspectRatio === "RATIO_3_2" ? "wide" : "tall"}&bannerCampaignId=${campaign.id}`,
       viewHref: campaign.href.startsWith("/") ? campaign.href : campaign.href,
     };
   });
 
   const sponsoredRows: PlatformCampaignRow[] = sponsored.map((ad) => {
-    const status = sponsoredScheduleStatus(ad.startsAt, ad.endsAt, ad.active);
+    const status = platformAdCampaignStatus(
+      ad.reviewStatus ?? "APPROVED",
+      ad.startsAt,
+      ad.endsAt,
+      ad.active,
+    );
     return {
       id: ad.id,
+      campaignKind: "sponsored",
+      reviewStatus: ad.reviewStatus ?? "APPROVED",
       advertiser: ad.job.company.name,
       sublabel: ad.job.title,
       initials: initials(ad.job.company.name),
@@ -154,7 +183,8 @@ function buildCampaignRows(
       endsAt: ad.endsAt,
       scheduleProgress: scheduleProgress(ad.startsAt, ad.endsAt),
       views: ad.viewCount ?? 0,
-      ctr: "—",
+      clicks: ad.clickCount ?? 0,
+      ctr: formatCtr(ad.clickCount ?? 0, ad.viewCount ?? 0),
       editHref: `/admin/platform-ads/new?type=sponsored&sponsoredId=${ad.id}&jobId=${ad.jobId}`,
       viewHref: `/jobs/${ad.job.slug}`,
     };
@@ -168,6 +198,7 @@ function statusDotClass(displayStatus: PlatformCampaignRow["displayStatus"]) {
   if (displayStatus === "Rotating") return "bg-secondary";
   if (displayStatus === "Expiring Today") return "bg-on-surface-variant opacity-40";
   if (displayStatus === "Scheduled") return "bg-amber-500";
+  if (displayStatus === "Rejected") return "bg-error";
   return "bg-on-surface-variant opacity-40";
 }
 
@@ -178,7 +209,7 @@ function CampaignStatusIndicator({ status }: { status: PlatformCampaignRow["disp
       <span
         className={cn(
           "font-label-sm text-label-sm",
-          status === "Expiring Today" || status === "Inactive"
+          status === "Expiring Today" || status === "Inactive" || status === "Rejected"
             ? "text-on-surface-variant opacity-60"
             : "text-primary",
         )}
@@ -189,6 +220,35 @@ function CampaignStatusIndicator({ status }: { status: PlatformCampaignRow["disp
   );
 }
 
+function scheduleStatusBadgeClass(status: CampaignStatus) {
+  if (status === "Active") return "bg-secondary-container text-on-secondary-container";
+  if (status === "Pending Review") return "bg-amber-100 text-amber-900";
+  if (status === "Rejected") return "bg-error-container text-on-error-container";
+  if (status === "Scheduled") return "bg-blue-100 text-blue-900";
+  return "bg-surface-variant text-on-surface-variant";
+}
+
+function CampaignScheduleStatusBadge({ status }: { status: CampaignStatus }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+        scheduleStatusBadgeClass(status),
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+type StatusSummary = {
+  total: number;
+  active: number;
+  pendingReview: number;
+  scheduled: number;
+  inactive: number;
+};
+
 export function AdminPlatformAdsPage() {
   const [bannerCampaigns, setBannerCampaigns] = useState<AdminBannerCampaign[]>([]);
   const [sponsored, setSponsored] = useState<AdminSponsoredAd[]>([]);
@@ -197,7 +257,7 @@ export function AdminPlatformAdsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [adTypeFilter, setAdTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [activeTab, setActiveTab] = useState<AdsTab>("active");
+  const [activeTab, setActiveTab] = useState<AdsTab>("overview");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [adTypeModalOpen, setAdTypeModalOpen] = useState(false);
@@ -228,15 +288,32 @@ export function AdminPlatformAdsPage() {
     [bannerCampaigns, sponsored],
   );
 
-  const activeCount = campaigns.filter((c) => c.status === "Active").length;
-  const pendingCount = campaigns.filter((c) => c.status === "Scheduled").length;
+  const statusSummary = useMemo<StatusSummary>(() => {
+    const active = campaigns.filter((c) => c.status === "Active").length;
+    const pendingReview = campaigns.filter((c) => c.status === "Pending Review").length;
+    const scheduled = campaigns.filter((c) => c.status === "Scheduled").length;
+    const inactive = campaigns.filter((c) => c.status === "Inactive").length;
+    return {
+      total: campaigns.length,
+      active,
+      pendingReview,
+      scheduled,
+      inactive,
+    };
+  }, [campaigns]);
+
+  const activeCount = statusSummary.active;
+  const pendingCount = statusSummary.pendingReview;
   const totalViews = campaigns.reduce((sum, c) => sum + c.views, 0);
+  const totalClicks = campaigns.reduce((sum, c) => sum + c.clicks, 0);
+  const avgViewsPerCampaign =
+    campaigns.length > 0 ? Math.round(totalViews / campaigns.length) : 0;
 
   const filteredCampaigns = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return campaigns.filter((c) => {
       if (activeTab === "active" && c.status !== "Active") return false;
-      if (activeTab === "pending" && c.status !== "Scheduled") return false;
+      if (activeTab === "pending" && c.status !== "Pending Review") return false;
       if (activeTab === "completed" && c.status !== "Inactive") return false;
       if (adTypeFilter !== "all" && c.adType !== adTypeFilter) return false;
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
@@ -261,8 +338,26 @@ export function AdminPlatformAdsPage() {
     searchQuery.trim().length > 0 || adTypeFilter !== "all" || statusFilter !== "all";
 
   const tabLabel = (tab: (typeof TABS)[number]) => {
+    if (tab.key === "overview") return `${tab.label} (${statusSummary.total})`;
+    if (tab.key === "active" && activeCount > 0) return `${tab.label} (${activeCount})`;
     if (tab.key === "pending" && pendingCount > 0) return `${tab.label} (${pendingCount})`;
+    if (tab.key === "completed" && statusSummary.inactive > 0) {
+      return `${tab.label} (${statusSummary.inactive})`;
+    }
     return tab.label;
+  };
+
+  const handleTabChange = (tab: AdsTab) => {
+    setActiveTab(tab);
+    if (tab === "overview") {
+      setStatusFilter("all");
+    } else if (tab === "active") {
+      setStatusFilter("Active");
+    } else if (tab === "pending") {
+      setStatusFilter("Pending Review");
+    } else if (tab === "completed") {
+      setStatusFilter("Inactive");
+    }
   };
 
   return (
@@ -313,8 +408,8 @@ export function AdminPlatformAdsPage() {
                     : index === 1
                       ? String(pendingCount)
                       : index === 2
-                        ? "LKR 284,500"
-                        : "3.2%"}
+                        ? totalViews.toLocaleString()
+                        : avgViewsPerCampaign.toLocaleString()}
               </h3>
               <p className="font-label-sm text-label-sm text-on-surface-variant">{card.label}</p>
               {"showProgress" in card && card.showProgress && (
@@ -328,27 +423,16 @@ export function AdminPlatformAdsPage() {
                 </div>
               )}
               {"showDelta" in card && card.showDelta && pendingCount > 0 && (
-                <p className="mt-2 text-[10px] font-bold text-error">+{pendingCount} awaiting start</p>
+                <p className="mt-2 text-[10px] font-bold text-error">+{pendingCount} awaiting review</p>
               )}
-              {"showTrend" in card && card.showTrend && (
-                <p className="mt-2 text-[10px] font-bold text-on-secondary-fixed-variant">
-                  ↑ 12.4% vs last month
+              {index === 2 && totalViews > 0 && (
+                <p className="mt-2 text-[10px] text-on-surface-variant opacity-60">
+                  {formatCompactImpressions(totalViews)} · {totalClicks.toLocaleString()} clicks
                 </p>
               )}
-              {"showBars" in card && card.showBars && (
-                <div className="mt-4 flex items-end gap-1">
-                  {[4, 6, 8, 5, 9].map((h, i) => (
-                    <div
-                      key={i}
-                      className={cn("w-1 bg-surface-variant", i >= 2 && "bg-secondary")}
-                      style={{ height: `${h * 4}px` }}
-                    />
-                  ))}
-                </div>
-              )}
-              {index === 1 && totalViews > 0 && (
+              {index === 3 && campaigns.length > 0 && (
                 <p className="mt-2 text-[10px] text-on-surface-variant opacity-60">
-                  {formatCompactViews(totalViews)} tracked
+                  Across {campaigns.length} campaigns
                 </p>
               )}
             </div>
@@ -361,7 +445,7 @@ export function AdminPlatformAdsPage() {
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => handleTabChange(tab.key)}
                   className={cn(
                     "whitespace-nowrap pb-4 font-label-bold text-label-bold transition-all",
                     activeTab === tab.key
@@ -419,6 +503,8 @@ export function AdminPlatformAdsPage() {
                     >
                       <option value="all">All statuses</option>
                       <option value="Active">Active</option>
+                      <option value="Pending Review">Pending Review</option>
+                      <option value="Rejected">Rejected</option>
                       <option value="Scheduled">Scheduled</option>
                       <option value="Inactive">Inactive</option>
                     </select>
@@ -445,22 +531,29 @@ export function AdminPlatformAdsPage() {
                         <tr>
                           <th className="px-6 py-4">Advertiser</th>
                           <th className="px-6 py-4">Type / Placement</th>
-                          <th className="px-6 py-4">Engagement</th>
+                          <th className="px-6 py-4">Views / CTA</th>
                           <th className="px-6 py-4">Schedule</th>
                           <th className="px-6 py-4">Status</th>
+                          {activeTab === "overview" && <th className="px-6 py-4">Lifecycle</th>}
                           <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-outline-variant">
                         {loading ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-10 text-on-surface-variant">
+                            <td
+                              colSpan={activeTab === "overview" ? 7 : 6}
+                              className="px-6 py-10 text-on-surface-variant"
+                            >
                               Loading campaigns…
                             </td>
                           </tr>
                         ) : pagedCampaigns.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-10 text-on-surface-variant">
+                            <td
+                              colSpan={activeTab === "overview" ? 7 : 6}
+                              className="px-6 py-10 text-on-surface-variant"
+                            >
                               No campaigns match your filters.{" "}
                               <button
                                 type="button"
@@ -510,16 +603,11 @@ export function AdminPlatformAdsPage() {
                                 </p>
                               </td>
                               <td className="px-6 py-5">
-                                <p className="font-label-bold text-label-bold">
-                                  {formatCompactViews(row.views)}
+                                <p className="font-label-bold tabular-nums text-label-bold text-primary">
+                                  {formatViewsCtaLine(row.views, row.clicks)}
                                 </p>
-                                <p
-                                  className={cn(
-                                    "text-[11px] font-bold",
-                                    row.ctr !== "—" ? "text-secondary" : "text-on-surface-variant opacity-60",
-                                  )}
-                                >
-                                  {row.ctr !== "—" ? `${row.ctr} CTR` : "CTR pending"}
+                                <p className="text-[11px] font-bold text-on-surface-variant opacity-60">
+                                  {formatCtr(row.clicks, row.views)}
                                 </p>
                               </td>
                               <td className="px-6 py-5">
@@ -537,19 +625,43 @@ export function AdminPlatformAdsPage() {
                                 </div>
                               </td>
                               <td className="px-6 py-5">
-                                <CampaignStatusIndicator status={row.displayStatus} />
+                                {activeTab === "overview" ? (
+                                  <CampaignScheduleStatusBadge status={row.status} />
+                                ) : (
+                                  <CampaignStatusIndicator status={row.displayStatus} />
+                                )}
                               </td>
+                              {activeTab === "overview" && (
+                                <td className="px-6 py-5">
+                                  <CampaignStatusIndicator status={row.displayStatus} />
+                                </td>
+                              )}
                               <td className="px-6 py-5 text-right">
                                 <div className="flex justify-end gap-2">
                                   <Link
                                     href={row.editHref}
-                                    className="rounded p-2 transition-colors hover:bg-surface-variant"
-                                    title="Edit"
-                                    aria-label={`Edit ${row.advertiser}`}
+                                    className={cn(
+                                      "rounded p-2 transition-colors hover:bg-surface-variant",
+                                      row.reviewStatus === "PENDING" &&
+                                        "bg-amber-100 text-amber-900 hover:bg-amber-200",
+                                    )}
+                                    title={row.reviewStatus === "PENDING" ? "Review" : "Edit"}
+                                    aria-label={
+                                      row.reviewStatus === "PENDING"
+                                        ? `Review ${row.advertiser}`
+                                        : `Edit ${row.advertiser}`
+                                    }
                                   >
-                                    <Icon name="edit" className="text-on-surface-variant" />
+                                    <Icon
+                                      name={row.reviewStatus === "PENDING" ? "rate_review" : "edit"}
+                                      className={
+                                        row.reviewStatus === "PENDING"
+                                          ? undefined
+                                          : "text-on-surface-variant"
+                                      }
+                                    />
                                   </Link>
-                                  {row.viewHref && (
+                                  {row.viewHref && row.reviewStatus === "APPROVED" && (
                                     <a
                                       href={row.viewHref}
                                       target="_blank"

@@ -35,9 +35,26 @@ enum BannerAspectRatio {
   RATIO_2_5
 }
 
+enum PlatformAdReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum VerificationTokenType {
   EMAIL
   PHONE
+}
+
+enum EmployerPurchaseProduct {
+  JOB_LISTINGS
+  SPONSORED_JOBS
+  BANNER_ADVERTISING
+}
+
+enum PromoDiscountType {
+  PERCENT
+  FIXED
 }
 
 model User {
@@ -55,6 +72,7 @@ model User {
   applications  Application[]
   companyRequests CompanyRequest[]
   reviewedJobs  Job[] @relation("JobReviewedBy")
+  postedJobs    Job[] @relation("JobPostedBy")
   reviewedCompanyRequests CompanyRequest[] @relation("CompanyRequestReviewedBy")
   reviewedById  String?   @map("reviewed_by_id")
   reviewedAt    DateTime? @map("reviewed_at")
@@ -62,8 +80,54 @@ model User {
   moderatedRecruiters User[] @relation("RecruiterReviewedBy")
   verificationTokens VerificationToken[]
   createdGovernmentOrganizations GovernmentOrganization[] @relation("GovOrgCreatedBy")
+  employerPurchases EmployerPurchase[]
+  submittedBannerCampaigns PlatformBannerCampaign[] @relation("BannerCampaignSubmittedBy")
+  submittedSponsoredAds      SponsoredAd[]           @relation("SponsoredAdSubmittedBy")
 
   @@map("users")
+}
+
+model PromoCode {
+  id            String                  @id @default(uuid())
+  code          String                  @unique
+  description   String?
+  discountType  PromoDiscountType       @map("discount_type")
+  discountValue Int                     @map("discount_value")
+  minSubtotal   Int                     @default(0) @map("min_subtotal")
+  maxUses       Int?                    @map("max_uses")
+  usedCount     Int                     @default(0) @map("used_count")
+  active        Boolean                 @default(true)
+  startsAt      DateTime?               @map("starts_at")
+  endsAt        DateTime?               @map("ends_at")
+  products      EmployerPurchaseProduct[] @default([])
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  purchases EmployerPurchase[]
+
+  @@map("promo_codes")
+}
+
+model EmployerPurchase {
+  id            String                  @id @default(uuid())
+  userId        String                  @map("user_id")
+  product       EmployerPurchaseProduct
+  plan          String
+  duration      String?
+  jobSlots      Int?                    @map("job_slots")
+  subtotal      Int?
+  promoCodeId   String?                 @map("promo_code_id")
+  promoCode     String?                 @map("promo_code")
+  promoDiscount Int                     @default(0) @map("promo_discount")
+  total         Int
+  paymentMethod String                  @map("payment_method")
+  purchasedAt   DateTime                @default(now()) @map("purchased_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promoCodeRef PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+
+  @@index([userId, purchasedAt])
+  @@map("employer_purchases")
 }
 
 model AdminProfile {
@@ -292,12 +356,14 @@ model Job {
   expiresAt            DateTime? @map("expires_at")
   reviewedById         String?   @map("reviewed_by_id")
   reviewedAt           DateTime? @map("reviewed_at")
+  postedById           String?   @map("posted_by_id")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
   company                Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   governmentOrganization GovernmentOrganization? @relation(fields: [governmentOrganizationId], references: [id], onDelete: SetNull)
   reviewedBy             User?                   @relation("JobReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  postedBy               User?                   @relation("JobPostedBy", fields: [postedById], references: [id], onDelete: SetNull)
   applications             Application[]
   sponsoredAd              SponsoredAd?
 
@@ -353,35 +419,50 @@ model PlatformBannerSlide {
 }
 
 model PlatformBannerCampaign {
-  id          String            @id @default(uuid())
-  label       String
-  aspectRatio BannerAspectRatio @map("aspect_ratio")
-  href        String            @default("/jobs")
-  imageUrl    String?           @map("image_url")
-  alt         String            @default("")
-  active      Boolean           @default(true)
-  startsAt    DateTime          @map("starts_at")
-  endsAt      DateTime          @map("ends_at")
-  sortOrder   Int               @default(0) @map("sort_order")
-  viewCount   Int               @default(0) @map("view_count")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  id             String                 @id @default(uuid())
+  label          String
+  aspectRatio    BannerAspectRatio      @map("aspect_ratio")
+  href           String                 @default("/jobs")
+  imageUrl       String?                @map("image_url")
+  alt            String                 @default("")
+  active         Boolean                @default(true)
+  reviewStatus   PlatformAdReviewStatus @default(APPROVED) @map("review_status")
+  reviewNotes    String?                @map("review_notes")
+  submittedById  String?                @map("submitted_by_id")
+  promotionDays  Int                    @default(7) @map("promotion_days")
+  startsAt       DateTime               @map("starts_at")
+  endsAt         DateTime               @map("ends_at")
+  sortOrder      Int                    @default(0) @map("sort_order")
+  viewCount      Int                    @default(0) @map("view_count")
+  clickCount     Int                    @default(0) @map("click_count")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
 
+  submittedBy User? @relation("BannerCampaignSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+
+  @@index([submittedById, createdAt])
   @@map("platform_banner_campaigns")
 }
 
 model SponsoredAd {
-  id        String   @id @default(uuid())
-  jobId     String   @unique @map("job_id")
-  sortOrder Int      @default(0) @map("sort_order")
-  active    Boolean  @default(true)
-  startsAt  DateTime @map("starts_at")
-  endsAt    DateTime @map("ends_at")
-  viewCount Int      @default(0) @map("view_count")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String                 @id @default(uuid())
+  jobId         String                 @unique @map("job_id")
+  sortOrder     Int                    @default(0) @map("sort_order")
+  active        Boolean                @default(true)
+  reviewStatus  PlatformAdReviewStatus @default(APPROVED) @map("review_status")
+  reviewNotes   String?                @map("review_notes")
+  submittedById String?                @map("submitted_by_id")
+  promotionDays Int                    @default(7) @map("promotion_days")
+  startsAt      DateTime               @map("starts_at")
+  endsAt        DateTime               @map("ends_at")
+  viewCount     Int                    @default(0) @map("view_count")
+  clickCount    Int                    @default(0) @map("click_count")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
 
-  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job         Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  submittedBy User? @relation("SponsoredAdSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
 
+  @@index([submittedById, createdAt])
   @@map("sponsored_ads")
 }

@@ -7,7 +7,8 @@ import { ApiError } from "@/lib/api/client";
 import {
   getEmployerAdsOverview,
   type EmployerAdsStats,
-  type EmployerSponsoredCampaign,
+  type EmployerCampaign,
+  type EmployerCampaignStatus,
 } from "@/lib/api/employer-ads";
 import { formatScheduleRange } from "@/lib/platform-ads/sponsored-schedule";
 import { cn } from "@/lib/utils";
@@ -18,15 +19,49 @@ function formatCompactCount(value: number) {
   return value.toLocaleString();
 }
 
-function displayStatus(status: EmployerSponsoredCampaign["status"]) {
+function formatCtr(clicks: number, views: number) {
+  if (views <= 0) return "—";
+  return `${((clicks / views) * 100).toFixed(1)}% CTR`;
+}
+
+function formatViewsCtaLine(views: number, clicks: number) {
+  return `${formatCompactCount(views)} views · ${formatCompactCount(clicks)} CTA`;
+}
+
+function campaignTitle(row: EmployerCampaign) {
+  return row.kind === "sponsored" ? row.job.title : row.label;
+}
+
+function campaignSubtitle(row: EmployerCampaign) {
+  if (row.kind === "sponsored") {
+    return `${row.job.company.name} · ID: ${row.id.slice(0, 8).toUpperCase()}`;
+  }
+  const format = row.aspectRatio === "RATIO_3_2" ? "Display Banner" : "Leaderboard Ad";
+  return `${format} · ID: ${row.id.slice(0, 8).toUpperCase()}`;
+}
+
+function campaignTypeLabel(row: EmployerCampaign) {
+  if (row.kind === "sponsored") return "Sponsored Job";
+  return row.aspectRatio === "RATIO_3_2" ? "Display Banner" : "Leaderboard Ad";
+}
+
+function campaignTypeIcon(row: EmployerCampaign) {
+  return row.kind === "sponsored" ? "ad_group" : "rectangle";
+}
+
+function displayStatus(status: EmployerCampaignStatus) {
   if (status === "Active") return "Live";
-  if (status === "Scheduled") return "Pending";
+  if (status === "Pending Review") return "Pending Review";
+  if (status === "Scheduled") return "Scheduled";
+  if (status === "Rejected") return "Rejected";
   return "Expired";
 }
 
-function statusClass(status: EmployerSponsoredCampaign["status"]) {
+function statusClass(status: EmployerCampaignStatus) {
   if (status === "Active") return "bg-green-100 text-green-800 border-green-200";
+  if (status === "Pending Review") return "bg-amber-100 text-amber-900 border-amber-200";
   if (status === "Scheduled") return "bg-blue-100 text-blue-800 border-blue-200";
+  if (status === "Rejected") return "bg-error-container text-on-error-container border-error/30";
   return "bg-surface-container-highest text-on-surface-variant border-outline-variant";
 }
 
@@ -35,7 +70,7 @@ function buildStatCards(stats: EmployerAdsStats) {
     {
       label: "Total Impressions",
       value: formatCompactCount(stats.totalImpressions),
-      sub: "Across all campaigns",
+      sub: `${formatCompactCount(stats.totalClicks)} clicks across all campaigns`,
     },
     {
       label: "Live Campaigns",
@@ -43,9 +78,9 @@ function buildStatCards(stats: EmployerAdsStats) {
       sub: "Currently running",
     },
     {
-      label: "Pending",
-      value: String(stats.scheduledCount),
-      sub: "Scheduled to start",
+      label: "Pending Review",
+      value: String(stats.pendingReviewCount),
+      sub: "Awaiting admin approval",
     },
     {
       label: "Expired",
@@ -56,9 +91,11 @@ function buildStatCards(stats: EmployerAdsStats) {
 }
 
 export function EmployerAdsPage() {
-  const [campaigns, setCampaigns] = useState<EmployerSponsoredCampaign[]>([]);
+  const [campaigns, setCampaigns] = useState<EmployerCampaign[]>([]);
   const [stats, setStats] = useState<EmployerAdsStats>({
     totalImpressions: 0,
+    totalClicks: 0,
+    pendingReviewCount: 0,
     activeCount: 0,
     scheduledCount: 0,
     expiredCount: 0,
@@ -78,6 +115,8 @@ export function EmployerAdsPage() {
       setCampaigns([]);
       setStats({
         totalImpressions: 0,
+        totalClicks: 0,
+        pendingReviewCount: 0,
         activeCount: 0,
         scheduledCount: 0,
         expiredCount: 0,
@@ -95,12 +134,16 @@ export function EmployerAdsPage() {
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return campaigns;
-    return campaigns.filter(
-      (c) =>
-        c.job.title.toLowerCase().includes(q) ||
+    return campaigns.filter((c) => {
+      const title = campaignTitle(c).toLowerCase();
+      const subtitle = campaignSubtitle(c).toLowerCase();
+      return (
+        title.includes(q) ||
+        subtitle.includes(q) ||
         c.id.toLowerCase().includes(q) ||
-        c.job.company.name.toLowerCase().includes(q),
-    );
+        campaignTypeLabel(c).toLowerCase().includes(q)
+      );
+    });
   }, [campaigns, searchQuery]);
 
   const statCards = buildStatCards(stats);
@@ -113,7 +156,7 @@ export function EmployerAdsPage() {
             Ads Management &amp; Oversight
           </h2>
           <p className="mt-1 max-w-2xl font-body-lg text-on-surface-variant">
-            Monitor sponsored job performance and launch new recruitment campaigns.
+            Track sponsored jobs and banner campaigns, including items awaiting admin review.
           </p>
         </div>
         <Link
@@ -170,7 +213,7 @@ export function EmployerAdsPage() {
           <table className="w-full border-collapse text-left">
             <thead className="bg-surface-container-low">
               <tr>
-                {["Campaign", "Status", "Type", "Duration", "Impressions", "Actions"].map((h) => (
+                {["Campaign", "Status", "Type", "Duration", "Views / CTA", "Actions"].map((h) => (
                   <th
                     key={h}
                     className="px-6 py-3 font-label-bold text-label-sm uppercase tracking-wider text-on-surface-variant"
@@ -190,7 +233,7 @@ export function EmployerAdsPage() {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-10 text-center text-on-surface-variant">
-                    No sponsored campaigns yet.{" "}
+                    No campaigns yet.{" "}
                     <Link href="/employer/ads/new" className="font-label-bold text-secondary hover:underline">
                       Create your first campaign
                     </Link>
@@ -201,9 +244,9 @@ export function EmployerAdsPage() {
                 filtered.map((row) => (
                   <tr key={row.id} className="transition-colors hover:bg-surface-container-low">
                     <td className="px-6 py-4">
-                      <p className="font-label-bold text-on-surface">{row.job.title}</p>
+                      <p className="font-label-bold text-on-surface">{campaignTitle(row)}</p>
                       <p className="mt-1 text-label-sm text-on-surface-variant">
-                        {row.job.company.name} · ID: {row.id.slice(0, 8).toUpperCase()}
+                        {campaignSubtitle(row)}
                       </p>
                     </td>
                     <td className="px-6 py-4">
@@ -218,26 +261,47 @@ export function EmployerAdsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <Icon name="ad_group" className="text-[20px] text-secondary" />
-                        <span className="text-body-md">Sponsored Job</span>
+                        <Icon name={campaignTypeIcon(row)} className="text-[20px] text-secondary" />
+                        <span className="text-body-md">{campaignTypeLabel(row)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-body-md">
                       {formatScheduleRange(row.startsAt, row.endsAt)}
                     </td>
-                    <td className="px-6 py-4 font-label-bold tabular-nums">
-                      {row.viewCount.toLocaleString()}
+                    <td className="px-6 py-4">
+                      <p className="font-label-bold tabular-nums text-primary">
+                        {formatViewsCtaLine(row.viewCount, row.clickCount ?? 0)}
+                      </p>
+                      <p className="text-label-sm text-on-surface-variant">
+                        {formatCtr(row.clickCount ?? 0, row.viewCount)}
+                      </p>
                     </td>
                     <td className="px-6 py-4">
-                      <Link
-                        href={`/jobs/${row.job.slug}`}
-                        className="inline-flex items-center gap-1 font-label-bold text-secondary hover:underline"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View live
-                        <Icon name="open_in_new" className="text-sm" />
-                      </Link>
+                      {row.status === "Active" ? (
+                        row.kind === "sponsored" ? (
+                          <Link
+                            href={`/jobs/${row.job.slug}`}
+                            className="inline-flex items-center gap-1 font-label-bold text-secondary hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            View live
+                            <Icon name="open_in_new" className="text-sm" />
+                          </Link>
+                        ) : (
+                          <a
+                            href={row.href.startsWith("/") ? row.href : row.href}
+                            className="inline-flex items-center gap-1 font-label-bold text-secondary hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            View live
+                            <Icon name="open_in_new" className="text-sm" />
+                          </a>
+                        )
+                      ) : (
+                        <span className="text-label-sm text-on-surface-variant">—</span>
+                      )}
                     </td>
                   </tr>
                 ))

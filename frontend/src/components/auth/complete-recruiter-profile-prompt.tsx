@@ -9,35 +9,43 @@ import {
 } from "@/lib/auth/recruiter-profile";
 
 type CompleteRecruiterProfilePromptProps = {
-  missingFields: RecruiterProfileField[];
+  missingFields?: RecruiterProfileField[];
+  variant?: "incomplete" | "verification";
 };
 
 export function CompleteRecruiterProfilePrompt({
-  missingFields,
+  missingFields = [],
+  variant = "incomplete",
 }: CompleteRecruiterProfilePromptProps) {
   const needsCompany = missingFields.includes("company");
   const missingLabels = missingFields
     .filter((field) => field !== "company")
     .map((field) => RECRUITER_PROFILE_LABELS[field]);
 
+  const isVerification = variant === "verification";
+
   return (
     <div className="professional-card mx-auto max-w-2xl space-y-5 rounded-lg border border-outline-variant bg-surface-container-lowest p-8 shadow-sm">
       <div className="flex items-start gap-3">
-        <Icon name="person" className="mt-0.5 text-primary" />
+        <Icon name={isVerification ? "verified_user" : "person"} className="mt-0.5 text-primary" />
         <div>
-          <h2 className="text-headline-md text-on-surface">Complete your profile first</h2>
+          <h2 className="text-headline-md text-on-surface">Complete profile before posting</h2>
           <p className="mt-2 text-body-md text-on-surface-variant">
-            {needsCompany && missingLabels.length === 0 ? (
+            {isVerification ? (
+              <>
+                Verify your email and phone on your recruiter profile before you can post a job
+                listing.
+              </>
+            ) : needsCompany && missingLabels.length === 0 ? (
               <>Link a company to your account before posting a vacancy.</>
             ) : needsCompany ? (
               <>
-                Before posting a vacancy, register your company and finish your recruiter profile
-                with your {missingLabels.join(", ")}.
+                Register your company and finish your recruiter profile with your{" "}
+                {missingLabels.join(", ")}.
               </>
             ) : (
               <>
-                Before posting a vacancy, finish your recruiter profile with your{" "}
-                {missingLabels.join(", ")}.
+                Finish your recruiter profile with your {missingLabels.join(", ")}.
               </>
             )}
           </p>
@@ -45,7 +53,7 @@ export function CompleteRecruiterProfilePrompt({
       </div>
 
       <div className="flex flex-wrap gap-3">
-        {needsCompany ? (
+        {!isVerification && needsCompany ? (
           <Link
             href="/employer/companies/new"
             className="inline-flex rounded-lg border border-primary px-6 py-3 font-label-bold text-primary"

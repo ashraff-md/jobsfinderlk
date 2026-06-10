@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CompanyAutocomplete } from "@/components/companies/company-autocomplete";
 import { InlineEmailVerification } from "@/components/auth/inline-email-verification";
 import { InlinePhoneVerification } from "@/components/auth/inline-phone-verification";
 import {
@@ -16,20 +17,23 @@ import {
   changePassword,
   getAccessToken,
   getProfile,
-  getStoredUser,
   updateEmployerProfile,
 } from "@/lib/api/auth";
-import { getEmployerJobs } from "@/lib/api/jobs";
+import { suggestCompanies } from "@/lib/api/companies";
+import {
+  getListingAllowance,
+  listEmployerPurchasesApi,
+  type EmployerPurchaseRecord,
+  type ListingAllowance,
+} from "@/lib/api/employer-billing";
 import {
   formatLkr,
   formatPaymentMethod,
   formatPurchaseDate,
   formatPurchaseProduct,
-  listEmployerPurchases,
-  totalPurchasedJobSlots,
-  type EmployerPurchase,
 } from "@/lib/employer/purchases";
 import { getVerificationStatus } from "@/lib/api/verification";
+import { normalizePhone, phonesMatch } from "@/lib/auth/phone";
 import { signInPath } from "@/lib/auth/portal";
 
 export function EmployerSettingsPage() {
@@ -40,10 +44,10 @@ export function EmployerSettingsPage() {
   const [phone, setPhone] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [companySearch, setCompanySearch] = useState("");
+  const [companyPendingReview, setCompanyPendingReview] = useState(false);
   const [photo, setPhoto] = useState<RecruiterPhotoDraft | null>(null);
-  const [usedJobSlots, setUsedJobSlots] = useState<number | null>(null);
-  const [purchasedJobSlots, setPurchasedJobSlots] = useState(0);
-  const [purchases, setPurchases] = useState<EmployerPurchase[]>([]);
+  const [listingAllowance, setListingAllowance] = useState<ListingAllowance | null>(null);
+  const [purchases, setPurchases] = useState<EmployerPurchaseRecord[]>([]);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -57,6 +61,7 @@ export function EmployerSettingsPage() {
     phone: "",
     companyId: "",
     companySearch: "",
+    companyPendingReview: false,
     photoUrl: null as string | null,
   });
 
@@ -68,6 +73,7 @@ export function EmployerSettingsPage() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [savedPhoneVerified, setSavedPhoneVerified] = useState(false);
   const [activeVerification, setActiveVerification] = useState<"email" | "phone" | null>(null);
 
   const displayName = useMemo(() => {
@@ -77,29 +83,65 @@ export function EmployerSettingsPage() {
 
   const purchaseSummary = useMemo(() => {
     const totalSpent = purchases.reduce((sum, purchase) => sum + purchase.total, 0);
-    const remainingSlots =
-      usedJobSlots !== null ? Math.max(0, purchasedJobSlots - usedJobSlots) : null;
     const listingPurchases = purchases.filter((p) => p.product === "job-listings").length;
     const sponsoredPurchases = purchases.filter((p) => p.product === "sponsored-jobs").length;
     const bannerPurchases = purchases.filter((p) => p.product === "banner-advertising").length;
-    const slotDisplay =
-      remainingSlots !== null ? `${remainingSlots}/${purchasedJobSlots}` : "—";
+    const slotDisplay = listingAllowance
+      ? `${listingAllowance.remainingSlots}/${listingAllowance.totalSlots}`
+      : "—";
     return {
       count: purchases.length,
       totalSpent,
-      remainingSlots,
+      remainingSlots: listingAllowance?.remainingSlots ?? null,
       slotDisplay,
       listingPurchases,
       sponsoredPurchases,
       bannerPurchases,
       promotionPurchases: sponsoredPurchases + bannerPurchases,
     };
-  }, [purchases, purchasedJobSlots, usedJobSlots]);
+  }, [purchases, listingAllowance]);
 
   const avatarInitial = useMemo(
     () => (displayName.charAt(0) || "R").toUpperCase(),
     [displayName],
   );
+
+  const phoneChanged = useMemo(
+    () => !phonesMatch(phone, savedSnapshot.phone),
+    [phone, savedSnapshot.phone],
+  );
+
+  const hasProfileChanges = useMemo(() => {
+    if (fullName.trim() !== savedSnapshot.fullName.trim()) return true;
+    if (title.trim() !== savedSnapshot.title.trim()) return true;
+    if (phoneChanged) return true;
+    if (companyId !== savedSnapshot.companyId) return true;
+    if (
+      companySearch.trim().toLowerCase() !==
+      savedSnapshot.companySearch.trim().toLowerCase()
+    ) {
+      return true;
+    }
+    if (!emailVerified && email.trim() !== savedSnapshot.email.trim()) return true;
+
+    const currentPhotoUrl = photo?.dataUrl ?? null;
+    if (currentPhotoUrl !== savedSnapshot.photoUrl) return true;
+
+    return false;
+  }, [
+    companyId,
+    companySearch,
+    email,
+    emailVerified,
+    fullName,
+    phoneChanged,
+    photo,
+    savedSnapshot,
+    title,
+  ]);
+
+  const canSaveProfile =
+    hasProfileChanges && !(phoneChanged && !phoneVerified);
 
   const applyEmployerProfile = useCallback(
     (link: NonNullable<Awaited<ReturnType<typeof getProfile>>["employerUsers"]>[number] | undefined) => {
@@ -113,8 +155,10 @@ export function EmployerSettingsPage() {
       setFullName(nextFullName);
       setTitle(nextTitle);
       setPhone(nextPhone);
+      const nextPendingReview = link?.company ? !link.company.verified : false;
       setCompanyId(nextCompanyId);
       setCompanySearch(nextCompanyName);
+      setCompanyPendingReview(nextPendingReview);
       setPhoto(
         nextPhotoUrl
           ? { name: "profile-photo", previewUrl: nextPhotoUrl, dataUrl: nextPhotoUrl }
@@ -126,6 +170,7 @@ export function EmployerSettingsPage() {
         phone: nextPhone,
         companyId: nextCompanyId,
         companySearch: nextCompanyName,
+        companyPendingReview: nextPendingReview,
         photoUrl: nextPhotoUrl,
       });
     },
@@ -146,30 +191,30 @@ export function EmployerSettingsPage() {
       const link = profile.employerUsers?.[0];
       applyEmployerProfile(link);
       setSavedSnapshot((prev) => ({ ...prev, email: profile.email }));
-      setPhoneVerified(link?.phoneVerified ?? false);
+      const initialPhoneVerified = link?.phoneVerified ?? false;
+      setPhoneVerified(initialPhoneVerified);
+      setSavedPhoneVerified(initialPhoneVerified);
 
       try {
         const verification = await getVerificationStatus(getAccessToken());
         setEmailVerified(verification.emailVerified);
         setPhoneVerified(verification.phoneVerified);
+        setSavedPhoneVerified(verification.phoneVerified);
       } catch {
         // Keep values from profile response when verification endpoint fails.
       }
 
       try {
-        const jobs = await getEmployerJobs();
-        const used = jobs.filter(
-          (job) => job.status === "PUBLISHED" || job.status === "PENDING_REVIEW",
-        ).length;
-        setUsedJobSlots(used);
+        const [allowance, employerPurchases] = await Promise.all([
+          getListingAllowance(),
+          listEmployerPurchasesApi(),
+        ]);
+        setListingAllowance(allowance);
+        setPurchases(employerPurchases);
       } catch {
-        setUsedJobSlots(null);
+        setListingAllowance(profile.listingAllowance ?? null);
+        setPurchases([]);
       }
-
-      const userId = getStoredUser()?.id ?? profile.id;
-      const employerPurchases = listEmployerPurchases(userId);
-      setPurchases(employerPurchases);
-      setPurchasedJobSlots(totalPurchasedJobSlots(userId));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push(signInPath("employer"));
@@ -186,11 +231,18 @@ export function EmployerSettingsPage() {
   }, [loadProfile]);
 
   useEffect(() => {
-    const refreshPurchases = () => {
-      const userId = getStoredUser()?.id;
-      if (!userId) return;
-      setPurchases(listEmployerPurchases(userId));
-      setPurchasedJobSlots(totalPurchasedJobSlots(userId));
+    const refreshPurchases = async () => {
+      if (!getAccessToken()) return;
+      try {
+        const [allowance, employerPurchases] = await Promise.all([
+          getListingAllowance(),
+          listEmployerPurchasesApi(),
+        ]);
+        setListingAllowance(allowance);
+        setPurchases(employerPurchases);
+      } catch {
+        // Keep current values when refresh fails.
+      }
     };
 
     window.addEventListener("employer-purchases-updated", refreshPurchases);
@@ -220,9 +272,32 @@ export function EmployerSettingsPage() {
       setProfileError("Phone number is required.");
       return;
     }
+    if (phoneChanged && !phoneVerified) {
+      setProfileError("Verify your new phone number with OTP before saving.");
+      setActiveVerification("phone");
+      return;
+    }
     if (!companySearch.trim()) {
       setProfileError("Company name is required.");
       return;
+    }
+    const companyChanged =
+      companyId !== savedSnapshot.companyId ||
+      companySearch.trim().toLowerCase() !==
+        savedSnapshot.companySearch.trim().toLowerCase();
+    if (companyChanged && !companyId) {
+      try {
+        const suggestions = await suggestCompanies(companySearch.trim());
+        const strongMatch = suggestions.find((item) => item.score >= 0.92);
+        if (strongMatch) {
+          setProfileError(
+            `"${strongMatch.name}" already exists. Select it from the suggestions.`,
+          );
+          return;
+        }
+      } catch {
+        // Allow backend validation when suggestions cannot be loaded.
+      }
     }
     if (!emailVerified) {
       const trimmedEmail = email.trim();
@@ -238,9 +313,6 @@ export function EmployerSettingsPage() {
 
     setSavingProfile(true);
     try {
-      const companyChanged =
-        companySearch.trim().toLowerCase() !== savedSnapshot.companySearch.trim().toLowerCase();
-
       const photoPayload =
         photo === null
           ? savedSnapshot.photoUrl
@@ -250,33 +322,44 @@ export function EmployerSettingsPage() {
             ? photo.dataUrl
             : undefined;
 
+      const companyPayload =
+        companyId && companyId !== savedSnapshot.companyId
+          ? { companyId }
+          : companyChanged
+            ? { companyName: companySearch.trim() }
+            : {};
+
       const updated = await updateEmployerProfile({
         fullName: fullName.trim(),
         title: title.trim() || undefined,
         contactNo: phone.trim() || undefined,
-        ...(companyChanged || !companyId
-          ? { companyName: companySearch.trim() }
-          : { companyId }),
+        ...companyPayload,
         ...(photoPayload !== undefined ? { photoUrl: photoPayload } : {}),
         ...(!emailVerified ? { email: email.trim() } : {}),
       });
       const nextPhotoUrl = updated.photoUrl ?? null;
+      const nextCompanyPendingReview = !updated.company.verified;
       setCompanySearch(updated.company.name);
       setCompanyId(updated.company.id);
+      setCompanyPendingReview(nextCompanyPendingReview);
       setPhoto(
         nextPhotoUrl
           ? { name: "profile-photo", previewUrl: nextPhotoUrl, dataUrl: nextPhotoUrl }
           : null,
       );
+      const savedPhone = normalizePhone(phone.trim());
+      setPhone(savedPhone);
       setSavedSnapshot({
         email: email.trim(),
         fullName: fullName.trim(),
         title: title.trim(),
-        phone: phone.trim(),
+        phone: savedPhone,
         companyId: updated.company.id,
         companySearch: updated.company.name,
+        companyPendingReview: nextCompanyPendingReview,
         photoUrl: nextPhotoUrl,
       });
+      setSavedPhoneVerified(true);
       setProfileSuccess("Profile saved.");
       window.dispatchEvent(new Event("employer-profile-updated"));
     } catch (err) {
@@ -291,8 +374,11 @@ export function EmployerSettingsPage() {
     setFullName(savedSnapshot.fullName);
     setTitle(savedSnapshot.title);
     setPhone(savedSnapshot.phone);
+    setPhoneVerified(savedPhoneVerified);
+    setActiveVerification(null);
     setCompanyId(savedSnapshot.companyId);
     setCompanySearch(savedSnapshot.companySearch);
+    setCompanyPendingReview(savedSnapshot.companyPendingReview);
     setPhoto(
       savedSnapshot.photoUrl
         ? {
@@ -401,28 +487,25 @@ export function EmployerSettingsPage() {
                     />
                   </div>
 
-                  <div>
-                    <label htmlFor="settings-company" className="mb-2 block font-label-bold text-on-surface">
-                      Company <span className="text-error">*</span>
-                    </label>
-                    <input
-                      id="settings-company"
-                      type="text"
-                      value={companySearch}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        setCompanySearch(next);
-                        if (
-                          companyId &&
-                          next.trim().toLowerCase() !== savedSnapshot.companySearch.trim().toLowerCase()
-                        ) {
-                          setCompanyId("");
-                        }
-                      }}
-                      placeholder="Enter your company name"
-                      className="w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
-                    />
-                  </div>
+                  <CompanyAutocomplete
+                    label="Company"
+                    value={companySearch}
+                    selectedCompanyId={companyId || undefined}
+                    selectedPendingReview={companyPendingReview}
+                    showCreateLink={false}
+                    required
+                    placeholder="Start typing a company name…"
+                    onQueryChange={setCompanySearch}
+                    onSelect={(company) => {
+                      setCompanyId(company.id);
+                      setCompanySearch(company.name);
+                      setCompanyPendingReview(Boolean(company.pendingReview));
+                    }}
+                    onClear={() => {
+                      setCompanyId("");
+                      setCompanyPendingReview(false);
+                    }}
+                  />
 
                   <div>
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -471,10 +554,10 @@ export function EmployerSettingsPage() {
                         Phone Number <span className="text-error">*</span>
                       </label>
                       <VerificationStatusBadge
-                        verified={phoneVerified}
+                        verified={phoneVerified && !phoneChanged}
                         type="phone"
                         onVerify={
-                          phoneVerified
+                          phoneVerified && !phoneChanged
                             ? undefined
                             : () =>
                                 setActiveVerification((current) =>
@@ -487,16 +570,35 @@ export function EmployerSettingsPage() {
                       id="settings-phone"
                       type="tel"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setPhone(next);
+                        if (!phonesMatch(next, savedSnapshot.phone)) {
+                          setPhoneVerified(false);
+                          setActiveVerification("phone");
+                        } else {
+                          setPhoneVerified(savedPhoneVerified);
+                          setActiveVerification(null);
+                        }
+                      }}
                       placeholder="+94 11 234 5678"
                       className="w-full rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
                     />
-                    {!phoneVerified && activeVerification === "phone" ? (
+                    {phoneChanged && !phoneVerified ? (
+                      <p className="mt-2 text-body-sm text-on-surface-variant">
+                        Verify your new phone number with OTP before saving.
+                      </p>
+                    ) : null}
+                    {(!phoneVerified || phoneChanged) && activeVerification === "phone" ? (
                       <InlinePhoneVerification
                         phone={phone}
                         onVerified={() => {
+                          const normalized = normalizePhone(phone.trim());
+                          setPhone(normalized);
                           setPhoneVerified(true);
+                          setSavedPhoneVerified(true);
                           setActiveVerification(null);
+                          setSavedSnapshot((prev) => ({ ...prev, phone: normalized }));
                         }}
                       />
                     ) : null}
@@ -506,16 +608,17 @@ export function EmployerSettingsPage() {
                 <div className="flex flex-col items-stretch justify-end gap-4 border-t border-outline-variant pt-8 sm:flex-row sm:items-center">
                   <button
                     type="button"
+                    disabled={!hasProfileChanges || savingProfile}
                     onClick={handleDiscard}
-                    className="px-8 py-3 font-label-bold text-on-surface-variant transition-colors hover:text-primary-container"
+                    className="px-8 py-3 font-label-bold text-on-surface-variant transition-colors hover:text-primary-container disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Discard Changes
                   </button>
                   <button
                     type="button"
-                    disabled={savingProfile}
+                    disabled={!canSaveProfile || savingProfile}
                     onClick={handleSaveProfile}
-                    className="executive-shadow rounded-lg bg-secondary px-10 py-3 font-label-bold text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
+                    className="executive-shadow rounded-lg bg-secondary px-10 py-3 font-label-bold text-white shadow-lg transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {savingProfile ? "Saving…" : "Save Preferences"}
                   </button>
@@ -554,8 +657,8 @@ export function EmployerSettingsPage() {
                       {purchaseSummary.slotDisplay}
                     </p>
                     <p className="mt-1 text-label-sm text-on-surface-variant">
-                      {purchasedJobSlots > 0
-                        ? "Remaining slots from job listing packages"
+                      {listingAllowance
+                        ? `${listingAllowance.freeSlots} free slot included · ${listingAllowance.purchasedSlots} purchased`
                         : "Listing packages add job posting slots; sponsorship and banners are separate purchases."}
                     </p>
                   </div>

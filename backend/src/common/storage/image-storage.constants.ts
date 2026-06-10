@@ -1,6 +1,7 @@
 export const IMAGE_UPLOAD_FOLDERS = {
   companyLogos: 'company-logos',
   governmentOrgLogos: 'government-org-logos',
+  jobDocuments: 'job-documents',
   lifeAtCompany: 'life-at-company',
   platformBanners: 'platform-banners',
   recruiterPhotos: 'recruiter-photos',
@@ -11,7 +12,8 @@ export type ImageUploadFolder =
   (typeof IMAGE_UPLOAD_FOLDERS)[keyof typeof IMAGE_UPLOAD_FOLDERS];
 
 export const MAX_LIFE_AT_IMAGES = 5;
-export const MAX_IMAGE_DATA_LENGTH = 900_000;
+/** Base64 expands payload by ~4/3; must fit 2MB binary files in JSON bodies. */
+export const MAX_IMAGE_DATA_LENGTH = 3_000_000;
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 export const MAX_BANNER_IMAGE_BYTES = 5 * 1024 * 1024;
 /** Base64 expands payload by ~4/3; leave headroom for JSON wrapping. */

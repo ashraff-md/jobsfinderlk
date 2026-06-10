@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { getAccessToken, getStoredUser } from "@/lib/api/auth";
+import type { UserRole } from "@/lib/api/types";
+import { freePlanCta } from "@/lib/employer/free-plan-cta";
 import {
   PricingCtaBand,
   PricingHero,
@@ -68,6 +72,16 @@ function checkoutHref(name: string, price: number) {
 }
 
 export function JobListingsSection() {
+  const [freePlanAction, setFreePlanAction] = useState(() =>
+    freePlanCta(false, null),
+  );
+
+  useEffect(() => {
+    const isLoggedIn = Boolean(getAccessToken() && getStoredUser());
+    const role = (getStoredUser()?.role ?? null) as UserRole | null;
+    setFreePlanAction(freePlanCta(isLoggedIn, role));
+  }, []);
+
   return (
     <div className="space-y-24">
       <PricingHero
@@ -179,8 +193,8 @@ export function JobListingsSection() {
             </div>
           </div>
           <div>
-            <Link href="/auth/sign-up" className={pricingBtnPrimary}>
-              Activate Free Plan
+            <Link href={freePlanAction.href} className={pricingBtnPrimary}>
+              {freePlanAction.label}
             </Link>
             <p className="mt-3 text-center font-label-sm text-on-surface-variant">
               No credit card required.

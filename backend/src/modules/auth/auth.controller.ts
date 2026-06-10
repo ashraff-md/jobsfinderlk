@@ -10,6 +10,10 @@ import {
   UpdateAdminProfileDto,
   UpdateEmployerProfileDto,
 } from './dto/auth.dto';
+import { RecordEmployerPurchaseDto } from './dto/employer-purchase.dto';
+import { ValidatePromoCodeDto } from './dto/validate-promo-code.dto';
+import { EmployerPurchasesService } from './employer-purchases.service';
+import { PromoCodesService } from './promo-codes.service';
 import { ConfirmPhoneOtpDto, SendPhoneOtpDto } from './dto/verification.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -24,7 +28,18 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly verificationService: VerificationService,
+    private readonly employerPurchasesService: EmployerPurchasesService,
+    private readonly promoCodesService: PromoCodesService,
   ) {}
+
+  @Post('promo-codes/validate')
+  validatePromoCode(@Body() dto: ValidatePromoCodeDto) {
+    return this.promoCodesService.validateForCheckout(
+      dto.code,
+      dto.product,
+      dto.subtotal,
+    );
+  }
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
@@ -82,6 +97,33 @@ export class AuthController {
   @ApiBearerAuth()
   verificationStatus(@CurrentUser() user: AuthUser) {
     return this.verificationService.getRecruiterVerificationStatus(user.sub);
+  }
+
+  @Get('listing-allowance')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  listingAllowance(@CurrentUser() user: AuthUser) {
+    return this.employerPurchasesService.getListingAllowance(user.sub);
+  }
+
+  @Get('purchases')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  listPurchases(@CurrentUser() user: AuthUser) {
+    return this.employerPurchasesService.listPurchases(user.sub);
+  }
+
+  @Post('purchases')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  recordPurchase(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: RecordEmployerPurchaseDto,
+  ) {
+    return this.employerPurchasesService.recordPurchase(user.sub, dto);
   }
 
   @Post('verify-email/send')

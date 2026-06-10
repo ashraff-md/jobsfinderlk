@@ -1,4 +1,4 @@
--- CreateSchema
+﻿-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
@@ -14,7 +14,16 @@ CREATE TYPE "CompanyRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', '
 CREATE TYPE "BannerAspectRatio" AS ENUM ('RATIO_3_2', 'RATIO_2_5');
 
 -- CreateEnum
+CREATE TYPE "PlatformAdReviewStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+
+-- CreateEnum
 CREATE TYPE "VerificationTokenType" AS ENUM ('EMAIL', 'PHONE');
+
+-- CreateEnum
+CREATE TYPE "EmployerPurchaseProduct" AS ENUM ('JOB_LISTINGS', 'SPONSORED_JOBS', 'BANNER_ADVERTISING');
+
+-- CreateEnum
+CREATE TYPE "PromoDiscountType" AS ENUM ('PERCENT', 'FIXED');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -29,6 +38,45 @@ CREATE TABLE "users" (
     "reviewed_at" TIMESTAMP(3),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "promo_codes" (
+    "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "description" TEXT,
+    "discount_type" "PromoDiscountType" NOT NULL,
+    "discount_value" INTEGER NOT NULL,
+    "min_subtotal" INTEGER NOT NULL DEFAULT 0,
+    "max_uses" INTEGER,
+    "used_count" INTEGER NOT NULL DEFAULT 0,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "starts_at" TIMESTAMP(3),
+    "ends_at" TIMESTAMP(3),
+    "products" "EmployerPurchaseProduct"[] DEFAULT ARRAY[]::"EmployerPurchaseProduct"[],
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "promo_codes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "employer_purchases" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "product" "EmployerPurchaseProduct" NOT NULL,
+    "plan" TEXT NOT NULL,
+    "duration" TEXT,
+    "job_slots" INTEGER,
+    "subtotal" INTEGER,
+    "promo_code_id" TEXT,
+    "promo_code" TEXT,
+    "promo_discount" INTEGER NOT NULL DEFAULT 0,
+    "total" INTEGER NOT NULL,
+    "payment_method" TEXT NOT NULL,
+    "purchased_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "employer_purchases_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -151,6 +199,29 @@ CREATE TABLE "platform_partners" (
 );
 
 -- CreateTable
+CREATE TABLE "government_organizations" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "organization_type" TEXT NOT NULL,
+    "parent_organization_id" TEXT,
+    "short_name" TEXT,
+    "description" TEXT,
+    "website" TEXT,
+    "email" TEXT,
+    "contact_number" TEXT,
+    "head_office_address" TEXT,
+    "district" TEXT,
+    "province" TEXT,
+    "logo_url" TEXT,
+    "created_by_id" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "government_organizations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "job_categories" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -195,14 +266,17 @@ CREATE TABLE "jobs" (
     "keywords" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "recruiter_role" TEXT,
     "requested_company_name" TEXT,
+    "government_organization_id" TEXT,
     "application_deadline" TIMESTAMP(3),
     "apply_via_email" BOOLEAN NOT NULL DEFAULT false,
     "apply_via_external_link" BOOLEAN NOT NULL DEFAULT false,
     "apply_via_walk_in" BOOLEAN NOT NULL DEFAULT false,
+    "apply_via_registered_post" BOOLEAN NOT NULL DEFAULT false,
     "apply_via_one_click" BOOLEAN NOT NULL DEFAULT true,
     "application_email" TEXT,
     "application_external_url" TEXT,
     "walk_in_details" TEXT,
+    "registered_post_details" TEXT,
     "job_document_url" TEXT,
     "vacancy_artwork_url" TEXT,
     "job_source_type" TEXT DEFAULT 'DIRECT_EMPLOYER',
@@ -214,6 +288,7 @@ CREATE TABLE "jobs" (
     "expires_at" TIMESTAMP(3),
     "reviewed_by_id" TEXT,
     "reviewed_at" TIMESTAMP(3),
+    "posted_by_id" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -272,10 +347,15 @@ CREATE TABLE "platform_banner_campaigns" (
     "image_url" TEXT,
     "alt" TEXT NOT NULL DEFAULT '',
     "active" BOOLEAN NOT NULL DEFAULT true,
+    "review_status" "PlatformAdReviewStatus" NOT NULL DEFAULT 'APPROVED',
+    "review_notes" TEXT,
+    "submitted_by_id" TEXT,
+    "promotion_days" INTEGER NOT NULL DEFAULT 7,
     "starts_at" TIMESTAMP(3) NOT NULL,
     "ends_at" TIMESTAMP(3) NOT NULL,
     "sort_order" INTEGER NOT NULL DEFAULT 0,
     "view_count" INTEGER NOT NULL DEFAULT 0,
+    "click_count" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -288,9 +368,14 @@ CREATE TABLE "sponsored_ads" (
     "job_id" TEXT NOT NULL,
     "sort_order" INTEGER NOT NULL DEFAULT 0,
     "active" BOOLEAN NOT NULL DEFAULT true,
+    "review_status" "PlatformAdReviewStatus" NOT NULL DEFAULT 'APPROVED',
+    "review_notes" TEXT,
+    "submitted_by_id" TEXT,
+    "promotion_days" INTEGER NOT NULL DEFAULT 7,
     "starts_at" TIMESTAMP(3) NOT NULL,
     "ends_at" TIMESTAMP(3) NOT NULL,
     "view_count" INTEGER NOT NULL DEFAULT 0,
+    "click_count" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -299,6 +384,12 @@ CREATE TABLE "sponsored_ads" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "promo_codes_code_key" ON "promo_codes"("code");
+
+-- CreateIndex
+CREATE INDEX "employer_purchases_user_id_purchased_at_idx" ON "employer_purchases"("user_id", "purchased_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "admin_profiles_user_id_key" ON "admin_profiles"("user_id");
@@ -319,6 +410,12 @@ CREATE INDEX "verification_tokens_user_id_type_idx" ON "verification_tokens"("us
 CREATE UNIQUE INDEX "company_requests_placeholder_company_id_key" ON "company_requests"("placeholder_company_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "government_organizations_slug_key" ON "government_organizations"("slug");
+
+-- CreateIndex
+CREATE INDEX "government_organizations_name_idx" ON "government_organizations"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "job_categories_name_key" ON "job_categories"("name");
 
 -- CreateIndex
@@ -334,10 +431,22 @@ CREATE UNIQUE INDEX "applications_user_id_job_id_key" ON "applications"("user_id
 CREATE UNIQUE INDEX "platform_banner_slots_key_key" ON "platform_banner_slots"("key");
 
 -- CreateIndex
+CREATE INDEX "platform_banner_campaigns_submitted_by_id_created_at_idx" ON "platform_banner_campaigns"("submitted_by_id", "created_at");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "sponsored_ads_job_id_key" ON "sponsored_ads"("job_id");
+
+-- CreateIndex
+CREATE INDEX "sponsored_ads_submitted_by_id_created_at_idx" ON "sponsored_ads"("submitted_by_id", "created_at");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_reviewed_by_id_fkey" FOREIGN KEY ("reviewed_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employer_purchases" ADD CONSTRAINT "employer_purchases_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employer_purchases" ADD CONSTRAINT "employer_purchases_promo_code_id_fkey" FOREIGN KEY ("promo_code_id") REFERENCES "promo_codes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "admin_profiles" ADD CONSTRAINT "admin_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -367,10 +476,22 @@ ALTER TABLE "company_requests" ADD CONSTRAINT "company_requests_merged_into_id_f
 ALTER TABLE "company_requests" ADD CONSTRAINT "company_requests_reviewed_by_id_fkey" FOREIGN KEY ("reviewed_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "government_organizations" ADD CONSTRAINT "government_organizations_parent_organization_id_fkey" FOREIGN KEY ("parent_organization_id") REFERENCES "government_organizations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "government_organizations" ADD CONSTRAINT "government_organizations_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "jobs" ADD CONSTRAINT "jobs_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "jobs" ADD CONSTRAINT "jobs_government_organization_id_fkey" FOREIGN KEY ("government_organization_id") REFERENCES "government_organizations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "jobs" ADD CONSTRAINT "jobs_reviewed_by_id_fkey" FOREIGN KEY ("reviewed_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "jobs" ADD CONSTRAINT "jobs_posted_by_id_fkey" FOREIGN KEY ("posted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "applications" ADD CONSTRAINT "applications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -382,4 +503,11 @@ ALTER TABLE "applications" ADD CONSTRAINT "applications_job_id_fkey" FOREIGN KEY
 ALTER TABLE "platform_banner_slides" ADD CONSTRAINT "platform_banner_slides_slot_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "platform_banner_slots"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "platform_banner_campaigns" ADD CONSTRAINT "platform_banner_campaigns_submitted_by_id_fkey" FOREIGN KEY ("submitted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "sponsored_ads" ADD CONSTRAINT "sponsored_ads_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "jobs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sponsored_ads" ADD CONSTRAINT "sponsored_ads_submitted_by_id_fkey" FOREIGN KEY ("submitted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+

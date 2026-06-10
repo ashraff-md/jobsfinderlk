@@ -4,6 +4,7 @@ import type { Job } from "./types";
 export type BannerAspectRatio = "RATIO_3_2" | "RATIO_2_5";
 
 export type PlatformBannerSlide = {
+  campaignId?: string;
   href: string;
   imageUrl: string;
   alt: string;
@@ -27,12 +28,17 @@ export async function getPlatformBanners(aspectRatio?: BannerAspectRatio) {
   return apiFetch<PlatformBannersResponse>(`/platform-ads/banners${query}`);
 }
 
+export type PlatformSponsoredJobEntry = {
+  sponsoredAdId: string;
+  job: Job;
+};
+
 export type PlatformSponsoredJobsResponse = {
   batchSize: number;
   totalActive: number;
   offset: number;
   nextOffset: number;
-  jobs: Job[];
+  jobs: PlatformSponsoredJobEntry[];
 };
 
 export async function getPlatformSponsoredJobs(limit = 3, offset?: number) {

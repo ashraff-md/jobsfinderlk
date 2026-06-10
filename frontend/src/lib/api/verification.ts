@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { ListingAllowance } from "./employer-billing";
 
 export type RecruiterVerificationStatus = {
   profileComplete: boolean;
@@ -8,6 +9,8 @@ export type RecruiterVerificationStatus = {
   contactNo: string | null;
   phoneVerified: boolean;
   canPostJobs: boolean;
+  listingAllowance: ListingAllowance;
+  canPostListing: boolean;
 };
 
 export async function getVerificationStatus(token?: string | null) {

@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { UserRole, VerificationTokenType } from '@prisma/client';
 import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmployerPurchasesService } from './employer-purchases.service';
 
 const EMAIL_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const PHONE_OTP_TTL_MS = 10 * 60 * 1000;
@@ -38,6 +39,7 @@ export class VerificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly employerPurchases: EmployerPurchasesService,
   ) {}
 
   async getRecruiterVerificationStatus(userId: string) {
@@ -63,6 +65,12 @@ export class VerificationService {
     const employer = user.employerUsers[0];
     const missingProfileFields = this.getMissingProfileFields(employer);
     const profileComplete = missingProfileFields.length === 0;
+    const canPostJobs =
+      profileComplete &&
+      user.emailVerified &&
+      (employer?.phoneVerified ?? false);
+    const listingAllowance =
+      await this.employerPurchases.getListingAllowance(userId);
 
     return {
       profileComplete,
@@ -71,10 +79,9 @@ export class VerificationService {
       emailVerified: user.emailVerified,
       contactNo: employer?.contactNo ?? null,
       phoneVerified: employer?.phoneVerified ?? false,
-      canPostJobs:
-        profileComplete &&
-        user.emailVerified &&
-        (employer?.phoneVerified ?? false),
+      canPostJobs,
+      listingAllowance,
+      canPostListing: canPostJobs && listingAllowance.remainingSlots > 0,
     };
   }
 
@@ -308,12 +315,47 @@ export class VerificationService {
     };
   }
 
+  normalizeContactNo(value: string): string {
+    return normalizePhone(value);
+  }
+
+  async assertPhoneVerifiedForProfileSave(
+    userId: string,
+    link: { contactNo: string | null; phoneVerified: boolean },
+    contactNo: string | null | undefined,
+  ) {
+    if (contactNo === undefined) return;
+
+    const nextNorm = contactNo ? normalizePhone(contactNo) : '';
+    const linkNorm = link.contactNo ? normalizePhone(link.contactNo) : '';
+
+    if (nextNorm !== linkNorm) {
+      if (!link.phoneVerified || linkNorm !== nextNorm) {
+        throw new BadRequestException(
+          'Verify your new phone number with OTP before saving.',
+        );
+      }
+      return;
+    }
+
+    if (!link.phoneVerified && nextNorm) {
+      const pendingOtp = await this.prisma.verificationToken.findFirst({
+        where: { userId, type: VerificationTokenType.PHONE },
+      });
+      if (pendingOtp) {
+        throw new BadRequestException(
+          'Verify your new phone number with OTP before saving.',
+        );
+      }
+    }
+  }
+
   resetPhoneVerificationIfContactChanged(
     previousContact: string | null | undefined,
     nextContact: string | null | undefined,
   ) {
-    const prev = previousContact?.trim() || null;
-    const next = nextContact?.trim() || null;
+    const prev = previousContact ? normalizePhone(previousContact) : '';
+    const next = nextContact ? normalizePhone(nextContact) : '';
     if (prev === next) return {};
     return { phoneVerified: false, phoneVerifiedAt: null };
   }

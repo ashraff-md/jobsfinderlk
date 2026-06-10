@@ -21,6 +21,7 @@ export type FeaturedJobCardItem = {
   company: string;
   tags: string[];
   href?: string;
+  sponsoredAdId?: string;
 };
 
 export const FEATURED_JOB_CARDS: FeaturedJobCardItem[] = [

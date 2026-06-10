@@ -44,6 +44,8 @@ export function formatPromotionEndDate(endsAt: string | null | undefined): strin
   return formatDisplayDate(end);
 }
 
+export type PlatformAdReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 export function sponsoredScheduleStatus(
   startsAt: string,
   endsAt: string,
@@ -56,6 +58,17 @@ export function sponsoredScheduleStatus(
   if (now < start) return "Scheduled";
   if (now > end) return "Inactive";
   return "Active";
+}
+
+export function platformAdCampaignStatus(
+  reviewStatus: PlatformAdReviewStatus,
+  startsAt: string,
+  endsAt: string,
+  active: boolean,
+): "Pending Review" | "Rejected" | "Active" | "Scheduled" | "Inactive" {
+  if (reviewStatus === "PENDING") return "Pending Review";
+  if (reviewStatus === "REJECTED") return "Rejected";
+  return sponsoredScheduleStatus(startsAt, endsAt, active);
 }
 
 export function toDateInputValue(iso?: string | null): string {

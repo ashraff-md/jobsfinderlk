@@ -192,6 +192,14 @@ export class UpdateSponsoredAdDto {
   active?: boolean;
 }
 
+export class ModeratePlatformAdDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  reviewNotes?: string;
+}
+
 export class ReorderSponsoredAdsDto {
   @ApiProperty({ type: [String] })
   @IsArray()
@@ -204,6 +212,34 @@ export class ListBannerSlotsQueryDto {
   @IsOptional()
   @IsEnum(BannerAspectRatio)
   aspectRatio?: BannerAspectRatio;
+}
+
+export class RecordBannerImpressionsDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  campaignIds!: string[];
+}
+
+export class RecordSponsoredImpressionsDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  sponsoredAdIds!: string[];
+}
+
+export class RecordBannerClicksDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  campaignIds!: string[];
+}
+
+export class RecordSponsoredClicksDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  sponsoredAdIds!: string[];
 }
 
 export class ListPublicSponsoredQueryDto {

@@ -260,14 +260,16 @@ export class CompaniesService {
         slug,
         website: dto.website,
         description: dto.description,
-        logoUrl: dto.logoUrl,
+        logoUrl: this.imageStorage.normalizeStoredPath(dto.logoUrl),
         industry: extra?.industry,
         address: extra?.address,
         city: extra?.city,
         location: extra?.location,
         companyType: extra?.companyType,
         emailDomain: extra?.emailDomain,
-        lifeAtCompanyImages: extra?.lifeAtCompanyImages ?? [],
+        lifeAtCompanyImages: (extra?.lifeAtCompanyImages ?? [])
+          .map((item) => this.imageStorage.normalizeStoredPath(item))
+          .filter((item): item is string => Boolean(item)),
         verified: extra?.verified ?? false,
       },
     });
@@ -341,5 +343,101 @@ export class CompaniesService {
       },
     });
     return Boolean(request);
+  }
+
+  async renameOwnedPlaceholderCompany(
+    userId: string,
+    companyId: string,
+    newName: string,
+  ): Promise<boolean> {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+
+    const allowed = await this.canUsePendingCompany(userId, companyId);
+    if (!allowed) return false;
+
+    const baseSlug = slugify(trimmed);
+    let slug = baseSlug;
+    let attempt = 0;
+    while (true) {
+      const conflict = await this.prisma.company.findFirst({
+        where: { slug, NOT: { id: companyId } },
+      });
+      if (!conflict) break;
+      attempt += 1;
+      slug = uniqueSlug(trimmed, String(attempt));
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.company.update({
+        where: { id: companyId },
+        data: { name: trimmed, slug },
+      }),
+      this.prisma.companyRequest.updateMany({
+        where: {
+          placeholderCompanyId: companyId,
+          requestedById: userId,
+          status: CompanyRequestStatus.PENDING,
+        },
+        data: { companyName: trimmed },
+      }),
+    ]);
+
+    return true;
+  }
+
+  async syncFromApprovedRequest(
+    companyId: string,
+    request: {
+      companyName: string;
+      website: string | null;
+      description: string | null;
+      logoUrl: string | null;
+      industry: string | null;
+      address: string | null;
+      city: string | null;
+      location: string | null;
+      companyType: string | null;
+      emailDomain: string | null;
+      lifeAtCompanyImages: string[];
+    },
+  ) {
+    const company = await this.prisma.company.findUnique({ where: { id: companyId } });
+    if (!company) throw new NotFoundException('Company not found');
+
+    const trimmedName = request.companyName.trim();
+    let slug = company.slug;
+    if (trimmedName !== company.name) {
+      const baseSlug = slugify(trimmedName);
+      slug = baseSlug;
+      let attempt = 0;
+      while (true) {
+        const conflict = await this.prisma.company.findFirst({
+          where: { slug, NOT: { id: companyId } },
+        });
+        if (!conflict) break;
+        attempt += 1;
+        slug = uniqueSlug(trimmedName, String(attempt));
+      }
+    }
+
+    return this.prisma.company.update({
+      where: { id: companyId },
+      data: {
+        name: trimmedName,
+        slug,
+        website: request.website,
+        description: request.description,
+        logoUrl: request.logoUrl,
+        industry: request.industry,
+        address: request.address,
+        city: request.city,
+        location: request.location,
+        companyType: request.companyType,
+        emailDomain: request.emailDomain,
+        lifeAtCompanyImages: request.lifeAtCompanyImages,
+        verified: true,
+      },
+    });
   }
 }

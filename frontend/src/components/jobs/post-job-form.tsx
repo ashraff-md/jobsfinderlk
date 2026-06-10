@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
-import { getAccessToken } from "@/lib/api/auth";
+import { getAccessToken, getProfile } from "@/lib/api/auth";
 import { getVerificationStatus } from "@/lib/api/verification";
 import { CompleteRecruiterProfilePrompt } from "@/components/auth/complete-recruiter-profile-prompt";
+import { ListingSlotsPrompt } from "@/components/auth/listing-slots-prompt";
+import type { ListingAllowance } from "@/lib/api/employer-billing";
 import { signInPath } from "@/lib/auth/portal";
 import { createJob } from "@/lib/api/jobs";
 import { CompanyAutocomplete } from "@/components/companies/company-autocomplete";
-import { RecruiterVerificationPanel } from "@/components/auth/recruiter-verification-panel";
 import { JobListingPreview } from "@/components/jobs/job-listing-preview";
 import { JobListingMediaUploader } from "@/components/jobs/job-listing-media-uploader";
 import type { CompanySuggestion } from "@/lib/api/types";
@@ -124,7 +125,10 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     Array<"fullName" | "title" | "contactNo" | "company">
   >([]);
   const [canPostJobs, setCanPostJobs] = useState(isAdmin);
+  const [canPostListing, setCanPostListing] = useState(isAdmin);
+  const [listingAllowance, setListingAllowance] = useState<ListingAllowance | null>(null);
   const { names: categoryOptions } = useJobCategories();
+  const profileCompanyPrefilled = useRef(false);
 
   const patch = useCallback((partial: Partial<PostJobFormValues>) => {
     setForm((prev) => ({ ...prev, ...partial }));
@@ -158,18 +162,34 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
       return;
     }
 
-    getVerificationStatus(token)
-      .then((status) => {
+    Promise.all([getVerificationStatus(token), getProfile()])
+      .then(([status, profile]) => {
         setProfileComplete(status.profileComplete);
         setMissingProfileFields(status.missingProfileFields);
         setCanPostJobs(status.canPostJobs);
+        setCanPostListing(status.canPostListing);
+        setListingAllowance(status.listingAllowance);
+
+        const urlCompanyId = searchParams.get("companyId");
+        if (profileCompanyPrefilled.current || urlCompanyId) return;
+
+        const company = profile.employerUsers?.[0]?.company;
+        if (!company?.verified || !company.id || !company.name) return;
+
+        profileCompanyPrefilled.current = true;
+        patch({ companyId: company.id, companySearch: company.name });
+        setSelectedCompany({
+          logoUrl: company.logoUrl ?? null,
+          verified: true,
+          pendingReview: false,
+        });
       })
       .catch(() => {
         setProfileComplete(false);
         setMissingProfileFields(["fullName", "title", "contactNo"]);
       })
       .finally(() => setReadinessLoading(false));
-  }, [isAdmin]);
+  }, [isAdmin, searchParams, patch]);
 
   const scrollToSection = (id: string) => {
     setActiveStep(id);
@@ -285,6 +305,10 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
       setError("Verify your email and phone before posting a vacancy.");
       return;
     }
+    if (!isAdmin && publish && !canPostListing) {
+      setError("You have no remaining job listing slots. Purchase a package to post this vacancy.");
+      return;
+    }
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -367,23 +391,18 @@ export function PostJobForm({ mode = "employer" }: PostJobFormProps) {
     return <CompleteRecruiterProfilePrompt missingFields={missingProfileFields} />;
   }
 
+  if (!isAdmin && !canPostJobs) {
+    return <CompleteRecruiterProfilePrompt variant="verification" />;
+  }
+
+  if (!isAdmin && !canPostListing && listingAllowance) {
+    return <ListingSlotsPrompt allowance={listingAllowance} />;
+  }
+
   return (
     <div className="flex flex-col gap-gutter lg:flex-row">
-      {!isAdmin && profileComplete ? (
-        <div className="w-full lg:hidden">
-          <RecruiterVerificationPanel
-            compact
-            onVerified={() => setCanPostJobs(true)}
-          />
-        </div>
-      ) : null}
       <aside className="lg:w-1/4">
         <div className="sticky top-28 space-y-6">
-          {!isAdmin && profileComplete ? (
-            <div className="hidden lg:block">
-              <RecruiterVerificationPanel onVerified={() => setCanPostJobs(true)} />
-            </div>
-          ) : null}
           <div>
             <h1 className="text-headline-lg text-primary">Create Job Listing</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">

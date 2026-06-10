@@ -1,4 +1,5 @@
 export type HomeBannerSlide = {
+  campaignId?: string;
   href: string;
   imageUrl: string;
   alt: string;

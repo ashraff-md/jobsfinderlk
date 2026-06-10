@@ -34,6 +34,7 @@ import {
   CreateBannerCampaignDto,
   CreateSponsoredAdDto,
   ListBannerSlotsQueryDto,
+  ModeratePlatformAdDto,
   ReorderSponsoredAdsDto,
   UpdateBannerCampaignDto,
   UpdateBannerSlotDto,
@@ -263,6 +264,11 @@ export class AdminController {
     return this.platformAdsService.listSponsoredForAdmin();
   }
 
+  @Get('platform-ads/sponsored/:id')
+  sponsoredAdForAdmin(@Param('id') id: string) {
+    return this.platformAdsService.getSponsoredAdForAdmin(id);
+  }
+
   @Post('platform-ads/sponsored')
   createSponsoredAd(@Body() dto: CreateSponsoredAdDto) {
     return this.platformAdsService.createSponsoredAd(dto);
@@ -281,5 +287,37 @@ export class AdminController {
   @Delete('platform-ads/sponsored/:id')
   deleteSponsoredAd(@Param('id') id: string) {
     return this.platformAdsService.deleteSponsoredAd(id);
+  }
+
+  @Patch('platform-ads/banner-campaigns/:id/approve')
+  approveBannerCampaign(
+    @Param('id') id: string,
+    @Body() dto: ModeratePlatformAdDto,
+  ) {
+    return this.platformAdsService.approveBannerCampaign(id, dto);
+  }
+
+  @Patch('platform-ads/banner-campaigns/:id/reject')
+  rejectBannerCampaign(
+    @Param('id') id: string,
+    @Body() dto: ModeratePlatformAdDto,
+  ) {
+    return this.platformAdsService.rejectBannerCampaign(id, dto);
+  }
+
+  @Patch('platform-ads/sponsored/:id/approve')
+  approveSponsoredAd(
+    @Param('id') id: string,
+    @Body() dto: ModeratePlatformAdDto,
+  ) {
+    return this.platformAdsService.approveSponsoredAd(id, dto);
+  }
+
+  @Patch('platform-ads/sponsored/:id/reject')
+  rejectSponsoredAd(
+    @Param('id') id: string,
+    @Body() dto: ModeratePlatformAdDto,
+  ) {
+    return this.platformAdsService.rejectSponsoredAd(id, dto);
   }
 }

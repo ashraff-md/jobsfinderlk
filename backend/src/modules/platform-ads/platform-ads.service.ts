@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BannerAspectRatio, JobStatus, Prisma } from '@prisma/client';
+import {
+  BannerAspectRatio,
+  JobStatus,
+  PlatformAdReviewStatus,
+  Prisma,
+} from '@prisma/client';
 import { ImageStorageService } from '../../common/storage/image-storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DEFAULT_BANNER_SLOTS } from './platform-ads.defaults';
@@ -12,6 +17,7 @@ import {
   CreateSponsoredAdDto,
   PromotionPeriodDays,
   ReorderSponsoredAdsDto,
+  ModeratePlatformAdDto,
   UpdateBannerCampaignDto,
   UpdateBannerSlotDto,
   UpdateSponsoredAdDto,
@@ -29,6 +35,11 @@ import {
 const jobWithCompany = {
   company: true,
 } satisfies Prisma.JobInclude;
+
+export type PlatformAdSubmissionOptions = {
+  submittedById?: string;
+  pendingReview?: boolean;
+};
 
 @Injectable()
 export class PlatformAdsService {
@@ -111,9 +122,14 @@ export class PlatformAdsService {
       jobId: string;
       sortOrder: number;
       active: boolean;
+      reviewStatus: PlatformAdReviewStatus;
+      reviewNotes?: string | null;
+      submittedById: string | null;
+      promotionDays?: number;
       startsAt: Date;
       endsAt: Date;
       viewCount: number;
+      clickCount?: number;
       job: Parameters<PlatformAdsService['mapJobForPublic']>[0];
     },
   >(ad: T) {
@@ -122,7 +138,14 @@ export class PlatformAdsService {
       jobId: ad.jobId,
       sortOrder: ad.sortOrder,
       active: ad.active,
+      reviewStatus: ad.reviewStatus,
+      reviewNotes: ad.reviewNotes ?? undefined,
+      submittedById: ad.submittedById ?? undefined,
+      promotionDays:
+        ad.promotionDays ??
+        this.inferPromotionDays({ startsAt: ad.startsAt, endsAt: ad.endsAt }),
       viewCount: ad.viewCount,
+      clickCount: ad.clickCount ?? 0,
       startsAt: ad.startsAt.toISOString(),
       endsAt: ad.endsAt.toISOString(),
       job: this.mapJobForPublic(ad.job),
@@ -139,8 +162,9 @@ export class PlatformAdsService {
   private slotNeedsSlideRepair(
     slides: Array<{ imageUrl: string | null }>,
   ): boolean {
+    if (slides.length < BANNER_SLIDES_PER_SLOT) return true;
     const withImage = slides.filter((s) => s.imageUrl);
-    if (withImage.length < BANNER_SLIDES_PER_SLOT) return true;
+    if (withImage.length === 0) return false;
     return new Set(withImage.map((s) => s.imageUrl)).size < BANNER_SLIDES_PER_SLOT;
   }
 
@@ -178,7 +202,13 @@ export class PlatformAdsService {
       });
       if (!slot) continue;
       if (this.slotNeedsSlideRepair(slot.slides)) {
-        await this.replaceSlotSlides(slot.id, def.slides);
+        const slides = def.slides.map((slide, index) => ({
+          href: slide.href,
+          alt: slide.alt,
+          imageUrl: slot.slides[index]?.imageUrl ?? slide.imageUrl ?? undefined,
+          active: true,
+        }));
+        await this.replaceSlotSlides(slot.id, slides);
       }
     }
   }
@@ -191,13 +221,17 @@ export class PlatformAdsService {
     let sortOrder = 0;
     for (const def of DEFAULT_BANNER_SLOTS) {
       for (const slide of def.slides) {
+        const imageUrl = await this.imageStorage.savePlatformBannerImage(
+          slide.imageUrl,
+        );
         await this.prisma.platformBannerCampaign.create({
           data: {
             label: slide.alt,
             aspectRatio: def.aspectRatio,
             href: slide.href,
-            imageUrl: slide.imageUrl,
+            imageUrl,
             alt: slide.alt,
+            promotionDays: 7,
             startsAt,
             endsAt,
             sortOrder: sortOrder++,
@@ -233,10 +267,15 @@ export class PlatformAdsService {
     imageUrl: string | null;
     alt: string;
     active: boolean;
+    reviewStatus: PlatformAdReviewStatus;
+    reviewNotes?: string | null;
+    submittedById: string | null;
+    promotionDays?: number;
     startsAt: Date;
     endsAt: Date;
     sortOrder: number;
     viewCount: number;
+    clickCount?: number;
   }) {
     return {
       id: campaign.id,
@@ -246,11 +285,32 @@ export class PlatformAdsService {
       imageUrl: this.imageStorage.resolvePublicUrl(campaign.imageUrl),
       alt: campaign.alt,
       active: campaign.active,
+      reviewStatus: campaign.reviewStatus,
+      reviewNotes: campaign.reviewNotes ?? undefined,
+      submittedById: campaign.submittedById ?? undefined,
+      promotionDays:
+        campaign.promotionDays ??
+        this.inferPromotionDays({
+          startsAt: campaign.startsAt,
+          endsAt: campaign.endsAt,
+        }),
       startsAt: campaign.startsAt.toISOString(),
       endsAt: campaign.endsAt.toISOString(),
       sortOrder: campaign.sortOrder,
       viewCount: campaign.viewCount,
+      clickCount: campaign.clickCount ?? 0,
     };
+  }
+
+  private resolveEmployerCampaignStatus(
+    reviewStatus: PlatformAdReviewStatus,
+    startsAt: Date,
+    endsAt: Date,
+    active: boolean,
+  ): 'Pending Review' | 'Rejected' | 'Active' | 'Scheduled' | 'Inactive' {
+    if (reviewStatus === PlatformAdReviewStatus.PENDING) return 'Pending Review';
+    if (reviewStatus === PlatformAdReviewStatus.REJECTED) return 'Rejected';
+    return this.sponsoredScheduleStatus(startsAt, endsAt, active);
   }
 
   private rotationBaseOffset(poolSize: number): number {
@@ -329,16 +389,162 @@ export class PlatformAdsService {
   }
 
   private campaignToPublicSlide(campaign: {
+    id: string;
     href: string;
     imageUrl: string | null;
     alt: string;
     label: string;
   }) {
     return {
+      campaignId: campaign.id,
       href: campaign.href,
       imageUrl: this.imageStorage.resolvePublicUrl(campaign.imageUrl)!,
       alt: campaign.alt || campaign.label,
     };
+  }
+
+  async recordBannerImpressions(campaignIds: string[]) {
+    const uniqueIds = [...new Set(campaignIds.filter(Boolean))];
+    if (!uniqueIds.length) return { recorded: 0 };
+
+    const now = new Date();
+    const active = await this.prisma.platformBannerCampaign.findMany({
+      where: {
+        id: { in: uniqueIds },
+        active: true,
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
+        startsAt: { lte: now },
+        endsAt: { gte: now },
+        imageUrl: { not: null },
+      },
+      select: { id: true },
+    });
+    if (!active.length) return { recorded: 0 };
+
+    const counts = new Map<string, number>();
+    for (const id of campaignIds) {
+      if (!active.some((row) => row.id === id)) continue;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+
+    await this.prisma.$transaction(
+      [...counts.entries()].map(([id, count]) =>
+        this.prisma.platformBannerCampaign.update({
+          where: { id },
+          data: { viewCount: { increment: count } },
+        }),
+      ),
+    );
+
+    return { recorded: [...counts.values()].reduce((sum, count) => sum + count, 0) };
+  }
+
+  async recordBannerClicks(campaignIds: string[]) {
+    const uniqueIds = [...new Set(campaignIds.filter(Boolean))];
+    if (!uniqueIds.length) return { recorded: 0 };
+
+    const now = new Date();
+    const active = await this.prisma.platformBannerCampaign.findMany({
+      where: {
+        id: { in: uniqueIds },
+        active: true,
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
+        startsAt: { lte: now },
+        endsAt: { gte: now },
+        imageUrl: { not: null },
+      },
+      select: { id: true },
+    });
+    if (!active.length) return { recorded: 0 };
+
+    const counts = new Map<string, number>();
+    for (const id of campaignIds) {
+      if (!active.some((row) => row.id === id)) continue;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+
+    await this.prisma.$transaction(
+      [...counts.entries()].map(([id, count]) =>
+        this.prisma.platformBannerCampaign.update({
+          where: { id },
+          data: { clickCount: { increment: count } },
+        }),
+      ),
+    );
+
+    return { recorded: [...counts.values()].reduce((sum, count) => sum + count, 0) };
+  }
+
+  async recordSponsoredImpressions(sponsoredAdIds: string[]) {
+    const uniqueIds = [...new Set(sponsoredAdIds.filter(Boolean))];
+    if (!uniqueIds.length) return { recorded: 0 };
+
+    const now = new Date();
+    const active = await this.prisma.sponsoredAd.findMany({
+      where: {
+        id: { in: uniqueIds },
+        active: true,
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
+        startsAt: { lte: now },
+        endsAt: { gte: now },
+        job: { status: JobStatus.PUBLISHED },
+      },
+      select: { id: true },
+    });
+    if (!active.length) return { recorded: 0 };
+
+    const counts = new Map<string, number>();
+    for (const id of sponsoredAdIds) {
+      if (!active.some((row) => row.id === id)) continue;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+
+    await this.prisma.$transaction(
+      [...counts.entries()].map(([id, count]) =>
+        this.prisma.sponsoredAd.update({
+          where: { id },
+          data: { viewCount: { increment: count } },
+        }),
+      ),
+    );
+
+    return { recorded: [...counts.values()].reduce((sum, count) => sum + count, 0) };
+  }
+
+  async recordSponsoredClicks(sponsoredAdIds: string[]) {
+    const uniqueIds = [...new Set(sponsoredAdIds.filter(Boolean))];
+    if (!uniqueIds.length) return { recorded: 0 };
+
+    const now = new Date();
+    const active = await this.prisma.sponsoredAd.findMany({
+      where: {
+        id: { in: uniqueIds },
+        active: true,
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
+        startsAt: { lte: now },
+        endsAt: { gte: now },
+        job: { status: JobStatus.PUBLISHED },
+      },
+      select: { id: true },
+    });
+    if (!active.length) return { recorded: 0 };
+
+    const counts = new Map<string, number>();
+    for (const id of sponsoredAdIds) {
+      if (!active.some((row) => row.id === id)) continue;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+
+    await this.prisma.$transaction(
+      [...counts.entries()].map(([id, count]) =>
+        this.prisma.sponsoredAd.update({
+          where: { id },
+          data: { clickCount: { increment: count } },
+        }),
+      ),
+    );
+
+    return { recorded: [...counts.values()].reduce((sum, count) => sum + count, 0) };
   }
 
   private async listActiveBannerCampaigns(
@@ -349,6 +555,7 @@ export class PlatformAdsService {
       where: {
         aspectRatio,
         active: true,
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
         startsAt: { lte: now },
         endsAt: { gte: now },
         imageUrl: { not: null },
@@ -561,7 +768,10 @@ export class PlatformAdsService {
     return this.mapBannerCampaignAdmin(campaign);
   }
 
-  async createBannerCampaign(dto: CreateBannerCampaignDto) {
+  async createBannerCampaign(
+    dto: CreateBannerCampaignDto,
+    options?: PlatformAdSubmissionOptions,
+  ) {
     await this.ensureDefaults();
     const startsAt = this.parseStartDate(dto.startsAt);
     const endsAt = this.endsAtFromPromotion(startsAt, dto.promotionDays);
@@ -579,6 +789,8 @@ export class PlatformAdsService {
       _max: { sortOrder: true },
     });
 
+    const pendingReview = options?.pendingReview === true;
+
     await this.prisma.platformBannerCampaign.create({
       data: {
         label,
@@ -586,9 +798,15 @@ export class PlatformAdsService {
         href: dto.href.trim(),
         imageUrl,
         alt: dto.alt?.trim() || label,
+        promotionDays: dto.promotionDays,
         startsAt,
         endsAt,
         sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+        reviewStatus: pendingReview
+          ? PlatformAdReviewStatus.PENDING
+          : PlatformAdReviewStatus.APPROVED,
+        active: !pendingReview,
+        submittedById: options?.submittedById ?? null,
       },
     });
 
@@ -605,12 +823,19 @@ export class PlatformAdsService {
     const startsAt = dto.startsAt
       ? this.parseStartDate(dto.startsAt)
       : campaign.startsAt;
+    const promotionDays =
+      dto.promotionDays ??
+      (dto.startsAt !== undefined
+        ? (campaign.promotionDays ||
+            this.inferPromotionDays(campaign))
+        : campaign.promotionDays);
     const endsAt =
-      dto.promotionDays !== undefined
-        ? this.endsAtFromPromotion(startsAt, dto.promotionDays)
-        : dto.startsAt !== undefined
-          ? this.endsAtFromPromotion(startsAt, this.inferPromotionDays(campaign))
-          : campaign.endsAt;
+      dto.promotionDays !== undefined || dto.startsAt !== undefined
+        ? this.endsAtFromPromotion(
+            startsAt,
+            (promotionDays ?? this.inferPromotionDays(campaign)) as PromotionPeriodDays,
+          )
+        : campaign.endsAt;
 
     const imageUrl =
       dto.imageUrl !== undefined
@@ -630,7 +855,7 @@ export class PlatformAdsService {
         ...(dto.alt !== undefined ? { alt: dto.alt.trim() } : {}),
         ...(dto.active !== undefined ? { active: dto.active } : {}),
         ...(dto.startsAt !== undefined || dto.promotionDays !== undefined
-          ? { startsAt, endsAt }
+          ? { startsAt, endsAt, promotionDays: promotionDays ?? campaign.promotionDays }
           : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
       },
@@ -656,7 +881,7 @@ export class PlatformAdsService {
     const days = Math.round(
       (campaign.endsAt.getTime() - campaign.startsAt.getTime()) / 86400000,
     );
-    const allowed: PromotionPeriodDays[] = [3, 5, 7, 14, 30];
+    const allowed: PromotionPeriodDays[] = [3, 5, 7, 14, 30, 60];
     return allowed.find((d) => d === days) ?? 7;
   }
 
@@ -667,6 +892,16 @@ export class PlatformAdsService {
       include: { job: { include: jobWithCompany } },
     });
     return ads.map((ad) => this.mapSponsoredAd(ad));
+  }
+
+  async getSponsoredAdForAdmin(id: string) {
+    await this.ensureDefaults();
+    const ad = await this.prisma.sponsoredAd.findUnique({
+      where: { id },
+      include: { job: { include: jobWithCompany } },
+    });
+    if (!ad) throw new NotFoundException('Sponsored ad not found');
+    return this.mapSponsoredAd(ad);
   }
 
   private takeRotatingBatch<T>(items: T[], batchSize: number, offset: number): T[] {
@@ -692,6 +927,7 @@ export class PlatformAdsService {
     const ads = await this.prisma.sponsoredAd.findMany({
       where: {
         active: true,
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
         startsAt: { lte: now },
         endsAt: { gte: now },
         job: { status: JobStatus.PUBLISHED },
@@ -717,11 +953,17 @@ export class PlatformAdsService {
       totalActive,
       offset: resolvedOffset,
       nextOffset,
-      jobs: batch.map((ad) => this.mapJobForPublic(ad.job)),
+      jobs: batch.map((ad) => ({
+        sponsoredAdId: ad.id,
+        job: this.mapJobForPublic(ad.job),
+      })),
     };
   }
 
-  async createSponsoredAd(dto: CreateSponsoredAdDto) {
+  async createSponsoredAd(
+    dto: CreateSponsoredAdDto,
+    options?: PlatformAdSubmissionOptions,
+  ) {
     await this.ensureDefaults();
     const job = await this.prisma.job.findUnique({ where: { id: dto.jobId } });
     if (!job) throw new NotFoundException('Job not found');
@@ -743,12 +985,122 @@ export class PlatformAdsService {
       _max: { sortOrder: true },
     });
 
+    const pendingReview = options?.pendingReview === true;
+
     await this.prisma.sponsoredAd.create({
       data: {
         jobId: dto.jobId,
         sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+        promotionDays: dto.promotionDays,
         startsAt,
         endsAt,
+        reviewStatus: pendingReview
+          ? PlatformAdReviewStatus.PENDING
+          : PlatformAdReviewStatus.APPROVED,
+        active: !pendingReview,
+        submittedById: options?.submittedById ?? null,
+      },
+    });
+
+    return this.listSponsoredForAdmin();
+  }
+
+  async approveBannerCampaign(id: string, dto: ModeratePlatformAdDto = {}) {
+    await this.ensureDefaults();
+    const campaign = await this.prisma.platformBannerCampaign.findUnique({
+      where: { id },
+    });
+    if (!campaign) throw new NotFoundException('Banner campaign not found');
+    if (campaign.reviewStatus !== PlatformAdReviewStatus.PENDING) {
+      throw new BadRequestException('Only pending banner campaigns can be approved.');
+    }
+
+    await this.prisma.platformBannerCampaign.update({
+      where: { id },
+      data: {
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
+        active: true,
+        reviewNotes: dto.reviewNotes?.trim() || null,
+      },
+    });
+
+    return this.getBannerCampaignForAdmin(id);
+  }
+
+  async rejectBannerCampaign(id: string, dto: ModeratePlatformAdDto = {}) {
+    await this.ensureDefaults();
+    const campaign = await this.prisma.platformBannerCampaign.findUnique({
+      where: { id },
+    });
+    if (!campaign) throw new NotFoundException('Banner campaign not found');
+    if (campaign.reviewStatus !== PlatformAdReviewStatus.PENDING) {
+      throw new BadRequestException('Only pending banner campaigns can be rejected.');
+    }
+    const reviewNotes = dto.reviewNotes?.trim();
+    if (!reviewNotes) {
+      throw new BadRequestException(
+        'Review notes are required when rejecting a campaign.',
+      );
+    }
+
+    await this.prisma.platformBannerCampaign.update({
+      where: { id },
+      data: {
+        reviewStatus: PlatformAdReviewStatus.REJECTED,
+        active: false,
+        reviewNotes,
+      },
+    });
+
+    return this.getBannerCampaignForAdmin(id);
+  }
+
+  async approveSponsoredAd(id: string, dto: ModeratePlatformAdDto = {}) {
+    await this.ensureDefaults();
+    const ad = await this.prisma.sponsoredAd.findUnique({
+      where: { id },
+      include: { job: true },
+    });
+    if (!ad) throw new NotFoundException('Sponsored ad not found');
+    if (ad.reviewStatus !== PlatformAdReviewStatus.PENDING) {
+      throw new BadRequestException('Only pending sponsored ads can be approved.');
+    }
+    if (ad.job.status !== JobStatus.PUBLISHED) {
+      throw new BadRequestException('Only published jobs can be sponsored.');
+    }
+
+    await this.prisma.sponsoredAd.update({
+      where: { id },
+      data: {
+        reviewStatus: PlatformAdReviewStatus.APPROVED,
+        active: true,
+        reviewNotes: dto.reviewNotes?.trim() || null,
+      },
+    });
+
+    return this.listSponsoredForAdmin();
+  }
+
+  async rejectSponsoredAd(id: string, dto: ModeratePlatformAdDto = {}) {
+    await this.ensureDefaults();
+    const ad = await this.prisma.sponsoredAd.findUnique({ where: { id } });
+    if (!ad) throw new NotFoundException('Sponsored ad not found');
+    if (ad.reviewStatus !== PlatformAdReviewStatus.PENDING) {
+      throw new BadRequestException('Only pending sponsored ads can be rejected.');
+    }
+    const reviewNotes = dto.reviewNotes?.trim();
+    if (!reviewNotes) {
+      throw new BadRequestException(
+        'Review notes are required when rejecting a campaign.',
+      );
+    }
+
+    await this.prisma.sponsoredAd.update({
+      where: { id },
+      data: {
+        reviewStatus: PlatformAdReviewStatus.REJECTED,
+        active: false,
+        reviewNotes,
       },
     });
 
@@ -787,9 +1139,15 @@ export class PlatformAdsService {
     if (!ad) throw new NotFoundException('Sponsored ad not found');
 
     const startsAt = dto.startsAt ? this.parseStartDate(dto.startsAt) : ad.startsAt;
+    const promotionDays =
+      dto.promotionDays ??
+      (dto.startsAt !== undefined ? ad.promotionDays : undefined);
     const endsAt =
-      dto.promotionDays !== undefined
-        ? this.endsAtFromPromotion(startsAt, dto.promotionDays)
+      dto.promotionDays !== undefined || dto.startsAt !== undefined
+        ? this.endsAtFromPromotion(
+            startsAt,
+            (promotionDays ?? ad.promotionDays) as PromotionPeriodDays,
+          )
         : ad.endsAt;
 
     if (endsAt <= startsAt) {
@@ -800,8 +1158,9 @@ export class PlatformAdsService {
       where: { id },
       data: {
         ...(dto.active !== undefined ? { active: dto.active } : {}),
-        startsAt,
-        endsAt,
+        ...(dto.promotionDays !== undefined || dto.startsAt !== undefined
+          ? { startsAt, endsAt, promotionDays: promotionDays ?? ad.promotionDays }
+          : {}),
       },
     });
     return this.listSponsoredForAdmin();
@@ -835,50 +1194,87 @@ export class PlatformAdsService {
     });
     const companyIds = links.map((link) => link.companyId);
 
-    if (!companyIds.length) {
-      return {
-        campaigns: [],
-        stats: {
-          totalImpressions: 0,
-          activeCount: 0,
-          scheduledCount: 0,
-          expiredCount: 0,
-        },
-      };
-    }
+    const sponsoredWhere: Prisma.SponsoredAdWhereInput = {
+      OR: [
+        { submittedById: userId },
+        ...(companyIds.length
+          ? [{ job: { companyId: { in: companyIds } } }]
+          : []),
+      ],
+    };
 
-    const ads = await this.prisma.sponsoredAd.findMany({
-      where: { job: { companyId: { in: companyIds } } },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-      include: { job: { include: jobWithCompany } },
-    });
+    const [sponsoredAds, bannerCampaigns] = await Promise.all([
+      this.prisma.sponsoredAd.findMany({
+        where: sponsoredWhere,
+        orderBy: [{ createdAt: 'desc' }],
+        include: { job: { include: jobWithCompany } },
+      }),
+      this.prisma.platformBannerCampaign.findMany({
+        where: { submittedById: userId },
+        orderBy: [{ createdAt: 'desc' }],
+      }),
+    ]);
 
     let totalImpressions = 0;
+    let totalClicks = 0;
+    let pendingReviewCount = 0;
     let activeCount = 0;
     let scheduledCount = 0;
     let expiredCount = 0;
 
-    const campaigns = ads.map((ad) => {
+    const sponsoredRows = sponsoredAds.map((ad) => {
       totalImpressions += ad.viewCount;
-      const status = this.sponsoredScheduleStatus(
+      totalClicks += ad.clickCount ?? 0;
+      const status = this.resolveEmployerCampaignStatus(
+        ad.reviewStatus,
         ad.startsAt,
         ad.endsAt,
         ad.active,
       );
-      if (status === 'Active') activeCount += 1;
+      if (status === 'Pending Review') pendingReviewCount += 1;
+      else if (status === 'Active') activeCount += 1;
       else if (status === 'Scheduled') scheduledCount += 1;
       else expiredCount += 1;
 
       return {
+        kind: 'sponsored' as const,
         ...this.mapSponsoredAd(ad),
         status,
       };
     });
 
+    const bannerRows = bannerCampaigns.map((campaign) => {
+      totalImpressions += campaign.viewCount;
+      totalClicks += campaign.clickCount ?? 0;
+      const status = this.resolveEmployerCampaignStatus(
+        campaign.reviewStatus,
+        campaign.startsAt,
+        campaign.endsAt,
+        campaign.active,
+      );
+      if (status === 'Pending Review') pendingReviewCount += 1;
+      else if (status === 'Active') activeCount += 1;
+      else if (status === 'Scheduled') scheduledCount += 1;
+      else expiredCount += 1;
+
+      return {
+        kind: 'banner' as const,
+        ...this.mapBannerCampaignAdmin(campaign),
+        status,
+      };
+    });
+
+    const campaigns = [...sponsoredRows, ...bannerRows].sort(
+      (a, b) =>
+        new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime(),
+    );
+
     return {
       campaigns,
       stats: {
         totalImpressions,
+        totalClicks,
+        pendingReviewCount,
         activeCount,
         scheduledCount,
         expiredCount,

@@ -14,6 +14,7 @@ import { JOB_SLIDE_INTERVAL_MS } from "@/lib/jobs/featured-jobs";
 import type { FeaturedJobCardItem } from "@/lib/jobs/featured-jobs";
 import { buildFeaturedCardSlides } from "@/lib/jobs/map-job-to-featured-card";
 import { loadSponsoredJobCards } from "@/lib/platform-ads/load-sponsored";
+import { recordSponsoredImpressions } from "@/lib/platform-ads/record-impressions";
 import { SPONSORED_JOBS_BATCH_SIZE } from "@/lib/platform-ads/sponsored-rotation";
 import {
   buildJobSearchParams,
@@ -195,6 +196,16 @@ export function JobsSearchPage() {
       setSponsoredSlide(0);
     }
   }, [sponsoredSlide, sponsoredSlides.length]);
+
+  useEffect(() => {
+    const slide = sponsoredSlides[sponsoredSlide];
+    if (!slide?.length) return;
+    const ids = slide
+      .map((job) => job.sponsoredAdId)
+      .filter((id): id is string => Boolean(id));
+    if (!ids.length) return;
+    recordSponsoredImpressions(ids);
+  }, [sponsoredSlide, sponsoredSlides]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
 import { JobCategoryFormModal } from "@/components/admin/job-category-form-modal";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
@@ -30,6 +31,7 @@ export function AdminJobCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [actionId, setActionId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AdminJobCategory | null>(null);
@@ -61,13 +63,21 @@ export function AdminJobCategoriesPage() {
 
   const filteredCategories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter(
-      (category) =>
+    return categories.filter((category) => {
+      if (statusFilter === "active" && !category.active) return false;
+      if (statusFilter === "inactive" && category.active) return false;
+      if (!q) return true;
+      return (
         category.name.toLowerCase().includes(q) ||
-        (category.description ?? "").toLowerCase().includes(q),
-    );
-  }, [categories, searchQuery]);
+        (category.description ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [categories, searchQuery, statusFilter]);
+
+  const hasActiveFilters = useMemo(
+    () => statusFilter !== "all" || searchQuery.trim().length > 0,
+    [searchQuery, statusFilter],
+  );
 
   const totalCategories = categories.length;
 
@@ -147,22 +157,36 @@ export function AdminJobCategoriesPage() {
           </p>
         )}
 
+        <AdminFilterBar
+          className="mb-6"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search categories…"
+          filters={[
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: "all", label: "All statuses" },
+                { value: "active", label: "Active" },
+                { value: "inactive", label: "Inactive" },
+              ],
+              ariaLabel: "Filter by status",
+            },
+          ]}
+          showClear={hasActiveFilters}
+          onClear={() => {
+            setSearchQuery("");
+            setStatusFilter("all");
+          }}
+        />
+
         <div className="rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-          <div className="flex flex-col gap-4 border-b border-outline-variant/50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between border-b border-outline-variant/50 px-6 py-4">
             <h2 className="text-title-md font-bold text-on-surface">Category directory</h2>
-            <div className="relative w-full max-w-sm">
-              <Icon
-                name="search"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline"
-              />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search categories…"
-                className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2.5 pl-10 pr-4 text-body-md outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
+            <span className="rounded-full bg-secondary-container/20 px-3 py-1 text-label-sm font-label-bold text-secondary">
+              {loading ? "…" : `${filteredCategories.length} shown`}
+            </span>
           </div>
 
           <div className="overflow-x-auto">
@@ -174,7 +198,7 @@ export function AdminJobCategoriesPage() {
                   <th className="px-6 py-4">Active jobs</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Last updated</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="w-[100px] px-3 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -236,23 +260,27 @@ export function AdminJobCategoriesPage() {
                       <td className="px-6 py-4 text-label-sm text-on-surface-variant">
                         {formatDate(category.updatedAt)}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-4">
+                      <td className="w-[100px] px-3 py-4">
+                        <div className="flex items-center justify-end gap-0.5">
                           <button
                             type="button"
                             disabled={actionId === category.id}
                             onClick={() => openEditModal(category)}
-                            className="text-label-sm font-bold text-primary hover:underline disabled:opacity-50"
+                            aria-label={`Edit ${category.name}`}
+                            title="Edit"
+                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary disabled:opacity-50"
                           >
-                            Edit
+                            <Icon name="edit" />
                           </button>
                           <button
                             type="button"
                             disabled={actionId === category.id}
                             onClick={() => void handleDelete(category)}
-                            className="text-label-sm font-bold text-error hover:underline disabled:opacity-50"
+                            aria-label={`Delete ${category.name}`}
+                            title="Delete"
+                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error disabled:opacity-50"
                           >
-                            Delete
+                            <Icon name="delete" />
                           </button>
                         </div>
                       </td>

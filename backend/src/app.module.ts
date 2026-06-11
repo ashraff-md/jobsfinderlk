@@ -13,6 +13,8 @@ import { PlatformAdsModule } from './modules/platform-ads/platform-ads.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { GovernmentOrganizationsModule } from './modules/government-organizations/government-organizations.module';
 import { ImageStorageModule } from './common/storage/image-storage.module';
+import { SavedJobsModule } from './modules/saved-jobs/saved-jobs.module';
+import { BlogPostsModule } from './modules/blog-posts/blog-posts.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { ImageStorageModule } from './common/storage/image-storage.module';
     PlatformAdsModule,
     PartnersModule,
     GovernmentOrganizationsModule,
+    SavedJobsModule,
+    BlogPostsModule,
   ],
   providers: [
     {

@@ -171,7 +171,7 @@ export function AdminDashboardPage() {
                   <tr>
                     <th className="px-6 py-4">Requisition Details</th>
                     <th className="px-6 py-4">Submission</th>
-                    <th className="px-6 py-4 text-right">Review</th>
+                    <th className="w-[80px] px-3 py-4 text-right">Review</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
@@ -200,13 +200,14 @@ export function AdminDashboardPage() {
                         <td className="px-6 py-5 text-label-sm text-on-surface-variant">
                           {timeAgo(job.createdAt)}
                         </td>
-                        <td className="px-6 py-5 text-right">
+                        <td className="w-[80px] px-3 py-5 text-right">
                           <Link
                             href={`/admin/jobs/${job.id}/review`}
-                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-label-bold font-semibold text-primary transition-colors hover:bg-primary/5"
+                            aria-label={`Review ${job.title}`}
+                            title="Review"
+                            className="inline-flex rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                           >
-                            Review
-                            <Icon name="chevron_right" className="text-[18px]" />
+                            <Icon name="rate_review" />
                           </Link>
                         </td>
                       </tr>
@@ -230,7 +231,7 @@ export function AdminDashboardPage() {
                   <tr>
                     <th className="px-6 py-4">Organization</th>
                     <th className="px-6 py-4">Submitted</th>
-                    <th className="px-6 py-4 text-right">Review</th>
+                    <th className="w-[80px] px-3 py-4 text-right">Review</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
@@ -266,13 +267,14 @@ export function AdminDashboardPage() {
                         <td className="px-6 py-5 text-label-sm text-on-surface-variant">
                           {timeAgo(item.createdAt)}
                         </td>
-                        <td className="px-6 py-5 text-right">
+                        <td className="w-[80px] px-3 py-5 text-right">
                           <Link
                             href={`/admin/companies/${item.id}`}
-                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-label-bold font-semibold text-primary transition-colors hover:bg-primary/5"
+                            aria-label={`Review ${item.companyName}`}
+                            title="Review"
+                            className="inline-flex rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                           >
-                            <Icon name="edit" className="text-[16px]" />
-                            Edit
+                            <Icon name="rate_review" />
                           </Link>
                         </td>
                       </tr>

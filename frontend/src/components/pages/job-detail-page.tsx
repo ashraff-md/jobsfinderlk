@@ -1,5 +1,6 @@
 import { PublicHeader } from "@/components/layout/public-header";
 import { JobDetailView } from "@/components/jobs/job-detail-view";
+import { SavedJobsProvider } from "@/components/jobs/saved-jobs-provider";
 import { SimilarJobsCarousel } from "@/components/jobs/similar-jobs-carousel";
 import type { Job } from "@/lib/api/types";
 
@@ -23,12 +24,14 @@ export function JobDetailPage({ job }: JobDetailPageProps) {
       <PublicHeader />
 
       <main className="mx-auto w-full max-w-container-max px-margin-mobile py-12 md:px-margin-desktop">
-        <JobDetailView job={job} />
+        <SavedJobsProvider>
+          <JobDetailView job={job} />
 
-        <section className="mb-24 mt-16">
-          <SectionHeading>Similar Opportunities</SectionHeading>
-          <SimilarJobsCarousel excludeSlug={job.slug} />
-        </section>
+          <section className="mb-24 mt-16">
+            <SectionHeading>Similar Opportunities</SectionHeading>
+            <SimilarJobsCarousel excludeSlug={job.slug} />
+          </section>
+        </SavedJobsProvider>
       </main>
     </div>
   );

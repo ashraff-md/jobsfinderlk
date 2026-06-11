@@ -60,6 +60,14 @@ export class UpdateEmployerProfileDto {
   @IsString()
   contactNo?: string;
 
+  @ApiPropertyOptional({
+    example: '45-B Industrial Avenue, Rajagiriya, Sri Lanka',
+    description: 'Billing address used on purchase e-bills',
+  })
+  @IsOptional()
+  @IsString()
+  billingAddress?: string;
+
   @ApiPropertyOptional({ example: 'recruiter@company.com' })
   @IsOptional()
   @IsEmail()

@@ -261,3 +261,9 @@ export class ListPublicSponsoredQueryDto {
   @Min(0)
   offset?: number;
 }
+
+export class SetEmployerCampaignActiveDto {
+  @ApiProperty()
+  @IsBoolean()
+  active!: boolean;
+}

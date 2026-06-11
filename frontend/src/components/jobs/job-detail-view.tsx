@@ -8,8 +8,9 @@ import {
   GovernmentJobSalarySection,
 } from "@/components/jobs/government-job-description-sections";
 import { JobApplicationInstructions } from "@/components/jobs/job-application-instructions";
-import { JobDetailCompanyReviews } from "@/components/jobs/job-detail-company-reviews";
 import { JobArtworkBanner } from "@/components/jobs/job-artwork-banner";
+import { SaveJobButton } from "@/components/jobs/save-job-button";
+import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { Icon } from "@/components/ui/icon";
 import { formatSalary } from "@/lib/api/jobs";
 import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
@@ -129,20 +130,8 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
             <span className="text-label-sm text-on-surface-variant">{postedLabel}</span>
             {!preview && (
               <>
-                <button
-                  type="button"
-                  className="rounded-lg border border-outline-variant p-2 transition-colors hover:bg-surface-container-low"
-                  aria-label="Save job"
-                >
-                  <Icon name="bookmark" className="text-[18px] text-on-surface-variant" />
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-outline-variant p-2 transition-colors hover:bg-surface-container-low"
-                  aria-label="Share job"
-                >
-                  <Icon name="share" className="text-[18px] text-on-surface-variant" />
-                </button>
+                <SaveJobButton jobId={job.id} jobSlug={job.slug} />
+                <ShareJobButton title={job.title} slug={job.slug} />
               </>
             )}
           </div>
@@ -340,14 +329,9 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
       </div>
 
       {!preview && (
-        <>
-          <section className="mt-8" aria-label="Featured opportunities">
-            <HomeBannerAdsGrid columns={2} />
-          </section>
-          <div className="mt-8">
-            <JobDetailCompanyReviews />
-          </div>
-        </>
+        <section className="mt-8" aria-label="Featured opportunities">
+          <HomeBannerAdsGrid columns={2} />
+        </section>
       )}
     </div>
   );

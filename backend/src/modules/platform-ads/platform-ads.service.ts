@@ -307,10 +307,110 @@ export class PlatformAdsService {
     startsAt: Date,
     endsAt: Date,
     active: boolean,
-  ): 'Pending Review' | 'Rejected' | 'Active' | 'Scheduled' | 'Inactive' {
+  ):
+    | 'Pending Review'
+    | 'Rejected'
+    | 'Active'
+    | 'Scheduled'
+    | 'Paused'
+    | 'Inactive' {
     if (reviewStatus === PlatformAdReviewStatus.PENDING) return 'Pending Review';
     if (reviewStatus === PlatformAdReviewStatus.REJECTED) return 'Rejected';
+    if (Date.now() > endsAt.getTime()) return 'Inactive';
+    if (!active) return 'Paused';
     return this.sponsoredScheduleStatus(startsAt, endsAt, active);
+  }
+
+  private async employerCompanyIds(userId: string) {
+    const links = await this.prisma.employerUser.findMany({
+      where: { userId },
+      select: { companyId: true },
+    });
+    return links.map((link) => link.companyId);
+  }
+
+  private async assertEmployerOwnsSponsored(userId: string, id: string) {
+    const companyIds = await this.employerCompanyIds(userId);
+    const ad = await this.prisma.sponsoredAd.findFirst({
+      where: {
+        id,
+        OR: [
+          { submittedById: userId },
+          ...(companyIds.length
+            ? [{ job: { companyId: { in: companyIds } } }]
+            : []),
+        ],
+      },
+      include: { job: { include: jobWithCompany } },
+    });
+    if (!ad) throw new NotFoundException('Campaign not found');
+    return ad;
+  }
+
+  private assertEmployerCanToggleCampaign(
+    reviewStatus: PlatformAdReviewStatus,
+    endsAt: Date,
+  ) {
+    if (reviewStatus !== PlatformAdReviewStatus.APPROVED) {
+      throw new BadRequestException(
+        'Only approved campaigns can be paused or resumed.',
+      );
+    }
+    if (Date.now() > endsAt.getTime()) {
+      throw new BadRequestException(
+        'Expired campaigns cannot be paused or resumed.',
+      );
+    }
+  }
+
+  async setEmployerSponsoredActive(
+    userId: string,
+    id: string,
+    active: boolean,
+  ) {
+    const ad = await this.assertEmployerOwnsSponsored(userId, id);
+    this.assertEmployerCanToggleCampaign(ad.reviewStatus, ad.endsAt);
+
+    const updated = await this.prisma.sponsoredAd.update({
+      where: { id },
+      data: { active },
+      include: { job: { include: jobWithCompany } },
+    });
+
+    return {
+      kind: 'sponsored' as const,
+      ...this.mapSponsoredAd(updated),
+      status: this.resolveEmployerCampaignStatus(
+        updated.reviewStatus,
+        updated.startsAt,
+        updated.endsAt,
+        updated.active,
+      ),
+    };
+  }
+
+  async setEmployerBannerActive(userId: string, id: string, active: boolean) {
+    const campaign = await this.prisma.platformBannerCampaign.findFirst({
+      where: { id, submittedById: userId },
+    });
+    if (!campaign) throw new NotFoundException('Campaign not found');
+    this.assertEmployerCanToggleCampaign(campaign.reviewStatus, campaign.endsAt);
+
+    const updated = await this.prisma.platformBannerCampaign.update({
+      where: { id },
+      data: { active },
+    });
+
+    return {
+      kind: 'banner' as const,
+      ...this.mapBannerCampaignAdmin(updated),
+      status: this.resolveEmployerCampaignStatus(
+        updated.reviewStatus,
+        updated.startsAt,
+        updated.endsAt,
+        updated.active,
+      ),
+    };
   }
 
   private rotationBaseOffset(poolSize: number): number {
@@ -1234,7 +1334,7 @@ export class PlatformAdsService {
       if (status === 'Pending Review') pendingReviewCount += 1;
       else if (status === 'Active') activeCount += 1;
       else if (status === 'Scheduled') scheduledCount += 1;
-      else expiredCount += 1;
+      else if (status === 'Paused' || status === 'Inactive') expiredCount += 1;
 
       return {
         kind: 'sponsored' as const,
@@ -1255,7 +1355,7 @@ export class PlatformAdsService {
       if (status === 'Pending Review') pendingReviewCount += 1;
       else if (status === 'Active') activeCount += 1;
       else if (status === 'Scheduled') scheduledCount += 1;
-      else expiredCount += 1;
+      else if (status === 'Paused' || status === 'Inactive') expiredCount += 1;
 
       return {
         kind: 'banner' as const,

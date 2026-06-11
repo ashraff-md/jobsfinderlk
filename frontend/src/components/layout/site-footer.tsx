@@ -145,12 +145,6 @@ export function SiteFooter({ className }: SiteFooterProps) {
             <Link href="/legal/privacy" className="hover:text-on-primary">
               Privacy Policy
             </Link>
-            <Link href="/legal/cookies" className="hover:text-on-primary">
-              Cookie Policy
-            </Link>
-            <Link href="/help" className="hover:text-on-primary">
-              Help Center
-            </Link>
           </div>
         </div>
       </div>

@@ -43,6 +43,7 @@ const ADMIN_NAV = [
   },
   { href: "/admin/talent", icon: "person_search", label: "Talent Pool", key: "talent" },
   { href: "/admin/partners", icon: "handshake", label: "Partners", key: "partners" },
+  { href: "/admin/blogs", icon: "article", label: "Blogs", key: "blogs" },
   { href: "/admin/settings", icon: "manage_accounts", label: "Profile", key: "settings" },
 ] as const;
 
@@ -71,6 +72,7 @@ function isNavActive(pathname: string, key: string, href: string) {
   if (key === "companies") return pathname.startsWith("/admin/companies");
   if (key === "job-categories") return pathname.startsWith("/admin/job-categories");
   if (key === "partners") return pathname.startsWith("/admin/partners");
+  if (key === "blogs") return pathname.startsWith("/admin/blogs");
   if (key === "verifications") return pathname.startsWith("/admin/verifications");
   if (key === "platform-ads") return pathname.startsWith("/admin/platform-ads");
   if (key === "talent") return pathname.startsWith("/admin/talent");

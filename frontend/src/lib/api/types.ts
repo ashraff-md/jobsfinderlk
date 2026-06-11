@@ -161,6 +161,32 @@ export type CompanyRequest = {
   similarCompanies?: CompanySuggestion[];
 };
 
+export type AdminTalentStatus = "COMPLETE" | "ACTIVE" | "VERIFIED" | "INCOMPLETE";
+
+export type AdminTalent = {
+  id: string;
+  email: string;
+  fullName?: string | null;
+  headline?: string | null;
+  resumeUrl?: string | null;
+  emailVerified: boolean;
+  applicationCount: number;
+  profileStatus: AdminTalentStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminTalentStats = {
+  total: number;
+  completeProfiles: number;
+  activeApplicants: number;
+  emailVerified: number;
+  joinedThisMonth: number;
+  growthPercent: number;
+  monthlySignups: Array<{ month: string; count: number }>;
+  distribution: Array<{ label: string; count: number; percent: number }>;
+};
+
 export type AdminRecruiter = {
   id: string;
   userId: string;
@@ -265,4 +291,36 @@ export type JobApplication = {
       headline?: string | null;
     } | null;
   };
+};
+
+export type BlogPostStatus = "DRAFT" | "PUBLISHED" | "SCHEDULED";
+
+export type BlogPost = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  tags: string[];
+  authorName: string;
+  authorTitle?: string | null;
+  authorBio?: string | null;
+  authorImageUrl?: string | null;
+  coverImageUrl?: string | null;
+  coverImageAlt?: string | null;
+  readMinutes: number;
+  featured: boolean;
+  status: BlogPostStatus;
+  publishedAt?: string | null;
+  scheduledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BlogPostStats = {
+  total: number;
+  drafts: number;
+  scheduled: number;
+  published: number;
 };

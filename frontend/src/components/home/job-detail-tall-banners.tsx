@@ -12,7 +12,7 @@ export function JobDetailTallBanners() {
     let cancelled = false;
     (async () => {
       try {
-        const loaded = await loadBannerCards({ variant: "tall" });
+        const loaded = await loadBannerCards({ variant: "tall", columns: 2 });
         if (!cancelled) setCards(loaded);
       } catch {
         if (!cancelled) setCards([]);

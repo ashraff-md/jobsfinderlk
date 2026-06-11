@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AdminFilterBar,
+  adminFilterSelectClass,
+} from "@/components/admin/admin-filter-bar";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
@@ -49,10 +53,10 @@ const TABLE_COLUMNS = [
 ] as const;
 
 const stickyActionHeaderClass =
-  "sticky right-0 z-20 min-w-[280px] bg-surface-container-low/50 px-stack-lg py-4 text-right font-label-bold uppercase tracking-wider text-outline shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.12)]";
+  "sticky right-0 z-20 w-[120px] min-w-[120px] bg-surface-container-low/50 px-3 py-4 text-right font-label-bold uppercase tracking-wider text-outline shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.12)]";
 
 const stickyActionCellClass =
-  "sticky right-0 z-10 min-w-[280px] bg-surface-container-lowest px-stack-lg py-4 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.08)] group-hover:bg-tertiary-fixed/30";
+  "sticky right-0 z-10 w-[120px] min-w-[120px] bg-surface-container-lowest px-3 py-4 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.08)] group-hover:bg-tertiary-fixed/30";
 
 function reviewHref(job: Job) {
   return `/admin/jobs/${job.id}/review`;
@@ -300,45 +304,37 @@ export function AdminJobsApprovalPage() {
               ))}
             </div>
 
-            <div className="flex flex-nowrap items-center gap-3 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-              <div className="relative min-w-[min(100%,280px)] flex-1">
-                <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search title, company, location…"
-                  className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 font-body-md outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-                />
-              </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
-              >
-                {STATUS_FILTERS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
-              >
-                {SOURCE_FILTERS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+            <AdminFilterBar
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Search title, company, location…"
+              filters={[
+                {
+                  value: statusFilter,
+                  onChange: setStatusFilter,
+                  options: STATUS_FILTERS,
+                  ariaLabel: "Filter by status",
+                },
+                {
+                  value: sourceFilter,
+                  onChange: setSourceFilter,
+                  options: SOURCE_FILTERS,
+                  ariaLabel: "Filter by source",
+                },
+              ]}
+              showClear={hasActiveFilters}
+              onClear={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+                setSourceFilter("all");
+              }}
+            >
               <div className="flex shrink-0 items-center gap-2">
-                <span className="whitespace-nowrap text-label-sm text-outline">Jobs per page:</span>
+                <span className="whitespace-nowrap text-label-sm text-outline">Per page:</span>
                 <select
                   value={jobsPerPage}
                   onChange={(e) => handleJobsPerPageChange(e.target.value)}
-                  className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
+                  className={adminFilterSelectClass}
                   aria-label="Jobs per page"
                 >
                   {JOBS_PER_PAGE_OPTIONS.map((size) => (
@@ -348,20 +344,7 @@ export function AdminJobsApprovalPage() {
                   ))}
                 </select>
               </div>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStatusFilter("all");
-                    setSourceFilter("all");
-                  }}
-                  className="shrink-0 font-label-bold text-secondary hover:underline"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+            </AdminFilterBar>
 
             <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-stack-lg py-stack-md">
@@ -444,24 +427,28 @@ export function AdminJobsApprovalPage() {
                           {formatApprovedAdmin(item)}
                         </td>
                         <td className={stickyActionCellClass}>
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-0.5">
                             {item.status === "PENDING_REVIEW" && (
                               <>
                                 <button
                                   type="button"
                                   disabled={actionId === item.id}
                                   onClick={() => handleModerate(item.id, "reject")}
-                                  className="rounded px-3 py-1.5 text-label-sm font-label-bold text-error hover:bg-error-container disabled:opacity-50"
+                                  aria-label={`Reject ${item.title}`}
+                                  title="Reject"
+                                  className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error disabled:opacity-50"
                                 >
-                                  Reject
+                                  <Icon name="close" />
                                 </button>
                                 <button
                                   type="button"
                                   disabled={actionId === item.id}
                                   onClick={() => handleModerate(item.id, "approve")}
-                                  className="rounded bg-secondary px-3 py-1.5 text-label-sm font-label-bold text-on-secondary disabled:opacity-50"
+                                  aria-label={`Approve ${item.title}`}
+                                  title="Approve"
+                                  className="rounded-full p-2 text-secondary transition-colors hover:bg-secondary/10 disabled:opacity-50"
                                 >
-                                  Approve
+                                  <Icon name="check_circle" />
                                 </button>
                               </>
                             )}
@@ -469,24 +456,36 @@ export function AdminJobsApprovalPage() {
                               <Link
                                 href={`/jobs/${item.slug}`}
                                 target="_blank"
-                                className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
+                                aria-label={`View live: ${item.title}`}
+                                title="View live"
+                                className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                               >
-                                Live
+                                <Icon name="open_in_new" />
                               </Link>
                             )}
                             <Link
                               href={reviewHref(item)}
-                              className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
+                              aria-label={
+                                item.status === "PENDING_REVIEW"
+                                  ? `Review ${item.title}`
+                                  : `View details: ${item.title}`
+                              }
+                              title={item.status === "PENDING_REVIEW" ? "Review" : "Details"}
+                              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                             >
-                              {item.status === "PENDING_REVIEW" ? "Review" : "Details"}
+                              <Icon
+                                name={item.status === "PENDING_REVIEW" ? "rate_review" : "visibility"}
+                              />
                             </Link>
                             <button
                               type="button"
                               disabled={actionId === item.id}
                               onClick={() => void handleDelete(item)}
-                              className="rounded px-3 py-1.5 text-label-sm font-label-bold text-error hover:bg-error-container disabled:opacity-50"
+                              aria-label={`Delete ${item.title}`}
+                              title="Delete"
+                              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error disabled:opacity-50"
                             >
-                              Delete
+                              <Icon name="delete" />
                             </button>
                           </div>
                         </td>

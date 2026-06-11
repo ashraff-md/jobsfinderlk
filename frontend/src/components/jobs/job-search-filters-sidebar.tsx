@@ -59,6 +59,7 @@ function FilterChipGroup({
 type JobSearchFiltersSidebarProps = {
   filters: JobSearchFilters;
   hasUnappliedChanges?: boolean;
+  hideEmploymentType?: boolean;
   onChange: (patch: Partial<JobSearchFilters>) => void;
   onApply: () => void;
   onReset: () => void;
@@ -67,6 +68,7 @@ type JobSearchFiltersSidebarProps = {
 export function JobSearchFiltersSidebar({
   filters,
   hasUnappliedChanges = false,
+  hideEmploymentType = false,
   onChange,
   onApply,
   onReset,
@@ -166,12 +168,14 @@ export function JobSearchFiltersSidebar({
         onChange={(workArrangement) => onChange({ workArrangement })}
       />
 
-      <FilterChipGroup
-        label="Employment type"
-        value={filters.employmentType}
-        options={JOB_TYPES}
-        onChange={(employmentType) => onChange({ employmentType })}
-      />
+      {!hideEmploymentType ? (
+        <FilterChipGroup
+          label="Employment type"
+          value={filters.employmentType}
+          options={JOB_TYPES}
+          onChange={(employmentType) => onChange({ employmentType })}
+        />
+      ) : null}
 
       <button
         type="button"

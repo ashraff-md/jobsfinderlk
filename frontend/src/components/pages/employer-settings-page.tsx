@@ -26,6 +26,7 @@ import {
   type EmployerPurchaseRecord,
   type ListingAllowance,
 } from "@/lib/api/employer-billing";
+import { EmployerEbillDownloadButton } from "@/components/billing/employer-ebill-download-button";
 import {
   formatLkr,
   formatPaymentMethod,
@@ -42,6 +43,7 @@ export function EmployerSettingsPage() {
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
   const [phone, setPhone] = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [companySearch, setCompanySearch] = useState("");
   const [companyPendingReview, setCompanyPendingReview] = useState(false);
@@ -59,6 +61,7 @@ export function EmployerSettingsPage() {
     fullName: "",
     title: "",
     phone: "",
+    billingAddress: "",
     companyId: "",
     companySearch: "",
     companyPendingReview: false,
@@ -106,6 +109,15 @@ export function EmployerSettingsPage() {
     [displayName],
   );
 
+  const ebillBuyer = useMemo(
+    () => ({
+      name: displayName,
+      email,
+      billingAddress: billingAddress.trim() || undefined,
+    }),
+    [billingAddress, displayName, email],
+  );
+
   const phoneChanged = useMemo(
     () => !phonesMatch(phone, savedSnapshot.phone),
     [phone, savedSnapshot.phone],
@@ -115,6 +127,7 @@ export function EmployerSettingsPage() {
     if (fullName.trim() !== savedSnapshot.fullName.trim()) return true;
     if (title.trim() !== savedSnapshot.title.trim()) return true;
     if (phoneChanged) return true;
+    if (billingAddress.trim() !== savedSnapshot.billingAddress.trim()) return true;
     if (companyId !== savedSnapshot.companyId) return true;
     if (
       companySearch.trim().toLowerCase() !==
@@ -129,6 +142,7 @@ export function EmployerSettingsPage() {
 
     return false;
   }, [
+    billingAddress,
     companyId,
     companySearch,
     email,
@@ -148,6 +162,7 @@ export function EmployerSettingsPage() {
       const nextFullName = link?.fullName ?? "";
       const nextTitle = link?.title ?? "";
       const nextPhone = link?.contactNo ?? "";
+      const nextBillingAddress = link?.billingAddress ?? "";
       const nextCompanyId = link?.company?.id ?? "";
       const nextCompanyName = link?.company?.name ?? "";
       const nextPhotoUrl = link?.photoUrl ?? null;
@@ -155,6 +170,7 @@ export function EmployerSettingsPage() {
       setFullName(nextFullName);
       setTitle(nextTitle);
       setPhone(nextPhone);
+      setBillingAddress(nextBillingAddress);
       const nextPendingReview = link?.company ? !link.company.verified : false;
       setCompanyId(nextCompanyId);
       setCompanySearch(nextCompanyName);
@@ -168,6 +184,7 @@ export function EmployerSettingsPage() {
         fullName: nextFullName,
         title: nextTitle,
         phone: nextPhone,
+        billingAddress: nextBillingAddress,
         companyId: nextCompanyId,
         companySearch: nextCompanyName,
         companyPendingReview: nextPendingReview,
@@ -333,6 +350,7 @@ export function EmployerSettingsPage() {
         fullName: fullName.trim(),
         title: title.trim() || undefined,
         contactNo: phone.trim() || undefined,
+        billingAddress: billingAddress.trim() || undefined,
         ...companyPayload,
         ...(photoPayload !== undefined ? { photoUrl: photoPayload } : {}),
         ...(!emailVerified ? { email: email.trim() } : {}),
@@ -354,6 +372,7 @@ export function EmployerSettingsPage() {
         fullName: fullName.trim(),
         title: title.trim(),
         phone: savedPhone,
+        billingAddress: billingAddress.trim(),
         companyId: updated.company.id,
         companySearch: updated.company.name,
         companyPendingReview: nextCompanyPendingReview,
@@ -374,6 +393,7 @@ export function EmployerSettingsPage() {
     setFullName(savedSnapshot.fullName);
     setTitle(savedSnapshot.title);
     setPhone(savedSnapshot.phone);
+    setBillingAddress(savedSnapshot.billingAddress);
     setPhoneVerified(savedPhoneVerified);
     setActiveVerification(null);
     setCompanyId(savedSnapshot.companyId);
@@ -603,6 +623,26 @@ export function EmployerSettingsPage() {
                       />
                     ) : null}
                   </div>
+
+                  <div>
+                    <label
+                      htmlFor="settings-billing-address"
+                      className="mb-2 block font-label-bold text-on-surface"
+                    >
+                      Billing Address
+                    </label>
+                    <textarea
+                      id="settings-billing-address"
+                      value={billingAddress}
+                      onChange={(e) => setBillingAddress(e.target.value)}
+                      rows={3}
+                      placeholder="Street, city, postal code, country"
+                      className="w-full resize-y rounded border border-outline-variant bg-white p-3 font-body-md outline-none transition-all focus:border-primary-container focus:ring-0"
+                    />
+                    <p className="mt-1.5 text-body-sm text-on-surface-variant">
+                      Used on purchase e-bills as your billing address.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex flex-col items-stretch justify-end gap-4 border-t border-outline-variant pt-8 sm:flex-row sm:items-center">
@@ -736,9 +776,9 @@ export function EmployerSettingsPage() {
                           <th className="px-4 py-3">Date</th>
                           <th className="px-4 py-3">Product</th>
                           <th className="px-4 py-3">Package</th>
-                          <th className="px-4 py-3">Slots</th>
                           <th className="px-4 py-3">Payment</th>
                           <th className="px-4 py-3 text-right">Amount</th>
+                          <th className="w-[80px] px-3 py-3 text-right">E-Bill</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-outline-variant">
@@ -757,15 +797,16 @@ export function EmployerSettingsPage() {
                               )}
                             </td>
                             <td className="px-4 py-4 text-label-sm text-outline">
-                              {purchase.product === "job-listings"
-                                ? `+${purchase.jobSlots ?? 0}`
-                                : "—"}
-                            </td>
-                            <td className="px-4 py-4 text-label-sm text-outline">
                               {formatPaymentMethod(purchase.paymentMethod)}
                             </td>
                             <td className="px-4 py-4 text-right font-label-bold text-primary-container">
                               {formatLkr(purchase.total)}
+                            </td>
+                            <td className="px-3 py-4 text-right">
+                              <EmployerEbillDownloadButton
+                                purchase={purchase}
+                                buyer={ebillBuyer}
+                              />
                             </td>
                           </tr>
                         ))}

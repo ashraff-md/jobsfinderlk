@@ -12,5 +12,5 @@ export const metadata: Metadata = {
 
 export default async function CompaniesPage() {
   const companies = (await serverFetch<Company[]>("/companies")) ?? [];
-  return <CompaniesDirectoryPage companies={companies} />;
+  return <CompaniesDirectoryPage initialCompanies={companies} />;
 }

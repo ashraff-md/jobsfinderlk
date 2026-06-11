@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
@@ -56,10 +57,41 @@ function formatDate(value?: string | null) {
   }).format(new Date(value));
 }
 
+const GOVERNMENT_STATUS_FILTERS = [
+  { value: "all", label: "All statuses" },
+  { value: "PUBLISHED", label: "Published" },
+  { value: "PENDING_REVIEW", label: "Pending review" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "CLOSED", label: "Closed" },
+  { value: "EXPIRED", label: "Expired" },
+] as const;
+
 export function AdminGovernmentJobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const filteredJobs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return jobs.filter((job) => {
+      if (statusFilter !== "all" && job.status !== statusFilter) return false;
+      if (!q) return true;
+      const employer = getJobEmployerName(job).toLowerCase();
+      return (
+        job.title.toLowerCase().includes(q) ||
+        employer.includes(q) ||
+        (job.city ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [jobs, searchQuery, statusFilter]);
+
+  const hasActiveFilters = useMemo(
+    () => statusFilter !== "all" || searchQuery.trim().length > 0,
+    [searchQuery, statusFilter],
+  );
 
   const loadJobs = useCallback(async () => {
     if (!getAccessToken()) {
@@ -109,10 +141,32 @@ export function AdminGovernmentJobsPage() {
           </Link>
         </div>
 
+        <AdminFilterBar
+          className="mb-stack-lg"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search title, ministry, location…"
+          filters={[
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: GOVERNMENT_STATUS_FILTERS,
+              ariaLabel: "Filter by status",
+            },
+          ]}
+          showClear={hasActiveFilters}
+          onClear={() => {
+            setSearchQuery("");
+            setStatusFilter("all");
+          }}
+        />
+
         <div className="professional-card overflow-hidden rounded-xl shadow-sm">
           <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-6 py-4">
             <h2 className="font-label-bold text-on-surface">
-              {loading ? "Loading…" : `${jobs.length} posting${jobs.length === 1 ? "" : "s"}`}
+              {loading
+                ? "Loading…"
+                : `${filteredJobs.length} posting${filteredJobs.length === 1 ? "" : "s"}`}
             </h2>
           </div>
 
@@ -143,11 +197,18 @@ export function AdminGovernmentJobsPage() {
                     <th className="px-6 py-4">Ministry / Department</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Posted</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                    <th className="w-[120px] px-3 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
-                  {jobs.map((job) => (
+                  {filteredJobs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-on-surface-variant">
+                        No postings match your filters.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {filteredJobs.map((job) => (
                     <tr key={job.id} className="transition-colors hover:bg-surface-container-low/30">
                       <td className="px-6 py-5">
                         <p className="font-bold">{job.title}</p>
@@ -169,28 +230,35 @@ export function AdminGovernmentJobsPage() {
                       <td className="px-6 py-5 text-label-sm text-on-surface-variant">
                         {formatDate(job.createdAt)}
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td className="w-[120px] px-3 py-5 text-right">
+                        <div className="flex justify-end gap-0.5">
                           <Link
                             href={`/admin/jobs/government/${job.id}/edit`}
-                            className="rounded-lg border border-outline-variant px-3 py-1.5 text-label-sm font-bold hover:bg-surface-container"
+                            aria-label={`Edit ${job.title}`}
+                            title="Edit"
+                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                           >
-                            Edit
+                            <Icon name="edit" />
                           </Link>
                           {job.status === "PENDING_REVIEW" && (
                             <Link
                               href={`/admin/jobs/${job.id}/review`}
-                              className="rounded-lg border border-outline-variant px-3 py-1.5 text-label-sm font-bold hover:bg-surface-container"
+                              aria-label={`Review ${job.title}`}
+                              title="Review"
+                              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                             >
-                              Review
+                              <Icon name="rate_review" />
                             </Link>
                           )}
                           {job.status === "PUBLISHED" && (
                             <Link
                               href={`/jobs/${job.slug}`}
-                              className="rounded-lg border border-outline-variant px-3 py-1.5 text-label-sm font-bold hover:bg-surface-container"
+                              target="_blank"
+                              aria-label={`View live: ${job.title}`}
+                              title="View live"
+                              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                             >
-                              View live
+                              <Icon name="open_in_new" />
                             </Link>
                           )}
                         </div>

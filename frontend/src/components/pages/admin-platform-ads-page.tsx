@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminAdTypeModal } from "@/components/admin/platform-ads/admin-ad-type-modal";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -14,6 +15,7 @@ import {
 import type { CampaignStatus, PlatformCampaignRow } from "@/lib/platform-ads/admin-config";
 import {
   formatPromotionEndDate,
+  campaignScheduleProgress,
   formatScheduleRange,
   platformAdCampaignStatus,
 } from "@/lib/platform-ads/sponsored-schedule";
@@ -55,7 +57,7 @@ const STAT_CARDS = [
     icon: "trending_up",
     iconClass: "text-secondary",
     tag: "AVERAGE",
-    label: "Avg. Views per Campaign",
+    label: "Avg. Engagements per Campaign",
   },
 ] as const;
 
@@ -67,16 +69,6 @@ function initials(name: string) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
-}
-
-function scheduleProgress(startsAt: string, endsAt: string): number {
-  const start = new Date(startsAt).getTime();
-  const end = new Date(endsAt).getTime();
-  const now = Date.now();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
-  if (now <= start) return 0;
-  if (now >= end) return 100;
-  return Math.round(((now - start) / (end - start)) * 100);
 }
 
 function isExpiringSoon(endsAt: string): boolean {
@@ -114,10 +106,6 @@ function formatCtr(clicks: number, views: number) {
   return `${((clicks / views) * 100).toFixed(1)}% CTR`;
 }
 
-function formatViewsCtaLine(views: number, clicks: number) {
-  return `${formatCompactCount(views)} views · ${formatCompactCount(clicks)} CTA`;
-}
-
 function buildCampaignRows(
   bannerCampaigns: AdminBannerCampaign[],
   sponsored: AdminSponsoredAd[],
@@ -148,7 +136,7 @@ function buildCampaignRows(
       promotionEndDate: formatPromotionEndDate(campaign.endsAt),
       startsAt: campaign.startsAt,
       endsAt: campaign.endsAt,
-      scheduleProgress: scheduleProgress(campaign.startsAt, campaign.endsAt),
+      scheduleProgress: campaignScheduleProgress(campaign.startsAt, campaign.endsAt),
       views: campaign.viewCount ?? 0,
       clicks: campaign.clickCount ?? 0,
       ctr: formatCtr(campaign.clickCount ?? 0, campaign.viewCount ?? 0),
@@ -181,7 +169,7 @@ function buildCampaignRows(
       promotionEndDate: formatPromotionEndDate(ad.endsAt),
       startsAt: ad.startsAt,
       endsAt: ad.endsAt,
-      scheduleProgress: scheduleProgress(ad.startsAt, ad.endsAt),
+      scheduleProgress: campaignScheduleProgress(ad.startsAt, ad.endsAt),
       views: ad.viewCount ?? 0,
       clicks: ad.clickCount ?? 0,
       ctr: formatCtr(ad.clickCount ?? 0, ad.viewCount ?? 0),
@@ -258,7 +246,6 @@ export function AdminPlatformAdsPage() {
   const [adTypeFilter, setAdTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState<AdsTab>("overview");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [adTypeModalOpen, setAdTypeModalOpen] = useState(false);
 
@@ -306,8 +293,12 @@ export function AdminPlatformAdsPage() {
   const pendingCount = statusSummary.pendingReview;
   const totalViews = campaigns.reduce((sum, c) => sum + c.views, 0);
   const totalClicks = campaigns.reduce((sum, c) => sum + c.clicks, 0);
-  const avgViewsPerCampaign =
-    campaigns.length > 0 ? Math.round(totalViews / campaigns.length) : 0;
+  const avgEngagementsPerCampaign =
+    campaigns.length > 0
+      ? Math.round(
+          campaigns.reduce((sum, c) => sum + c.views + c.clicks, 0) / campaigns.length,
+        )
+      : 0;
 
   const filteredCampaigns = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -409,7 +400,7 @@ export function AdminPlatformAdsPage() {
                       ? String(pendingCount)
                       : index === 2
                         ? totalViews.toLocaleString()
-                        : avgViewsPerCampaign.toLocaleString()}
+                        : avgEngagementsPerCampaign.toLocaleString()}
               </h3>
               <p className="font-label-sm text-label-sm text-on-surface-variant">{card.label}</p>
               {"showProgress" in card && card.showProgress && (
@@ -458,71 +449,44 @@ export function AdminPlatformAdsPage() {
               ))}
             </div>
 
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-                  <div className="relative flex-1">
-                    <Icon
-                      name="search"
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-outline"
-                    />
-                    <input
-                      type="search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by advertiser or campaign name..."
-                      className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-10 pr-4 outline-none transition-all focus:border-primary"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFiltersOpen((open) => !open)}
-                    className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 font-label-bold transition-colors hover:bg-surface-variant"
-                  >
-                    <Icon name="filter_list" className="text-sm" />
-                    Filter
-                  </button>
-                </div>
-
-                {filtersOpen && (
-                  <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
-                    <select
-                      value={adTypeFilter}
-                      onChange={(e) => setAdTypeFilter(e.target.value)}
-                      className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
-                      aria-label="Filter by ad type"
-                    >
-                      <option value="all">All ad types</option>
-                      <option value="Banner 3x2">Banner 3×2</option>
-                      <option value="Banner 2x5">Banner 2×5</option>
-                      <option value="Sponsored">Sponsored</option>
-                    </select>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
-                      aria-label="Filter by status"
-                    >
-                      <option value="all">All statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Pending Review">Pending Review</option>
-                      <option value="Rejected">Rejected</option>
-                      <option value="Scheduled">Scheduled</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                    {hasActiveFilters && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery("");
-                          setAdTypeFilter("all");
-                          setStatusFilter("all");
-                        }}
-                        className="font-label-bold text-secondary hover:underline"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
+            <AdminFilterBar
+              className="mb-6"
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Search by advertiser or campaign name…"
+              filters={[
+                {
+                  value: adTypeFilter,
+                  onChange: setAdTypeFilter,
+                  options: [
+                    { value: "all", label: "All ad types" },
+                    { value: "Banner 3x2", label: "Banner 3×2" },
+                    { value: "Banner 2x5", label: "Banner 2×5" },
+                    { value: "Sponsored", label: "Sponsored" },
+                  ],
+                  ariaLabel: "Filter by ad type",
+                },
+                {
+                  value: statusFilter,
+                  onChange: setStatusFilter,
+                  options: [
+                    { value: "all", label: "All statuses" },
+                    { value: "Active", label: "Active" },
+                    { value: "Pending Review", label: "Pending review" },
+                    { value: "Rejected", label: "Rejected" },
+                    { value: "Scheduled", label: "Scheduled" },
+                    { value: "Inactive", label: "Inactive" },
+                  ],
+                  ariaLabel: "Filter by status",
+                },
+              ]}
+              showClear={hasActiveFilters}
+              onClear={() => {
+                setSearchQuery("");
+                setAdTypeFilter("all");
+                setStatusFilter("all");
+              }}
+            />
 
                 <div className="overflow-hidden border border-outline-variant bg-surface-container-lowest">
                   <div className="overflow-x-auto">
@@ -531,11 +495,11 @@ export function AdminPlatformAdsPage() {
                         <tr>
                           <th className="px-6 py-4">Advertiser</th>
                           <th className="px-6 py-4">Type / Placement</th>
-                          <th className="px-6 py-4">Views / CTA</th>
+                          <th className="px-6 py-4">Engagements</th>
                           <th className="px-6 py-4">Schedule</th>
                           <th className="px-6 py-4">Status</th>
                           {activeTab === "overview" && <th className="px-6 py-4">Lifecycle</th>}
-                          <th className="px-6 py-4 text-right">Actions</th>
+                          <th className="w-[100px] px-3 py-4 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-outline-variant">
@@ -604,10 +568,10 @@ export function AdminPlatformAdsPage() {
                               </td>
                               <td className="px-6 py-5">
                                 <p className="font-label-bold tabular-nums text-label-bold text-primary">
-                                  {formatViewsCtaLine(row.views, row.clicks)}
+                                  {formatCompactCount(row.views)} views
                                 </p>
-                                <p className="text-[11px] font-bold text-on-surface-variant opacity-60">
-                                  {formatCtr(row.clicks, row.views)}
+                                <p className="mt-0.5 text-[11px] text-on-surface-variant">
+                                  {formatCompactCount(row.clicks)} CTA
                                 </p>
                               </td>
                               <td className="px-6 py-5">
@@ -636,14 +600,15 @@ export function AdminPlatformAdsPage() {
                                   <CampaignStatusIndicator status={row.displayStatus} />
                                 </td>
                               )}
-                              <td className="px-6 py-5 text-right">
-                                <div className="flex justify-end gap-2">
+                              <td className="w-[100px] px-3 py-5 text-right">
+                                <div className="flex justify-end gap-0.5">
                                   <Link
                                     href={row.editHref}
                                     className={cn(
-                                      "rounded p-2 transition-colors hover:bg-surface-variant",
-                                      row.reviewStatus === "PENDING" &&
-                                        "bg-amber-100 text-amber-900 hover:bg-amber-200",
+                                      "rounded-full p-2 transition-colors hover:bg-outline-variant/20",
+                                      row.reviewStatus === "PENDING"
+                                        ? "bg-amber-100 text-amber-900 hover:bg-amber-200"
+                                        : "text-on-surface-variant hover:text-secondary",
                                     )}
                                     title={row.reviewStatus === "PENDING" ? "Review" : "Edit"}
                                     aria-label={
@@ -666,7 +631,7 @@ export function AdminPlatformAdsPage() {
                                       href={row.viewHref}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="rounded p-2 transition-colors hover:bg-surface-variant"
+                                      className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                                       title="View"
                                       aria-label={`View ${row.advertiser}`}
                                     >

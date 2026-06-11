@@ -41,6 +41,9 @@ export function FeaturedJobCard({
       </div>
       <Link
         href={job.href ?? ctaHref}
+        {...(job.sponsoredAdId
+          ? { target: "_blank", rel: "noopener noreferrer" }
+          : {})}
         onClick={() => {
           if (job.sponsoredAdId) recordSponsoredClicks([job.sponsoredAdId]);
         }}

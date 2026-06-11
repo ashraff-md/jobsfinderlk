@@ -8,6 +8,8 @@ import type {
   CompanyRequest,
   Job,
   JobsSearchResponse,
+  AdminTalent,
+  AdminTalentStats,
 } from "./types";
 
 export type AdminJobsFilters = {
@@ -96,6 +98,31 @@ export type AdminRecruitersFilters = {
   status?: string;
   q?: string;
 };
+
+export type AdminTalentFilters = {
+  status?: string;
+  q?: string;
+};
+
+export async function getAdminTalent(filters?: AdminTalentFilters) {
+  const query = new URLSearchParams();
+  if (filters?.status && filters.status !== "all") {
+    query.set("status", filters.status);
+  }
+  if (filters?.q?.trim()) {
+    query.set("q", filters.q.trim());
+  }
+  const qs = query.toString();
+  return apiFetch<AdminTalent[]>(`/admin/talent${qs ? `?${qs}` : ""}`, {
+    token: getAccessToken(),
+  });
+}
+
+export async function getAdminTalentStats() {
+  return apiFetch<AdminTalentStats>("/admin/talent/stats", {
+    token: getAccessToken(),
+  });
+}
 
 export async function getAdminRecruiters(filters?: AdminRecruitersFilters) {
   const query = new URLSearchParams();

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
@@ -13,6 +22,7 @@ import {
   RecordBannerImpressionsDto,
   RecordSponsoredClicksDto,
   RecordSponsoredImpressionsDto,
+  SetEmployerCampaignActiveDto,
 } from './dto/platform-ads.dto';
 
 @ApiTags('platform-ads')
@@ -62,5 +72,37 @@ export class PlatformAdsController {
   @ApiBearerAuth()
   employerMine(@CurrentUser() user: AuthUser) {
     return this.platformAdsService.listForEmployer(user.sub);
+  }
+
+  @Patch('employer/sponsored/:id/active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  employerSetSponsoredActive(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: SetEmployerCampaignActiveDto,
+  ) {
+    return this.platformAdsService.setEmployerSponsoredActive(
+      user.sub,
+      id,
+      dto.active,
+    );
+  }
+
+  @Patch('employer/banner-campaigns/:id/active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  employerSetBannerActive(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: SetEmployerCampaignActiveDto,
+  ) {
+    return this.platformAdsService.setEmployerBannerActive(
+      user.sub,
+      id,
+      dto.active,
+    );
   }
 }

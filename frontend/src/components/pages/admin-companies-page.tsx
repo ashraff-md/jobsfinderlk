@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
@@ -145,56 +146,26 @@ export function AdminCompaniesPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-stack-lg sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="min-w-[200px] flex-1 space-y-2">
-            <label htmlFor="company-search" className="font-label-bold text-label-sm text-on-surface-variant">
-              Search
-            </label>
-            <div className="relative">
-              <Icon
-                name="search"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
-              />
-              <input
-                id="company-search"
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Company, industry, domain, city…"
-                className="w-full rounded-lg border border-outline-variant py-2.5 pl-10 pr-4 font-body-md outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-          </div>
-          <div className="min-w-[180px] space-y-2">
-            <label htmlFor="company-status" className="font-label-bold text-label-sm text-on-surface-variant">
-              Status
-            </label>
-            <select
-              id="company-status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-lg border border-outline-variant px-4 py-2.5 font-body-md outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {STATUS_FILTERS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("");
-                setStatusFilter("all");
-              }}
-              className="rounded-lg border border-outline-variant px-4 py-2.5 font-label-bold text-on-surface-variant hover:bg-surface-container-low"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
+        <AdminFilterBar
+          searchId="company-search"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Company, industry, domain, city…"
+          filters={[
+            {
+              id: "company-status",
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: STATUS_FILTERS,
+              ariaLabel: "Filter by status",
+            },
+          ]}
+          showClear={hasActiveFilters}
+          onClear={() => {
+            setSearchQuery("");
+            setStatusFilter("all");
+          }}
+        />
 
         <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-stack-lg py-stack-md">
@@ -214,7 +185,10 @@ export function AdminCompaniesPage() {
                     (h) => (
                       <th
                         key={h}
-                        className="px-stack-lg py-4 font-label-bold uppercase tracking-wider text-outline"
+                        className={cn(
+                          "px-stack-lg py-4 font-label-bold uppercase tracking-wider text-outline",
+                          h === "Actions" && "w-[120px] px-3 text-right",
+                        )}
                       >
                         {h}
                       </th>
@@ -273,15 +247,16 @@ export function AdminCompaniesPage() {
                     <td className="px-stack-lg py-4 text-body-md">
                       {new Date(request.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-stack-lg py-4">
-                      <div className="flex justify-end gap-2">
+                    <td className="w-[120px] px-3 py-4">
+                      <div className="flex justify-end gap-0.5">
                         {(request.status === "PENDING" || request.status === "APPROVED") && (
                           <Link
                             href={`/admin/companies/${request.id}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-3 py-1.5 font-label-bold text-primary transition-colors hover:bg-surface-container-low"
+                            aria-label={`Edit ${request.companyName}`}
+                            title="Edit"
+                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                           >
-                            <Icon name="edit" className="text-[16px]" />
-                            Edit
+                            <Icon name="edit" />
                           </Link>
                         )}
                         {request.status === "PENDING" && (
@@ -290,26 +265,32 @@ export function AdminCompaniesPage() {
                               type="button"
                               disabled={actionId === request.id}
                               onClick={() => handleAction(request.id, "reject")}
-                              className="rounded px-3 py-1.5 text-label-sm font-label-bold text-error hover:bg-error-container disabled:opacity-50"
+                              aria-label={`Reject ${request.companyName}`}
+                              title="Reject"
+                              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error disabled:opacity-50"
                             >
-                              Reject
+                              <Icon name="close" />
                             </button>
                             <button
                               type="button"
                               disabled={actionId === request.id}
                               onClick={() => handleAction(request.id, "approve")}
-                              className="rounded bg-secondary px-3 py-1.5 text-label-sm font-label-bold text-on-secondary disabled:opacity-50"
+                              aria-label={`Approve ${request.companyName}`}
+                              title="Approve"
+                              className="rounded-full p-2 text-secondary transition-colors hover:bg-secondary/10 disabled:opacity-50"
                             >
-                              Approve
+                              <Icon name="check_circle" />
                             </button>
                           </>
                         )}
                         {request.status !== "PENDING" && request.status !== "APPROVED" && (
                           <Link
                             href={`/admin/companies/${request.id}`}
-                            className="rounded border border-outline-variant px-3 py-1.5 text-label-sm font-label-bold"
+                            aria-label={`View details: ${request.companyName}`}
+                            title="Details"
+                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                           >
-                            Details
+                            <Icon name="visibility" />
                           </Link>
                         )}
                       </div>

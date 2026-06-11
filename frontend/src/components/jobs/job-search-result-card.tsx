@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SaveJobButton } from "@/components/jobs/save-job-button";
 import { Icon } from "@/components/ui/icon";
 import { formatSalary } from "@/lib/api/jobs";
 import { formatJobClosingDate } from "@/lib/jobs/application-deadline";
@@ -54,13 +55,13 @@ export function JobSearchResultCard({ job }: JobSearchResultCardProps) {
           </Link>
           <p className="mt-1 text-xs font-medium text-on-surface-variant">{employerName}</p>
         </div>
-        <button
-          type="button"
-          className="-mr-1 shrink-0 rounded p-2 transition-colors hover:bg-surface-container-low active:scale-90"
-          aria-label="Save job"
-        >
-          <Icon name="bookmark" className="text-outline" />
-        </button>
+        <SaveJobButton
+          jobId={job.id}
+          jobSlug={job.slug}
+          showBorder={false}
+          className="-mr-1 shrink-0 active:scale-90"
+          iconClassName="text-outline"
+        />
       </div>
 
       <ul className="mb-4 space-y-2 text-label-sm text-on-surface-variant">

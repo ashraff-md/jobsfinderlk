@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { GovernmentOrganizationForm } from "@/components/government-organizations/government-organization-form";
 import { Icon } from "@/components/ui/icon";
@@ -55,14 +56,14 @@ export function AdminGovernmentOrganizationsPage() {
           </Link>
         </div>
 
-        <div className="mb-stack-md">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search organizations…"
-            className="w-full max-w-md rounded-lg border border-outline-variant px-4 py-3 font-body-md outline-none focus:border-primary"
-          />
-        </div>
+        <AdminFilterBar
+          className="mb-stack-md"
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search organizations…"
+          showClear={search.trim().length > 0}
+          onClear={() => setSearch("")}
+        />
 
         <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <table className="w-full text-left">
@@ -72,7 +73,9 @@ export function AdminGovernmentOrganizationsPage() {
                 <th className="px-4 py-3 font-label-bold text-on-surface-variant">Type</th>
                 <th className="px-4 py-3 font-label-bold text-on-surface-variant">Parent</th>
                 <th className="px-4 py-3 font-label-bold text-on-surface-variant">Vacancies</th>
-                <th className="px-4 py-3 font-label-bold text-on-surface-variant">Actions</th>
+                <th className="w-[80px] px-3 py-3 text-right font-label-bold text-on-surface-variant">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -108,13 +111,14 @@ export function AdminGovernmentOrganizationsPage() {
                     <td className="px-4 py-3 text-label-sm text-on-surface-variant">
                       {item._count?.jobs ?? 0}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="w-[80px] px-3 py-3 text-right">
                       <Link
                         href={`/admin/government-organizations/${item.id}/edit`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-3 py-1.5 font-label-bold text-primary transition-colors hover:bg-surface-container-low"
+                        aria-label={`Edit ${item.name}`}
+                        title="Edit"
+                        className="inline-flex rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                       >
-                        <Icon name="edit" className="text-[16px]" />
-                        Edit
+                        <Icon name="edit" />
                       </Link>
                     </td>
                   </tr>

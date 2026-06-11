@@ -57,6 +57,12 @@ enum PromoDiscountType {
   FIXED
 }
 
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -83,6 +89,7 @@ model User {
   employerPurchases EmployerPurchase[]
   submittedBannerCampaigns PlatformBannerCampaign[] @relation("BannerCampaignSubmittedBy")
   submittedSponsoredAds      SponsoredAd[]           @relation("SponsoredAdSubmittedBy")
+  savedJobs                  SavedJob[]
 
   @@map("users")
 }
@@ -192,6 +199,7 @@ model EmployerUser {
   fullName        String?   @map("full_name")
   title           String?
   contactNo       String?   @map("contact_no")
+  billingAddress  String?   @map("billing_address")
   photoUrl        String?   @map("photo_url")
   phoneVerified   Boolean   @default(false) @map("phone_verified")
   phoneVerifiedAt DateTime? @map("phone_verified_at")
@@ -366,6 +374,7 @@ model Job {
   postedBy               User?                   @relation("JobPostedBy", fields: [postedById], references: [id], onDelete: SetNull)
   applications             Application[]
   sponsoredAd              SponsoredAd?
+  savedBy                  SavedJob[]
 
   @@map("jobs")
 }
@@ -465,4 +474,45 @@ model SponsoredAd {
 
   @@index([submittedById, createdAt])
   @@map("sponsored_ads")
+}
+
+model SavedJob {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  jobId     String   @map("job_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId, createdAt])
+  @@map("saved_jobs")
+}
+
+model BlogPost {
+  id              String         @id @default(uuid())
+  slug            String         @unique
+  title           String
+  excerpt         String
+  content         String         @db.Text
+  category        String
+  tags            String[]       @default([])
+  authorName      String         @map("author_name")
+  authorTitle     String?        @map("author_title")
+  authorBio       String?        @map("author_bio")
+  authorImageUrl  String?        @map("author_image_url")
+  coverImageUrl   String?        @map("cover_image_url")
+  coverImageAlt   String?        @map("cover_image_alt")
+  readMinutes     Int            @default(5) @map("read_minutes")
+  featured        Boolean        @default(false)
+  status          BlogPostStatus @default(DRAFT)
+  publishedAt     DateTime?      @map("published_at")
+  scheduledAt     DateTime?      @map("scheduled_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([status, publishedAt])
+  @@index([category])
+  @@map("blog_posts")
 }

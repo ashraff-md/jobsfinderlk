@@ -1,5 +1,6 @@
 import { SeekerShell } from "@/components/layout/seeker-shell";
 import { ResumePdfDownload } from "@/components/resume/resume-pdf-download";
+import { ShareLinkButton } from "@/components/ui/share-link-button";
 import { Icon } from "@/components/ui/icon";
 
 const EXPERIENCE = [
@@ -199,13 +200,11 @@ export function SeekerProfilePage() {
             <ResumePdfDownload />
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-outline-variant py-3 font-label-bold text-primary-container transition-all hover:bg-surface-container"
-                >
-                  <Icon name="share" />
-                  Share
-                </button>
+                <ShareLinkButton
+                  url="/dashboard/profile"
+                  title="Alex Silva — JobsFinder profile"
+                  text="View my JobsFinder profile"
+                />
                 <button
                   type="button"
                   className="flex items-center justify-center gap-2 rounded-xl border border-outline-variant py-3 font-label-bold text-primary-container transition-all hover:bg-surface-container"

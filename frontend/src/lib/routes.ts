@@ -121,8 +121,13 @@ export const ROUTE_META: Record<
     phase: "M2",
   },
   "/career-advice": {
-    title: "Career Advice Blog",
-    reference: "References/13_career_advice_blog/code.html",
+    title: "Career Insights",
+    reference: "ui_references/career_insights_blog/code.html",
+    phase: "M2",
+  },
+  "/career-advice/[slug]": {
+    title: "Career Article",
+    reference: "ui_references/article_navigating_the_c_suite_2024/code.html",
     phase: "M2",
   },
   "/pricing": {
@@ -234,6 +239,21 @@ export const ROUTE_META: Record<
     title: "Partner Management",
     reference: "references2/admin_partner_management/code.html",
     phase: "M1–M2",
+  },
+  "/admin/blogs": {
+    title: "Content Management & Blogs",
+    reference: "ui_references/admin_blogs_management_hub/code.html",
+    phase: "M2",
+  },
+  "/admin/blogs/new": {
+    title: "Create New Blog Post",
+    reference: "ui_references/admin_create_new_blog_post/code.html",
+    phase: "M2",
+  },
+  "/admin/blogs/[id]/edit": {
+    title: "Edit Blog Post",
+    reference: "ui_references/admin_create_new_blog_post/code.html",
+    phase: "M2",
   },
   "/admin/settings": {
     title: "Admin Profile",

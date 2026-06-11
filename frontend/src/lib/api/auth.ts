@@ -90,6 +90,7 @@ export type UserProfile = {
     fullName?: string | null;
     title?: string | null;
     contactNo?: string | null;
+    billingAddress?: string | null;
     photoUrl?: string | null;
     phoneVerified?: boolean;
     company: {
@@ -115,6 +116,7 @@ export async function updateEmployerProfile(input: {
   fullName?: string;
   title?: string;
   contactNo?: string;
+  billingAddress?: string;
   email?: string;
   photoUrl?: string | null;
   companyId?: string;
@@ -124,6 +126,7 @@ export async function updateEmployerProfile(input: {
     fullName?: string | null;
     title?: string | null;
     contactNo?: string | null;
+    billingAddress?: string | null;
     photoUrl?: string | null;
     company: {
       id: string;

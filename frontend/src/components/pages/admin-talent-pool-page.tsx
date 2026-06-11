@@ -1,112 +1,304 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
+import { ApiError } from "@/lib/api/client";
+import { getAccessToken } from "@/lib/api/auth";
+import { getAdminTalent, getAdminTalentStats } from "@/lib/api/admin";
+import { signInPath } from "@/lib/auth/portal";
+import type { AdminTalent, AdminTalentStats } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
-const TALENT = [
-  { name: "Dr. Anika Mendis", title: "Chief Strategy Officer", location: "Colombo", score: 98, tier: "C-Suite" },
-  { name: "James Whitmore", title: "VP Engineering", location: "London", score: 94, tier: "V-Level" },
-  { name: "Sarah Chen", title: "Principal Architect", location: "Singapore", score: 91, tier: "Senior Technical" },
-];
+const STATUS_FILTERS = [
+  { value: "all", label: "All statuses" },
+  { value: "ACTIVE", label: "Active applicants" },
+  { value: "COMPLETE", label: "Complete profiles" },
+  { value: "VERIFIED", label: "Email verified" },
+  { value: "INCOMPLETE", label: "Incomplete" },
+] as const;
 
-const SENIORITY = [
-  { label: "C-Suite / Board", pct: 18 },
-  { label: "V-Level Management", pct: 32 },
-  { label: "Senior Technical Expert", pct: 41 },
-  { label: "General Professional", pct: 9 },
-];
+function talentInitials(talent: AdminTalent) {
+  const source = talent.fullName?.trim() || talent.email;
+  return source
+    .split(/[\s@]+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function statusLabel(status: AdminTalent["profileStatus"]) {
+  switch (status) {
+    case "ACTIVE":
+      return "Active";
+    case "COMPLETE":
+      return "Complete";
+    case "VERIFIED":
+      return "Verified";
+    case "INCOMPLETE":
+      return "Incomplete";
+    default:
+      return status;
+  }
+}
+
+function statusBadgeClass(status: AdminTalent["profileStatus"]) {
+  switch (status) {
+    case "ACTIVE":
+      return "bg-green-100 text-green-700";
+    case "COMPLETE":
+      return "bg-secondary/10 text-secondary";
+    case "VERIFIED":
+      return "bg-surface-container-high text-on-surface-variant";
+    case "INCOMPLETE":
+      return "bg-amber-100 text-amber-800";
+    default:
+      return "bg-surface-container-high text-on-surface-variant";
+  }
+}
 
 export function AdminTalentPoolPage() {
+  const router = useRouter();
+  const [talent, setTalent] = useState<AdminTalent[]>([]);
+  const [stats, setStats] = useState<AdminTalentStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  const load = useCallback(async () => {
+    if (!getAccessToken()) {
+      router.push(signInPath("admin"));
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const [list, talentStats] = await Promise.all([
+        getAdminTalent({
+          status: statusFilter,
+          q: debouncedSearch,
+        }),
+        getAdminTalentStats(),
+      ]);
+      setTalent(list);
+      setStats(talentStats);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push(signInPath("admin"));
+        return;
+      }
+      setTalent([]);
+      setStats(null);
+      setError(err instanceof ApiError ? err.message : "Failed to load talent pool.");
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, router, statusFilter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const hasActiveFilters = useMemo(
+    () => statusFilter !== "all" || debouncedSearch.trim().length > 0,
+    [statusFilter, debouncedSearch],
+  );
+
+  const incompleteCount = useMemo(() => {
+    if (!stats) return 0;
+    return (
+      stats.distribution.find((item) => item.label === "Basic Registration")?.count ?? 0
+    );
+  }, [stats]);
+
   return (
     <RecruiterAdminShell activeNav="talent">
-      <AdminPageCanvas className="max-w-[1440px]">
-        <section className="mb-stack-lg flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <h1 className="text-headline-lg tracking-tight text-primary">Executive Talent Pool</h1>
-            <p className="mt-1 text-on-surface-variant">
-              Institutional database of high-net-worth professionals and specialized experts.
-            </p>
-          </div>
-          <div className="flex gap-4">
-            <button type="button" className="flex items-center gap-2 border border-primary px-6 py-2 font-label-bold hover:bg-surface-container">
-              <Icon name="filter_list" className="text-[18px]" />
-              Advanced Filters
-            </button>
-            <button type="button" className="flex items-center gap-2 bg-primary px-6 py-2 font-label-bold text-on-primary">
-              <Icon name="download" className="text-[18px]" />
-              Export Talent Data
-            </button>
-          </div>
-        </section>
-
-        <div className="mb-stack-lg grid grid-cols-12 gap-stack-md">
-          <div className="col-span-12 flex flex-col justify-between glass-card p-6 lg:col-span-4">
-            <span className="text-label-sm font-bold uppercase tracking-widest text-secondary">Growth Velocity</span>
-            <h3 className="mt-2 text-headline-lg text-primary">
-              +12.4% <span className="text-label-bold font-normal text-on-surface-variant">this month</span>
-            </h3>
-            <div className="mt-6 flex h-24 items-end gap-1">
-              {[40, 55, 45, 70, 85, 100].map((h, i) => (
-                <div key={i} className={`flex-1 ${i === 5 ? "bg-primary" : "bg-surface-container"}`} style={{ height: `${h}%` }} />
-              ))}
-            </div>
-          </div>
-          <div className="col-span-12 glass-card p-6 lg:col-span-5">
-            <h3 className="mb-6 font-label-bold text-primary">Distribution by Seniority</h3>
-            <div className="space-y-4">
-              {SENIORITY.map((s) => (
-                <div key={s.label}>
-                  <div className="mb-1 flex justify-between text-label-sm">
-                    <span>{s.label}</span>
-                    <span className="font-bold">{s.pct}%</span>
-                  </div>
-                  <div className="h-2 w-full bg-surface-container">
-                    <div className="h-full bg-primary" style={{ width: `${s.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="col-span-12 glass-card p-6 lg:col-span-3">
-            <h3 className="font-label-bold text-primary">AI Match Index</h3>
-            <p className="mt-2 text-headline-md text-primary">94.2</p>
-            <p className="mt-4 text-label-sm text-on-surface-variant">Top-tier candidate readiness score</p>
-          </div>
+      <AdminPageCanvas className="md:px-margin-desktop">
+        <div className="mb-stack-lg">
+          <h1 className="text-headline-lg text-on-background">Talent Pool</h1>
+          <p className="text-body-md text-on-surface-variant">
+            Manage job seeker accounts and candidate profiles across the platform.
+          </p>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-          <div className="border-b border-outline-variant bg-surface-container-low px-6 py-4">
-            <h3 className="font-label-bold text-primary">Senior Professionals</h3>
+        {error ? (
+          <div className="mb-6 rounded-lg border border-error/30 bg-error-container/20 px-4 py-3 text-error">
+            {error}
           </div>
-          <table className="w-full text-left">
-            <thead className="border-b border-outline-variant bg-surface-container-low/50">
-              <tr>
-                {["Candidate", "Title", "Location", "Tier", "Match Score", ""].map((h) => (
-                  <th key={h} className="px-6 py-3 text-label-sm font-label-bold uppercase text-on-surface-variant">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {TALENT.map((t) => (
-                <tr key={t.name} className="hover:bg-surface-container-low">
-                  <td className="px-6 py-4 font-label-bold">{t.name}</td>
-                  <td className="px-6 py-4 text-body-md">{t.title}</td>
-                  <td className="px-6 py-4 text-label-sm">{t.location}</td>
-                  <td className="px-6 py-4">
-                    <span className="rounded bg-surface-container-high px-2 py-1 text-label-sm">{t.tier}</span>
-                  </td>
-                  <td className="px-6 py-4 font-bold text-secondary">{t.score}%</td>
-                  <td className="px-6 py-4 text-right">
-                    <button type="button" className="text-secondary">
-                      <Icon name="more_vert" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        ) : null}
+
+        <div className="space-y-gutter">
+          <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
+            {[
+              {
+                icon: "group",
+                label: "Total candidates",
+                value: stats ? String(stats.total) : "—",
+                trend: "Platform",
+                trendClass: "text-on-surface-variant",
+              },
+              {
+                icon: "send",
+                label: "Active applicants",
+                value: stats ? String(stats.activeApplicants) : "—",
+                trend: (stats?.activeApplicants ?? 0) > 0 ? "Engaged" : "Clear",
+                trendClass:
+                  (stats?.activeApplicants ?? 0) > 0 ? "text-secondary" : "text-on-surface-variant",
+              },
+              {
+                icon: "pending_actions",
+                label: "Incomplete profiles",
+                value: stats ? String(incompleteCount) : "—",
+                trend: incompleteCount > 0 ? "Action needed" : "Clear",
+                trendClass: incompleteCount > 0 ? "text-error" : "text-secondary",
+              },
+            ].map((stat) => (
+              <div key={stat.label} className="glass-card flex flex-col justify-between rounded-xl p-6">
+                <div className="flex items-start justify-between">
+                  <Icon
+                    name={stat.icon}
+                    className="rounded-lg bg-secondary-container/20 p-2 text-secondary"
+                  />
+                  <span className={cn("font-label-bold", stat.trendClass)}>{stat.trend}</span>
+                </div>
+                <div className="mt-4">
+                  <p className="font-label-bold text-on-surface-variant">{stat.label}</p>
+                  <h3 className="text-headline-md">{stat.value}</h3>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <AdminFilterBar
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search name, email, headline…"
+            filters={[
+              {
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: STATUS_FILTERS,
+                ariaLabel: "Filter by status",
+              },
+            ]}
+            showClear={hasActiveFilters}
+            onClear={() => {
+              setSearchQuery("");
+              setStatusFilter("all");
+            }}
+          />
+
+          <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+            <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low p-stack-md">
+              <h3 className="font-label-bold">All candidates</h3>
+              <span className="rounded-full bg-secondary-container/20 px-3 py-1 text-label-sm font-label-bold text-secondary">
+                {loading ? "…" : `${talent.length} shown`}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="border-b border-outline-variant bg-surface-container-low">
+                  <tr>
+                    {["Candidate", "Headline", "Applications", "Status", "Joined", "Action"].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          className={cn(
+                            "px-stack-md py-4 font-label-bold text-on-surface-variant",
+                            h === "Action" && "w-[80px] px-3 text-right",
+                          )}
+                        >
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="px-stack-md py-8 text-on-surface-variant">
+                        Loading candidates…
+                      </td>
+                    </tr>
+                  ) : talent.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-stack-md py-8 text-center text-on-surface-variant">
+                        {hasActiveFilters
+                          ? "No candidates match your filters."
+                          : "No candidates yet."}
+                      </td>
+                    </tr>
+                  ) : (
+                    talent.map((candidate) => (
+                      <tr key={candidate.id} className="transition-colors hover:bg-surface-container">
+                        <td className="px-stack-md py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-fixed font-bold text-secondary">
+                              {talentInitials(candidate)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-label-bold">
+                                {candidate.fullName?.trim() || "Unnamed candidate"}
+                              </p>
+                              <p className="truncate text-label-sm text-on-surface-variant">
+                                {candidate.email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="max-w-[220px] truncate px-stack-md py-4 text-body-md">
+                          {candidate.headline?.trim() || "—"}
+                        </td>
+                        <td className="px-stack-md py-4 font-label-bold text-secondary">
+                          {candidate.applicationCount}
+                        </td>
+                        <td className="px-stack-md py-4">
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-1 text-label-sm font-label-bold",
+                              statusBadgeClass(candidate.profileStatus),
+                            )}
+                          >
+                            {statusLabel(candidate.profileStatus)}
+                          </span>
+                        </td>
+                        <td className="px-stack-md py-4 text-body-md">
+                          {new Date(candidate.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="w-[80px] px-3 py-4 text-right">
+                          {candidate.resumeUrl ? (
+                            <a
+                              href={candidate.resumeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`View resume: ${candidate.fullName ?? candidate.email}`}
+                              title="View resume"
+                              className="inline-flex rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
+                            >
+                              <Icon name="description" />
+                            </a>
+                          ) : (
+                            <span className="text-on-surface-variant">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </AdminPageCanvas>
     </RecruiterAdminShell>

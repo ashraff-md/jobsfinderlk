@@ -47,7 +47,10 @@ function slotKeysForOptions(options: {
     return [BANNER_SLOT_KEYS.widePrimary, BANNER_SLOT_KEYS.wideSecondary];
   }
   if (options.variant === "tall") {
-    return [BANNER_SLOT_KEYS.tallPrimary, BANNER_SLOT_KEYS.tallSecondary];
+    if (options.columns === 2) {
+      return [BANNER_SLOT_KEYS.tallPrimary, BANNER_SLOT_KEYS.tallSecondary];
+    }
+    return [BANNER_SLOT_KEYS.tallPrimary];
   }
   return [BANNER_SLOT_KEYS.widePrimary];
 }

@@ -1,13 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   BANNER_SLIDE_INTERVAL_MS,
   BANNER_SLIDES_PER_POSITION,
 } from "@/lib/platform-ads/banner-rotation";
 import type { HomeBannerCard } from "@/lib/home/home-banner-ads";
-import { isExternalBannerUrl } from "@/lib/platform-ads/banner-destination";
 import {
   recordBannerClicks,
   recordBannerImpressions,
@@ -67,7 +65,6 @@ export function HomeBannerCardCarousel({
   if (slides.length === 0) return null;
 
   const active = slides[index] ?? slides[0];
-  const external = isExternalBannerUrl(active.href);
 
   const linkClassName = cn(
     "group relative block w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-sm transition-all hover:border-secondary/50 hover:shadow-md",
@@ -122,28 +119,18 @@ export function HomeBannerCardCarousel({
     </>
   );
 
-  if (external) {
-    return (
-      <div ref={containerRef}>
-        <a
-          href={active.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={active.alt}
-          className={linkClassName}
-          {...linkHandlers}
-        >
-          {slideContent}
-        </a>
-      </div>
-    );
-  }
-
   return (
     <div ref={containerRef}>
-      <Link href={active.href} aria-label={active.alt} className={linkClassName} {...linkHandlers}>
+      <a
+        href={active.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={active.alt}
+        className={linkClassName}
+        {...linkHandlers}
+      >
         {slideContent}
-      </Link>
+      </a>
     </div>
   );
 }

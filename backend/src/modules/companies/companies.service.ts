@@ -186,13 +186,37 @@ export class CompaniesService {
         jobs: {
           where: { status: 'PUBLISHED' },
           orderBy: { publishedAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            location: true,
+            city: true,
+            employmentType: true,
+            workArrangement: true,
+            salaryMin: true,
+            salaryMax: true,
+            publishedAt: true,
+            applicationDeadline: true,
+          },
+        },
+        _count: {
+          select: {
+            jobs: { where: { status: 'PUBLISHED' } },
+          },
         },
       },
     });
     if (!company || !company.verified) {
       throw new NotFoundException('Company not found');
     }
-    return this.imageStorage.withPublicUrls(company);
+
+    const { jobs, _count, ...rest } = company;
+    return {
+      ...this.imageStorage.withPublicUrls(rest),
+      _count,
+      jobs,
+    };
   }
 
   async createForEmployer(userId: string, dto: CreateCompanyDto) {

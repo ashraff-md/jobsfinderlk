@@ -37,6 +37,16 @@ export function formatScheduleRange(startsAt: string, endsAt: string): string {
   return `${formatDisplayDate(new Date(startsAt))} – ${formatDisplayDate(new Date(endsAt))}`;
 }
 
+export function campaignScheduleProgress(startsAt: string, endsAt: string): number {
+  const start = new Date(startsAt).getTime();
+  const end = new Date(endsAt).getTime();
+  const now = Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  if (now <= start) return 0;
+  if (now >= end) return 100;
+  return Math.round(((now - start) / (end - start)) * 100);
+}
+
 export function formatPromotionEndDate(endsAt: string | null | undefined): string {
   if (!endsAt) return "—";
   const end = new Date(endsAt);

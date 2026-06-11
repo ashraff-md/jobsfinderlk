@@ -8,6 +8,7 @@ export type EmployerCampaignStatus =
   | "Rejected"
   | "Active"
   | "Scheduled"
+  | "Paused"
   | "Inactive";
 
 export type EmployerSponsoredCampaign = {
@@ -65,4 +66,26 @@ export async function getEmployerAdsOverview() {
   return apiFetch<EmployerAdsOverview>("/platform-ads/employer/mine", {
     token: getAccessToken(),
   });
+}
+
+export async function setEmployerSponsoredCampaignActive(id: string, active: boolean) {
+  return apiFetch<EmployerSponsoredCampaign & { status: EmployerCampaignStatus }>(
+    `/platform-ads/employer/sponsored/${id}/active`,
+    {
+      method: "PATCH",
+      token: getAccessToken(),
+      body: JSON.stringify({ active }),
+    },
+  );
+}
+
+export async function setEmployerBannerCampaignActive(id: string, active: boolean) {
+  return apiFetch<EmployerBannerCampaign & { status: EmployerCampaignStatus }>(
+    `/platform-ads/employer/banner-campaigns/${id}/active`,
+    {
+      method: "PATCH",
+      token: getAccessToken(),
+      body: JSON.stringify({ active }),
+    },
+  );
 }

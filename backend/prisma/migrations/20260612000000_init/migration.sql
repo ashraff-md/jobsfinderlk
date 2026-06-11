@@ -1,4 +1,4 @@
-﻿-- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
@@ -24,6 +24,9 @@ CREATE TYPE "EmployerPurchaseProduct" AS ENUM ('JOB_LISTINGS', 'SPONSORED_JOBS',
 
 -- CreateEnum
 CREATE TYPE "PromoDiscountType" AS ENUM ('PERCENT', 'FIXED');
+
+-- CreateEnum
+CREATE TYPE "BlogPostStatus" AS ENUM ('DRAFT', 'PUBLISHED', 'SCHEDULED');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -136,6 +139,7 @@ CREATE TABLE "employer_users" (
     "full_name" TEXT,
     "title" TEXT,
     "contact_no" TEXT,
+    "billing_address" TEXT,
     "photo_url" TEXT,
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
     "phone_verified_at" TIMESTAMP(3),
@@ -382,6 +386,42 @@ CREATE TABLE "sponsored_ads" (
     CONSTRAINT "sponsored_ads_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "saved_jobs" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "job_id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "saved_jobs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "blog_posts" (
+    "id" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "excerpt" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "author_name" TEXT NOT NULL,
+    "author_title" TEXT,
+    "author_bio" TEXT,
+    "author_image_url" TEXT,
+    "cover_image_url" TEXT,
+    "cover_image_alt" TEXT,
+    "read_minutes" INTEGER NOT NULL DEFAULT 5,
+    "featured" BOOLEAN NOT NULL DEFAULT false,
+    "status" "BlogPostStatus" NOT NULL DEFAULT 'DRAFT',
+    "published_at" TIMESTAMP(3),
+    "scheduled_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "blog_posts_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
@@ -438,6 +478,21 @@ CREATE UNIQUE INDEX "sponsored_ads_job_id_key" ON "sponsored_ads"("job_id");
 
 -- CreateIndex
 CREATE INDEX "sponsored_ads_submitted_by_id_created_at_idx" ON "sponsored_ads"("submitted_by_id", "created_at");
+
+-- CreateIndex
+CREATE INDEX "saved_jobs_user_id_created_at_idx" ON "saved_jobs"("user_id", "created_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "saved_jobs_user_id_job_id_key" ON "saved_jobs"("user_id", "job_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "blog_posts_slug_key" ON "blog_posts"("slug");
+
+-- CreateIndex
+CREATE INDEX "blog_posts_status_published_at_idx" ON "blog_posts"("status", "published_at");
+
+-- CreateIndex
+CREATE INDEX "blog_posts_category_idx" ON "blog_posts"("category");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_reviewed_by_id_fkey" FOREIGN KEY ("reviewed_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -511,3 +566,8 @@ ALTER TABLE "sponsored_ads" ADD CONSTRAINT "sponsored_ads_job_id_fkey" FOREIGN K
 -- AddForeignKey
 ALTER TABLE "sponsored_ads" ADD CONSTRAINT "sponsored_ads_submitted_by_id_fkey" FOREIGN KEY ("submitted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "saved_jobs" ADD CONSTRAINT "saved_jobs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "saved_jobs" ADD CONSTRAINT "saved_jobs_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "jobs"("id") ON DELETE CASCADE ON UPDATE CASCADE;

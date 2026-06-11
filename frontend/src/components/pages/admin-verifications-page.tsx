@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
 import { AdminPageCanvas, RecruiterAdminShell } from "@/components/layout/recruiter-admin-shell";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
@@ -179,41 +180,24 @@ export function AdminVerificationsPage() {
             ))}
           </div>
 
-          <div className="flex flex-nowrap items-center gap-3 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-            <div className="relative min-w-[min(100%,280px)] flex-1">
-              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search name, email, company…"
-                className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 font-body-md outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 font-label-sm outline-none focus:ring-secondary"
-            >
-              {STATUS_FILTERS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setStatusFilter("all");
-                }}
-                className="shrink-0 font-label-bold text-secondary hover:underline"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+          <AdminFilterBar
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search name, email, company…"
+            filters={[
+              {
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: STATUS_FILTERS,
+                ariaLabel: "Filter by status",
+              },
+            ]}
+            showClear={hasActiveFilters}
+            onClear={() => {
+              setSearchQuery("");
+              setStatusFilter("all");
+            }}
+          />
 
           <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
             <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low p-stack-md">
@@ -229,7 +213,10 @@ export function AdminVerificationsPage() {
                     {["Recruiter", "Company", "Email", "Status", "Joined", "Actions"].map((h) => (
                       <th
                         key={h}
-                        className="px-stack-md py-4 font-label-bold text-on-surface-variant"
+                        className={cn(
+                          "px-stack-md py-4 font-label-bold text-on-surface-variant",
+                          h === "Actions" && "w-[80px] px-3 text-right",
+                        )}
                       >
                         {h}
                       </th>
@@ -285,12 +272,14 @@ export function AdminVerificationsPage() {
                       <td className="px-stack-md py-4 text-body-md">
                         {new Date(recruiter.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-stack-md py-4">
+                      <td className="w-[80px] px-3 py-4 text-right">
                         <Link
                           href={`/admin/verifications/${recruiter.userId}`}
-                          className="font-label-bold text-secondary hover:underline"
+                          aria-label={`Review ${recruiter.fullName ?? recruiter.email}`}
+                          title="Review"
+                          className="inline-flex rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary"
                         >
-                          Review
+                          <Icon name="rate_review" />
                         </Link>
                       </td>
                     </tr>

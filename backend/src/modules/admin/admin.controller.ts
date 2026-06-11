@@ -25,6 +25,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AdminListCompanyRequestsQueryDto } from './dto/admin-list-company-requests-query.dto';
 import { AdminListRecruitersQueryDto } from './dto/admin-list-recruiters-query.dto';
 import { AdminRecruitersService } from './admin-recruiters.service';
+import { AdminTalentService } from './admin-talent.service';
+import { AdminListTalentQueryDto } from './dto/admin-list-talent-query.dto';
 import { AdminListJobsQueryDto } from './dto/admin-list-jobs-query.dto';
 import { UpdateJobDto } from '../jobs/dto/job.dto';
 import { PartnersService } from '../partners/partners.service';
@@ -44,6 +46,12 @@ import {
   CreateJobCategoryDto,
   UpdateJobCategoryDto,
 } from '../jobs/dto/job-category.dto';
+import { BlogPostsService } from '../blog-posts/blog-posts.service';
+import {
+  CreateBlogPostDto,
+  ListBlogPostsQueryDto,
+  UpdateBlogPostDto,
+} from '../blog-posts/dto/blog-post.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -57,7 +65,19 @@ export class AdminController {
     private readonly adminRecruitersService: AdminRecruitersService,
     private readonly platformAdsService: PlatformAdsService,
     private readonly partnersService: PartnersService,
+    private readonly blogPostsService: BlogPostsService,
+    private readonly adminTalentService: AdminTalentService,
   ) {}
+
+  @Get('talent/stats')
+  talentStats() {
+    return this.adminTalentService.getStats();
+  }
+
+  @Get('talent')
+  listTalent(@Query() query: AdminListTalentQueryDto) {
+    return this.adminTalentService.listForAdmin(query);
+  }
 
   @Get('partners')
   listPartners() {
@@ -319,5 +339,40 @@ export class AdminController {
     @Body() dto: ModeratePlatformAdDto,
   ) {
     return this.platformAdsService.rejectSponsoredAd(id, dto);
+  }
+
+  @Get('blog-posts/stats')
+  blogPostStats() {
+    return this.blogPostsService.getStats();
+  }
+
+  @Get('blog-posts/categories')
+  listBlogCategories() {
+    return this.blogPostsService.listCategories();
+  }
+
+  @Get('blog-posts')
+  listBlogPosts(@Query() query: ListBlogPostsQueryDto) {
+    return this.blogPostsService.listForAdmin(query);
+  }
+
+  @Get('blog-posts/:id')
+  getBlogPost(@Param('id') id: string) {
+    return this.blogPostsService.getByIdAdmin(id);
+  }
+
+  @Post('blog-posts')
+  createBlogPost(@Body() dto: CreateBlogPostDto) {
+    return this.blogPostsService.create(dto);
+  }
+
+  @Patch('blog-posts/:id')
+  updateBlogPost(@Param('id') id: string, @Body() dto: UpdateBlogPostDto) {
+    return this.blogPostsService.update(id, dto);
+  }
+
+  @Delete('blog-posts/:id')
+  deleteBlogPost(@Param('id') id: string) {
+    return this.blogPostsService.remove(id);
   }
 }

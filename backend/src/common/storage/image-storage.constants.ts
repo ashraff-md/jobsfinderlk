@@ -6,6 +6,7 @@ export const IMAGE_UPLOAD_FOLDERS = {
   platformBanners: 'platform-banners',
   recruiterPhotos: 'recruiter-photos',
   vacancyArtwork: 'vacancy-artwork',
+  blogImages: 'blog-images',
 } as const;
 
 export type ImageUploadFolder =

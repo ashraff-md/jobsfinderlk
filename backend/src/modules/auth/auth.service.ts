@@ -193,6 +193,7 @@ export class AuthService {
     const fullName = dto.fullName?.trim();
     const title = dto.title?.trim();
     const contactNo = dto.contactNo?.trim();
+    const billingAddress = dto.billingAddress?.trim();
 
     if (dto.contactNo !== undefined) {
       await this.verification.assertPhoneVerifiedForProfileSave(
@@ -248,6 +249,9 @@ export class AuthService {
                 contactNo || null,
               ),
             }
+          : {}),
+        ...(dto.billingAddress !== undefined
+          ? { billingAddress: billingAddress || null }
           : {}),
         ...(photoUrl !== undefined ? { photoUrl } : {}),
       },

@@ -6,6 +6,7 @@ import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
 import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
 import { JobSearchBar } from "@/components/jobs/job-search-bar";
 import { JobSearchResultCard } from "@/components/jobs/job-search-result-card";
+import { SavedJobsProvider } from "@/components/jobs/saved-jobs-provider";
 import { JobSearchFiltersSidebar } from "@/components/jobs/job-search-filters-sidebar";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Icon } from "@/components/ui/icon";
@@ -211,6 +212,7 @@ export function JobsSearchPage() {
     <div className="flex min-h-screen flex-col bg-background text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
       <PublicHeader />
 
+      <SavedJobsProvider>
       <main className="mx-auto flex w-full max-w-container-max flex-col gap-gutter px-margin-mobile py-12 md:flex-row md:px-margin-desktop">
         <aside className="w-full shrink-0 md:w-80">
           <div className="sticky top-28 space-y-6">
@@ -432,6 +434,7 @@ export function JobsSearchPage() {
           {!loading && <HomeBannerAdsGrid columns={2} className="w-full pt-4" />}
         </section>
       </main>
+      </SavedJobsProvider>
     </div>
   );
 }

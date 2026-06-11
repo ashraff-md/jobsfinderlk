@@ -2,30 +2,27 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/ui/icon";
 import { ApiError } from "@/lib/api/client";
 import {
   getEmployerAdsOverview,
+  setEmployerBannerCampaignActive,
+  setEmployerSponsoredCampaignActive,
   type EmployerAdsStats,
   type EmployerCampaign,
   type EmployerCampaignStatus,
 } from "@/lib/api/employer-ads";
-import { formatScheduleRange } from "@/lib/platform-ads/sponsored-schedule";
+import {
+  campaignScheduleProgress,
+  formatScheduleRange,
+} from "@/lib/platform-ads/sponsored-schedule";
 import { cn } from "@/lib/utils";
 
 function formatCompactCount(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
   return value.toLocaleString();
-}
-
-function formatCtr(clicks: number, views: number) {
-  if (views <= 0) return "—";
-  return `${((clicks / views) * 100).toFixed(1)}% CTR`;
-}
-
-function formatViewsCtaLine(views: number, clicks: number) {
-  return `${formatCompactCount(views)} views · ${formatCompactCount(clicks)} CTA`;
 }
 
 function campaignTitle(row: EmployerCampaign) {
@@ -53,6 +50,7 @@ function displayStatus(status: EmployerCampaignStatus) {
   if (status === "Active") return "Live";
   if (status === "Pending Review") return "Pending Review";
   if (status === "Scheduled") return "Scheduled";
+  if (status === "Paused") return "Paused";
   if (status === "Rejected") return "Rejected";
   return "Expired";
 }
@@ -61,8 +59,13 @@ function statusClass(status: EmployerCampaignStatus) {
   if (status === "Active") return "bg-green-100 text-green-800 border-green-200";
   if (status === "Pending Review") return "bg-amber-100 text-amber-900 border-amber-200";
   if (status === "Scheduled") return "bg-blue-100 text-blue-800 border-blue-200";
+  if (status === "Paused") return "bg-surface-container-high text-on-surface-variant border-outline-variant";
   if (status === "Rejected") return "bg-error-container text-on-error-container border-error/30";
   return "bg-surface-container-highest text-on-surface-variant border-outline-variant";
+}
+
+function canToggleCampaign(status: EmployerCampaignStatus) {
+  return status === "Active" || status === "Scheduled" || status === "Paused";
 }
 
 function buildStatCards(stats: EmployerAdsStats) {
@@ -103,6 +106,8 @@ export function EmployerAdsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [pauseTarget, setPauseTarget] = useState<EmployerCampaign | null>(null);
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
@@ -130,6 +135,47 @@ export function EmployerAdsPage() {
   useEffect(() => {
     void loadOverview();
   }, [loadOverview]);
+
+  const applyToggleActive = async (row: EmployerCampaign, nextActive: boolean) => {
+    setTogglingId(row.id);
+    setError(null);
+    try {
+      const updated =
+        row.kind === "sponsored"
+          ? await setEmployerSponsoredCampaignActive(row.id, nextActive)
+          : await setEmployerBannerCampaignActive(row.id, nextActive);
+
+      setCampaigns((current) =>
+        current.map((campaign) =>
+          campaign.id === row.id ? { ...campaign, ...updated, status: updated.status } : campaign,
+        ),
+      );
+      const data = await getEmployerAdsOverview();
+      setStats(data.stats);
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Failed to update campaign status.",
+      );
+      return false;
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleToggleClick = (row: EmployerCampaign) => {
+    if (row.status === "Paused") {
+      void applyToggleActive(row, true);
+      return;
+    }
+    setPauseTarget(row);
+  };
+
+  const handleConfirmPause = async () => {
+    if (!pauseTarget) return;
+    const success = await applyToggleActive(pauseTarget, false);
+    if (success) setPauseTarget(null);
+  };
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -213,10 +259,13 @@ export function EmployerAdsPage() {
           <table className="w-full border-collapse text-left">
             <thead className="bg-surface-container-low">
               <tr>
-                {["Campaign", "Status", "Type", "Duration", "Views / CTA", "Actions"].map((h) => (
+                {["Campaign", "Status", "Type", "Schedule", "Engagements", "Actions"].map((h) => (
                   <th
                     key={h}
-                    className="px-6 py-3 font-label-bold text-label-sm uppercase tracking-wider text-on-surface-variant"
+                    className={cn(
+                      "px-6 py-3 font-label-bold text-label-sm uppercase tracking-wider text-on-surface-variant",
+                      h === "Actions" && "w-[72px] px-3 text-right",
+                    )}
                   >
                     {h}
                   </th>
@@ -241,75 +290,103 @@ export function EmployerAdsPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((row) => (
-                  <tr key={row.id} className="transition-colors hover:bg-surface-container-low">
-                    <td className="px-6 py-4">
-                      <p className="font-label-bold text-on-surface">{campaignTitle(row)}</p>
-                      <p className="mt-1 text-label-sm text-on-surface-variant">
-                        {campaignSubtitle(row)}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-label-sm font-label-bold",
-                          statusClass(row.status),
-                        )}
-                      >
-                        {displayStatus(row.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Icon name={campaignTypeIcon(row)} className="text-[20px] text-secondary" />
-                        <span className="text-body-md">{campaignTypeLabel(row)}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-body-md">
-                      {formatScheduleRange(row.startsAt, row.endsAt)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-label-bold tabular-nums text-primary">
-                        {formatViewsCtaLine(row.viewCount, row.clickCount ?? 0)}
-                      </p>
-                      <p className="text-label-sm text-on-surface-variant">
-                        {formatCtr(row.clickCount ?? 0, row.viewCount)}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4">
-                      {row.status === "Active" ? (
-                        row.kind === "sponsored" ? (
-                          <Link
-                            href={`/jobs/${row.job.slug}`}
-                            className="inline-flex items-center gap-1 font-label-bold text-secondary hover:underline"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View live
-                            <Icon name="open_in_new" className="text-sm" />
-                          </Link>
+                filtered.map((row) => {
+                  const isToggling = togglingId === row.id;
+                  const showPause = row.status === "Active" || row.status === "Scheduled";
+
+                  return (
+                    <tr key={row.id} className="transition-colors hover:bg-surface-container-low">
+                      <td className="px-6 py-4">
+                        <p className="font-label-bold text-on-surface">{campaignTitle(row)}</p>
+                        <p className="mt-1 text-label-sm text-on-surface-variant">
+                          {campaignSubtitle(row)}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-label-sm font-label-bold",
+                            statusClass(row.status),
+                          )}
+                        >
+                          {displayStatus(row.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Icon name={campaignTypeIcon(row)} className="text-[20px] text-secondary" />
+                          <span className="text-body-md">{campaignTypeLabel(row)}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <p className="font-label-sm text-label-sm">
+                          {formatScheduleRange(row.startsAt, row.endsAt)}
+                        </p>
+                        <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-surface-variant">
+                          <div
+                            className={cn(
+                              "h-full rounded-full",
+                              row.status === "Inactive" || row.status === "Paused"
+                                ? "bg-on-surface-variant opacity-40"
+                                : "bg-secondary",
+                            )}
+                            style={{
+                              width: `${campaignScheduleProgress(row.startsAt, row.endsAt)}%`,
+                            }}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-label-bold tabular-nums text-primary">
+                          {formatCompactCount(row.viewCount)} views
+                        </p>
+                        <p className="mt-0.5 text-label-sm text-on-surface-variant">
+                          {formatCompactCount(row.clickCount ?? 0)} CTA
+                        </p>
+                      </td>
+                      <td className="w-[72px] px-3 py-4">
+                        {canToggleCampaign(row.status) ? (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              disabled={isToggling}
+                              onClick={() => handleToggleClick(row)}
+                              aria-label={showPause ? "Pause campaign" : "Resume campaign"}
+                              title={showPause ? "Pause" : "Resume"}
+                              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-outline-variant/20 hover:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Icon name={showPause ? "pause" : "play_arrow"} />
+                            </button>
+                          </div>
                         ) : (
-                          <a
-                            href={row.href.startsWith("/") ? row.href : row.href}
-                            className="inline-flex items-center gap-1 font-label-bold text-secondary hover:underline"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View live
-                            <Icon name="open_in_new" className="text-sm" />
-                          </a>
-                        )
-                      ) : (
-                        <span className="text-label-sm text-on-surface-variant">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                          <span className="block text-center text-label-sm text-on-surface-variant">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </section>
+
+      <ConfirmDialog
+        open={pauseTarget !== null}
+        title="Pause campaign?"
+        description={
+          pauseTarget
+            ? `"${campaignTitle(pauseTarget)}" will stop showing until you resume the campaign.`
+            : ""
+        }
+        confirmLabel="Pause campaign"
+        loading={pauseTarget !== null && togglingId === pauseTarget.id}
+        onClose={() => {
+          if (togglingId === pauseTarget?.id) return;
+          setPauseTarget(null);
+        }}
+        onConfirm={() => void handleConfirmPause()}
+      />
     </>
   );
 }

@@ -27,7 +27,7 @@ function BlogCard({ post }: { post: BlogPost }) {
         {post.coverImageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            alt=""
+            alt={post.coverImageAlt ?? post.title}
             src={post.coverImageUrl}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
@@ -113,14 +113,14 @@ export function CareerAdvicePage({ initialPosts, initialFeatured }: CareerAdvice
                         {featured.authorImageUrl ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
-                            alt=""
+                            alt={featured.authorName}
                             className="h-full w-full object-cover"
                             src={featured.authorImageUrl}
                           />
                         ) : (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
-                            alt=""
+                            alt={featured.authorName}
                             className="h-full w-full object-cover"
                             src={CAREER_AUTHOR_IMG}
                           />
@@ -150,7 +150,7 @@ export function CareerAdvicePage({ initialPosts, initialFeatured }: CareerAdvice
                     {featured.coverImageUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        alt=""
+                        alt={featured.coverImageAlt ?? featured.title}
                         className="h-[480px] w-full object-cover transition-transform duration-700 group-hover:scale-105"
                         src={featured.coverImageUrl}
                       />

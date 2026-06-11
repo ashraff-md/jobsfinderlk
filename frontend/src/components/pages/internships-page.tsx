@@ -73,7 +73,11 @@ function FeaturedInternshipCard({ job }: { job: Job }) {
       <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-container">
         {employerLogo ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img alt="" className="h-16 w-16 rounded-md object-contain" src={employerLogo} />
+          <img
+            alt={`${employerName} logo`}
+            className="h-16 w-16 rounded-md object-contain"
+            src={employerLogo}
+          />
         ) : (
           <span className="text-2xl font-bold text-primary">{employerName.charAt(0)}</span>
         )}
@@ -175,7 +179,7 @@ export function InternshipsPage({ initialJobs, initialFeatured }: InternshipsPag
         searchJobs(searchParams),
       ]);
 
-      let nextFeatured = featuredRes.items[0] ?? listRes.items[0] ?? null;
+      let nextFeatured: Job | null = featuredRes.items[0] ?? listRes.items[0] ?? null;
       let listJobs = listRes.items.filter((job) => job.id !== nextFeatured?.id);
 
       if (durationFilter !== "all") {

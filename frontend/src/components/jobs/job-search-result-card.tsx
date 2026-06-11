@@ -38,7 +38,7 @@ export function JobSearchResultCard({ job }: JobSearchResultCardProps) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={employerLogo}
-              alt=""
+              alt={`${employerName} logo`}
               className="h-full w-full object-cover"
             />
           ) : (

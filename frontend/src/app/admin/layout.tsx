@@ -1,15 +1,9 @@
-"use client";
-
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { RequirePortalAuth } from "@/components/auth/require-portal-auth";
+import { AdminAuthGuard } from "@/components/auth/admin-auth-guard";
+import { PRIVATE_ROBOTS_METADATA } from "@/lib/seo/metadata";
+
+export const metadata = PRIVATE_ROBOTS_METADATA;
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-
-  if (pathname === "/admin/login") {
-    return <>{children}</>;
-  }
-
-  return <RequirePortalAuth portal="admin">{children}</RequirePortalAuth>;
+  return <AdminAuthGuard>{children}</AdminAuthGuard>;
 }

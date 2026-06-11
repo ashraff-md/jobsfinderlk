@@ -60,6 +60,109 @@ export function buildJobSearchParams(
   return params;
 }
 
+export type ParsedJobSearchParams = {
+  filters: JobSearchFilters;
+  page: number;
+  limit: number;
+};
+
+const JOBS_PER_PAGE_OPTIONS = [10, 20, 50] as const;
+
+function readSearchParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: string,
+): string {
+  const value = searchParams[key];
+  if (!value) return "";
+  return Array.isArray(value) ? (value[0] ?? "") : value;
+}
+
+function readSearchParamAll(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: string,
+): string[] {
+  const value = searchParams[key];
+  if (!value) return [];
+  return (Array.isArray(value) ? value : [value]).filter(Boolean);
+}
+
+export function parseJobSearchParamsFromUrl(
+  searchParams: Record<string, string | string[] | undefined>,
+): ParsedJobSearchParams {
+  let categories = readSearchParamAll(searchParams, "category");
+  const legacyIndustry = readSearchParam(searchParams, "industry");
+  if (!categories.length && legacyIndustry) {
+    categories = [legacyIndustry];
+  }
+
+  const page = Math.max(1, Number(readSearchParam(searchParams, "page")) || 1);
+  const limitRaw = Number(readSearchParam(searchParams, "limit")) || 10;
+  const limit = JOBS_PER_PAGE_OPTIONS.includes(
+    limitRaw as (typeof JOBS_PER_PAGE_OPTIONS)[number],
+  )
+    ? limitRaw
+    : 10;
+
+  return {
+    filters: {
+      q: readSearchParam(searchParams, "q"),
+      cities: readSearchParamAll(searchParams, "city"),
+      categories,
+      employmentType: readSearchParam(searchParams, "employmentType"),
+      workArrangement: readSearchParam(searchParams, "workArrangement"),
+      experienceLevel: readSearchParam(searchParams, "experienceLevel"),
+      educationRequirement: readSearchParam(searchParams, "educationRequirement"),
+      salaryMin: readSearchParam(searchParams, "salaryMin"),
+      age: readSearchParam(searchParams, "age"),
+    },
+    page,
+    limit,
+  };
+}
+
+export function buildJobsSearchCanonicalPath(parsed: ParsedJobSearchParams): string {
+  const extra: { page?: number; limit?: number } = {};
+  if (parsed.page > 1) extra.page = parsed.page;
+  if (parsed.limit !== 10) extra.limit = parsed.limit;
+  return buildJobsSearchApiPath(parsed.filters, extra);
+}
+
+export function getJobsPaginationPaths(
+  parsed: ParsedJobSearchParams,
+  totalPages: number,
+): { prev?: string; next?: string } {
+  const result: { prev?: string; next?: string } = {};
+  if (parsed.page > 1) {
+    result.prev = buildJobsSearchCanonicalPath({ ...parsed, page: parsed.page - 1 });
+  }
+  if (parsed.page < totalPages) {
+    result.next = buildJobsSearchCanonicalPath({ ...parsed, page: parsed.page + 1 });
+  }
+  return result;
+}
+
+export function buildJobsSearchApiPath(
+  filters: JobSearchFilters,
+  extra?: { page?: number; limit?: number },
+): string {
+  const params = buildJobSearchParams(filters, extra);
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item) query.append(key, item);
+      });
+      return;
+    }
+    query.set(key, String(value));
+  });
+
+  const qs = query.toString();
+  return `/jobs${qs ? `?${qs}` : ""}`;
+}
+
 export function formatActiveFiltersSummary(filters: JobSearchFilters): string {
   const parts: string[] = [];
   if (filters.q.trim()) parts.push(`"${filters.q.trim()}"`);

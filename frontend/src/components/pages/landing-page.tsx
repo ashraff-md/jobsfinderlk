@@ -69,8 +69,21 @@ function animateValue(
   window.requestAnimationFrame(step);
 }
 
-export function LandingPage() {
+type LandingPageProps = {
+  initialJobSlides?: FeaturedJobCardItem[][];
+  initialCategories?: JobCategory[];
+  initialPartners?: PlatformPartner[];
+};
+
+export function LandingPage({
+  initialJobSlides,
+  initialCategories,
+  initialPartners,
+}: LandingPageProps = {}) {
   const router = useRouter();
+  const hasServerJobSlides = Boolean(initialJobSlides?.length);
+  const hasServerCategories = initialCategories !== undefined;
+  const hasServerPartners = initialPartners !== undefined;
   const [heroQuery, setHeroQuery] = useState("");
   const statsSectionRef = useRef<HTMLElement>(null);
 
@@ -82,14 +95,16 @@ export function LandingPage() {
   const statCompaniesRef = useRef<HTMLDivElement>(null);
   const statMatchesRef = useRef<HTMLDivElement>(null);
   const statsAnimatedRef = useRef(false);
-  const [jobSlides, setJobSlides] = useState<FeaturedJobCardItem[][]>([]);
-  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobSlides, setJobSlides] = useState<FeaturedJobCardItem[][]>(initialJobSlides ?? []);
+  const [jobsLoading, setJobsLoading] = useState(!hasServerJobSlides);
   const [jobSlide, setJobSlide] = useState(0);
   const [jobCarouselPaused, setJobCarouselPaused] = useState(false);
-  const [jobCategories, setJobCategories] = useState<JobCategory[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [marqueePartners, setMarqueePartners] = useState<PlatformPartner[]>([]);
-  const [partnersLoading, setPartnersLoading] = useState(true);
+  const [jobCategories, setJobCategories] = useState<JobCategory[]>(initialCategories ?? []);
+  const [categoriesLoading, setCategoriesLoading] = useState(!hasServerCategories);
+  const [marqueePartners, setMarqueePartners] = useState<PlatformPartner[]>(
+    initialPartners ?? [],
+  );
+  const [partnersLoading, setPartnersLoading] = useState(!hasServerPartners);
 
   const premiumSectors = useMemo(
     () =>
@@ -109,6 +124,8 @@ export function LandingPage() {
   );
 
   useEffect(() => {
+    if (hasServerCategories && hasServerPartners) return;
+
     let cancelled = false;
     (async () => {
       setCategoriesLoading(true);
@@ -137,9 +154,11 @@ export function LandingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hasServerCategories, hasServerPartners]);
 
   useEffect(() => {
+    if (hasServerJobSlides) return;
+
     let cancelled = false;
     (async () => {
       setJobsLoading(true);
@@ -166,7 +185,7 @@ export function LandingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hasServerJobSlides]);
 
   useEffect(() => {
     if (jobCarouselPaused || jobSlides.length <= 1) return;

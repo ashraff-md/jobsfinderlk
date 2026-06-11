@@ -1,15 +1,14 @@
-import type { Metadata } from "next";
 import { CareerAdvicePage } from "@/components/pages/career-advice-page";
 import type { BlogPost } from "@/lib/api/types";
 import { serverFetch } from "@/lib/api/server";
-import { ROUTE_META } from "@/lib/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-const meta = ROUTE_META["/career-advice"];
-
-export const metadata: Metadata = {
-  title: meta.title,
-  description: "Career advice blog and professional resources.",
-};
+export const metadata = buildPageMetadata({
+  title: "Career Advice",
+  description:
+    "Career tips, interview guidance, and professional resources for job seekers in Sri Lanka.",
+  path: "/career-advice",
+});
 
 export default async function CareerAdviceRoute() {
   const [posts, featured] = await Promise.all([

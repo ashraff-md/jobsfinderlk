@@ -35,7 +35,7 @@ function RelatedCard({ post }: { post: BlogPost }) {
         {post.coverImageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            alt=""
+            alt={post.coverImageAlt ?? post.title}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             src={post.coverImageUrl}
           />
@@ -81,7 +81,7 @@ export function CareerAdviceArticlePage({ post, relatedPosts }: CareerAdviceArti
           {post.coverImageUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              alt=""
+              alt={post.coverImageAlt ?? post.title}
               className="absolute inset-0 h-full w-full object-cover"
               src={post.coverImageUrl}
             />
@@ -104,7 +104,11 @@ export function CareerAdviceArticlePage({ post, relatedPosts }: CareerAdviceArti
                   <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-secondary">
                     {post.authorImageUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img alt="" className="h-full w-full object-cover" src={post.authorImageUrl} />
+                      <img
+                        alt={post.authorName}
+                        className="h-full w-full object-cover"
+                        src={post.authorImageUrl}
+                      />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-surface-container-low text-lg font-bold text-primary">
                         {post.authorName.charAt(0)}
@@ -198,7 +202,11 @@ export function CareerAdviceArticlePage({ post, relatedPosts }: CareerAdviceArti
                   <div className="h-12 w-12 overflow-hidden rounded-full bg-surface-container-low">
                     {post.authorImageUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img alt="" className="h-full w-full object-cover" src={post.authorImageUrl} />
+                      <img
+                        alt={post.authorName}
+                        className="h-full w-full object-cover"
+                        src={post.authorImageUrl}
+                      />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center font-bold text-primary">
                         {post.authorName.charAt(0)}

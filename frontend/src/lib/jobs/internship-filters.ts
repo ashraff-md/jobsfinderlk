@@ -21,7 +21,6 @@ function internshipHaystack(job: Job) {
     job.description,
     job.requirements,
     job.responsibilities,
-    ...(job.keywords ?? []),
   ]
     .filter(Boolean)
     .join(" ")

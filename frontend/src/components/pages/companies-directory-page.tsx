@@ -98,7 +98,7 @@ function CompanyCard({ company }: { company: CompanyCardItem }) {
         {company.coverImageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            alt=""
+            alt={`${company.name} workplace`}
             src={company.coverImageUrl}
             className="absolute inset-0 h-full w-full object-cover"
           />
@@ -110,7 +110,7 @@ function CompanyCard({ company }: { company: CompanyCardItem }) {
           {company.logoUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              alt=""
+              alt={`${company.name} logo`}
               src={company.logoUrl}
               className="h-full w-full object-contain"
             />

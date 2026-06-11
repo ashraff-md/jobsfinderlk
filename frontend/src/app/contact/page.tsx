@@ -1,14 +1,21 @@
-import type { Metadata } from "next";
 import { ContactPage } from "@/components/pages/contact-page";
-import { ROUTE_META } from "@/lib/routes";
+import { JsonLd } from "@/components/seo/json-ld";
+import { CONTACT_FAQS } from "@/lib/content/contact-faqs";
+import { buildFaqJsonLd } from "@/lib/seo/json-ld";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-const meta = ROUTE_META["/contact"];
-
-export const metadata: Metadata = {
-  title: `${meta.title} | JobsFinder.lk`,
-  description: "Contact form and support channels.",
-};
+export const metadata = buildPageMetadata({
+  title: "Contact Us",
+  description:
+    "Get in touch with JobsFinder.lk. Reach our support team by phone, email, or contact form for help with jobs, postings, and billing.",
+  path: "/contact",
+});
 
 export default function Page() {
-  return <ContactPage />;
+  return (
+    <>
+      <JsonLd data={buildFaqJsonLd(CONTACT_FAQS)} />
+      <ContactPage />
+    </>
+  );
 }

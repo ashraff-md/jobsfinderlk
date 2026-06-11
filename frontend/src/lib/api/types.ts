@@ -58,6 +58,7 @@ export type Company = {
   emailDomain?: string | null;
   verified: boolean;
   lifeAtCompanyImages?: string[];
+  updatedAt?: string;
   _count?: { jobs: number };
 };
 

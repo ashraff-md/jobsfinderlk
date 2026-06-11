@@ -254,7 +254,11 @@ export function JobDetailView({ job, preview = false, className }: JobDetailView
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-container text-2xl font-bold text-primary">
                     {employerLogo ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img alt="" className="h-full w-full object-cover" src={employerLogo} />
+                      <img
+                        alt={`${employerName} logo`}
+                        className="h-full w-full object-cover"
+                        src={employerLogo}
+                      />
                     ) : (
                       employerName.charAt(0)
                     )}

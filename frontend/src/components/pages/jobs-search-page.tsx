@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HomeBannerAdsGrid } from "@/components/home/home-banner-ads-grid";
 import { FeaturedJobCard } from "@/components/jobs/featured-job-card";
 import { JobSearchBar } from "@/components/jobs/job-search-bar";
@@ -28,25 +28,51 @@ const JOBS_PER_PAGE_OPTIONS = [10, 20, 50] as const;
 const SPONSORED_CARDS_PER_SLIDE = 2;
 const SPONSORED_SLIDE_COUNT = 3;
 
+type JobsSearchPageProps = {
+  initialFilters?: JobSearchFilters;
+  initialPage?: number;
+  initialJobsPerPage?: number;
+  initialJobs?: Job[];
+  initialTotal?: number;
+  initialPages?: number;
+};
+
 function sidebarFilterFields(filters: JobSearchFilters): Omit<JobSearchFilters, "q"> {
   const { q: _q, ...rest } = filters;
   return rest;
 }
 
-export function JobsSearchPage() {
+export function JobsSearchPage({
+  initialFilters,
+  initialPage = 1,
+  initialJobsPerPage = 10,
+  initialJobs,
+  initialTotal = 0,
+  initialPages = 1,
+}: JobsSearchPageProps = {}) {
   const urlSearchParams = useSearchParams();
-  const [filters, setFilters] = useState<JobSearchFilters>(DEFAULT_JOB_SEARCH_FILTERS);
-  const [draftFilters, setDraftFilters] = useState<JobSearchFilters>(DEFAULT_JOB_SEARCH_FILTERS);
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const hasServerRenderedResults = initialJobs !== undefined;
+  const skipInitialFetchRef = useRef(hasServerRenderedResults);
+  const [filters, setFilters] = useState<JobSearchFilters>(
+    initialFilters ?? DEFAULT_JOB_SEARCH_FILTERS,
+  );
+  const [draftFilters, setDraftFilters] = useState<JobSearchFilters>(
+    initialFilters ?? DEFAULT_JOB_SEARCH_FILTERS,
+  );
+  const [debouncedQ, setDebouncedQ] = useState(initialFilters?.q ?? "");
+  const [jobs, setJobs] = useState<Job[]>(initialJobs ?? []);
   const [sponsoredSlides, setSponsoredSlides] = useState<FeaturedJobCardItem[][]>([]);
   const [sponsoredSlide, setSponsoredSlide] = useState(0);
   const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [jobsPerPage, setJobsPerPage] = useState<(typeof JOBS_PER_PAGE_OPTIONS)[number]>(10);
-  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(initialTotal);
+  const [page, setPage] = useState(initialPage);
+  const [pages, setPages] = useState(initialPages);
+  const [jobsPerPage, setJobsPerPage] = useState<(typeof JOBS_PER_PAGE_OPTIONS)[number]>(
+    JOBS_PER_PAGE_OPTIONS.includes(initialJobsPerPage as (typeof JOBS_PER_PAGE_OPTIONS)[number])
+      ? (initialJobsPerPage as (typeof JOBS_PER_PAGE_OPTIONS)[number])
+      : 10,
+  );
+  const [loading, setLoading] = useState(!hasServerRenderedResults);
 
   useEffect(() => {
     const q = urlSearchParams.get("q") ?? "";
@@ -144,6 +170,11 @@ export function JobsSearchPage() {
   }, [page, pages]);
 
   useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -248,6 +279,9 @@ export function JobsSearchPage() {
         </aside>
 
         <section className="grow space-y-gutter">
+          <h1 className="font-headline-md text-headline-md font-bold text-primary">
+            Browse Jobs in Sri Lanka
+          </h1>
           <JobSearchBar
             value={filters.q}
             onChange={(q) => patchFilters({ q })}
@@ -324,13 +358,13 @@ export function JobsSearchPage() {
 
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-headline-md font-bold text-primary">
+              <p className="text-headline-md font-bold text-primary" aria-live="polite">
                 {loading
                   ? "Loading jobs…"
                   : total === 0
                     ? "No jobs found"
                     : `Showing ${resultsRangeLabel} job${total === 1 ? "" : "s"}`}
-              </h2>
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 sm:justify-end">
               <div className="flex items-center gap-2">

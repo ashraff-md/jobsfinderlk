@@ -209,7 +209,7 @@ export function GovernmentOrganizationForm({ organizationId }: GovernmentOrganiz
     setError(null);
 
     if (!getAccessToken()) {
-      router.push(`${signInPath()}?next=${encodeURIComponent(pathname)}`);
+      router.push(signInPath("admin", pathname));
       return;
     }
 

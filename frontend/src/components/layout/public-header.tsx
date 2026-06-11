@@ -32,7 +32,12 @@ export function PublicHeader() {
       <nav className="mx-auto flex h-16 w-full max-w-container-max items-center justify-between px-margin-mobile md:h-20 md:px-margin-desktop">
         <Link href="/" className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img alt="JobsFinder.lk Logo" className="h-10 w-auto" src={LOGO_URL} />
+          <img
+            alt="JobsFinder.lk Logo"
+            className="h-10 w-auto"
+            fetchPriority="high"
+            src={LOGO_URL}
+          />
           <span className="text-[22px] font-extrabold tracking-tight text-primary md:text-[24px]">
             JobsFinder.lk
           </span>

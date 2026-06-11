@@ -9,3 +9,5 @@ ui_references/
 backend/images/**
 !backend/images/**/
 !backend/images/**/.gitkeep
+
+docs/

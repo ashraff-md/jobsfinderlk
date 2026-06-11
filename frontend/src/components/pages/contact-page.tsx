@@ -1,33 +1,7 @@
 import { PublicPageLayout } from "@/components/layout/public-page-layout";
 import { Icon } from "@/components/ui/icon";
 import { CONTACT_HERO_IMG } from "@/lib/assets";
-
-const FAQS = [
-  {
-    q: "How do I apply for a job?",
-    a: "Create a free account, complete your profile, and upload your resume. When you find a role you like, click Apply — your details are sent directly to the employer. You can track saved jobs and applications from your dashboard.",
-  },
-  {
-    q: "How can my company post a vacancy?",
-    a: 'Sign up as an employer, set up your company profile, and select "Post a Vacancy" from the navigation bar. Job listings may require a paid package depending on your plan. Visit our Pricing page for current options, including sponsored listings and banner advertising.',
-  },
-  {
-    q: "Is JobsFinder.lk free for job seekers?",
-    a: "Yes. Browsing jobs, creating a profile, and applying to listings is free for candidates. Employers pay for job postings and optional promotional features such as featured or sponsored placements.",
-  },
-  {
-    q: "What are your support hours?",
-    a: "Our team is available Monday to Friday, 9:00 AM to 6:00 PM (Sri Lanka time). You can call +94 71 798 6810 during these hours, or email contact@jobsfinder.lk at any time — we aim to reply within one business day.",
-  },
-  {
-    q: "How long does it take for a job listing to go live?",
-    a: "New job postings are reviewed by our team before publication to ensure quality and compliance. Most listings are approved within one business day. You will be notified if any changes are needed.",
-  },
-  {
-    q: "How is my personal information handled?",
-    a: "We use your data to operate the platform and share your application with employers you apply to. We do not sell your personal information. For full details on collection, use, and your rights, see our Privacy Policy.",
-  },
-];
+import { CONTACT_FAQS } from "@/lib/content/contact-faqs";
 
 export function ContactPage() {
   return (
@@ -36,7 +10,11 @@ export function ContactPage() {
         <section className="relative flex h-[400px] items-center overflow-hidden bg-primary">
           <div className="pointer-events-none absolute inset-0 opacity-20">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt="" className="h-full w-full object-cover" src={CONTACT_HERO_IMG} />
+            <img
+              alt="JobsFinder.lk support center"
+              className="h-full w-full object-cover"
+              src={CONTACT_HERO_IMG}
+            />
           </div>
           <div className="relative z-10 mx-auto w-full max-w-container-max px-margin-mobile md:px-margin-desktop">
             <div className="max-w-2xl">
@@ -151,7 +129,7 @@ export function ContactPage() {
               </p>
             </div>
             <div className="grid grid-cols-1 gap-stack-lg md:grid-cols-2">
-              {FAQS.map((faq) => (
+              {CONTACT_FAQS.map((faq) => (
                 <div
                   key={faq.q}
                   className="border-l-4 border-secondary bg-surface-container-lowest p-8 shadow-sm"

@@ -51,7 +51,7 @@ const EMPTY_FORM = {
   slug: "",
   excerpt: "",
   content: "",
-  category: BLOG_CATEGORIES[0],
+  category: BLOG_CATEGORIES[0] as string,
   tags: [] as string[],
   authorName: "",
   authorTitle: "",

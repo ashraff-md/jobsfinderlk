@@ -58,7 +58,7 @@ export function buildGovernmentOrganizationUpdatePayload(
   form: GovernmentOrganizationFormValues,
   logoDataUrl?: string | null,
 ) {
-  const parentOrganizationId = form.parentOrganizationId.trim() || null;
+  const parentOrganizationId = form.parentOrganizationId.trim() || undefined;
 
   return {
     name: form.name.trim(),

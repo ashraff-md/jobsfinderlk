@@ -1,14 +1,12 @@
-import type { Metadata } from "next";
 import { PricingPage } from "@/components/pages/pricing-page";
-import { ROUTE_META } from "@/lib/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-const meta = ROUTE_META["/pricing"];
-
-export const metadata: Metadata = {
-  title: `${meta.title} | JobsFinder.lk`,
+export const metadata = buildPageMetadata({
+  title: "Recruitment Solutions & Pricing",
   description:
-    "Job listing packages, sponsored job tiers, and banner advertising pricing for recruiters.",
-};
+    "Job listing packages, sponsored job tiers, and banner advertising pricing for employers on JobsFinder.lk.",
+  path: "/pricing",
+});
 
 export default function Page() {
   return <PricingPage />;

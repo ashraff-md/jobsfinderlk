@@ -25,11 +25,10 @@ import {
   rejectAdminSponsoredAd,
   updateAdminBannerCampaign,
   updateAdminSponsoredAd,
-  type BannerAspectRatio,
   type PlatformAdReviewStatus,
   type PromotionPeriodDays,
 } from "@/lib/api/admin";
-import type { Job } from "@/lib/api/types";
+import type { BannerAspectRatio, Job } from "@/lib/api/types";
 import {
   bannerArtworkSizeHint,
   buildBannerArtworkDraft,
@@ -100,6 +99,9 @@ export function AdminPlatformAdsCampaignPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [startDate, setStartDate] = useState(toDateInputValue());
   const [promotionDays, setPromotionDays] = useState<PromotionPeriodDays>(7);
+  const handlePromotionDaysChange = (days: number) => {
+    setPromotionDays(days as PromotionPeriodDays);
+  };
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
@@ -343,7 +345,7 @@ export function AdminPlatformAdsCampaignPage() {
                     startDate={startDate}
                     onStartDateChange={setStartDate}
                     promotionDays={promotionDays}
-                    onPromotionDaysChange={setPromotionDays}
+                    onPromotionDaysChange={handlePromotionDaysChange}
                   />
                 </div>
               </FormSection>
@@ -365,7 +367,7 @@ export function AdminPlatformAdsCampaignPage() {
                       startDate={startDate}
                       onStartDateChange={setStartDate}
                       promotionDays={promotionDays}
-                      onPromotionDaysChange={setPromotionDays}
+                      onPromotionDaysChange={handlePromotionDaysChange}
                     />
                   </div>
                 </FormSection>

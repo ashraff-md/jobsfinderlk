@@ -1,13 +1,12 @@
-import type { Metadata } from "next";
 import { HelpPage } from "@/components/pages/help-page";
-import { ROUTE_META } from "@/lib/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-const meta = ROUTE_META["/help"];
-
-export const metadata: Metadata = {
-  title: `${meta.title} | JobsFinder.lk`,
-  description: "Help center and support resources.",
-};
+export const metadata = buildPageMetadata({
+  title: "Help Center",
+  description:
+    "Find answers about job seeking, recruiting, billing, and technical support on JobsFinder.lk.",
+  path: "/help",
+});
 
 export default function Page() {
   return <HelpPage />;

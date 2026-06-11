@@ -427,12 +427,10 @@ export function AdminCompanyDetailPage() {
                         </div>
                         <div className="space-y-2 sm:col-span-2">
                           <CitySearchField
-                            id="admin-city"
                             label="City"
                             value={city}
                             onChange={setCity}
                             required
-                            disabled={busy}
                           />
                         </div>
                       </div>

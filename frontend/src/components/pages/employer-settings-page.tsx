@@ -180,7 +180,8 @@ export function EmployerSettingsPage() {
           ? { name: "profile-photo", previewUrl: nextPhotoUrl, dataUrl: nextPhotoUrl }
           : null,
       );
-      setSavedSnapshot({
+      setSavedSnapshot((prev) => ({
+        ...prev,
         fullName: nextFullName,
         title: nextTitle,
         phone: nextPhone,
@@ -189,7 +190,7 @@ export function EmployerSettingsPage() {
         companySearch: nextCompanyName,
         companyPendingReview: nextPendingReview,
         photoUrl: nextPhotoUrl,
-      });
+      }));
     },
     [],
   );

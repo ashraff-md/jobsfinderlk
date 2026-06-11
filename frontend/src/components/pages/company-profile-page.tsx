@@ -99,7 +99,7 @@ export function CompanyProfilePage({ company }: CompanyProfilePageProps) {
               {company.logoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  alt=""
+                  alt={`${companyName} logo`}
                   className="max-h-32 max-w-[240px] object-contain opacity-90"
                   src={company.logoUrl}
                 />

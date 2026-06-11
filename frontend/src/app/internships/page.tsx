@@ -1,15 +1,14 @@
-import type { Metadata } from "next";
 import { InternshipsPage } from "@/components/pages/internships-page";
 import type { JobsSearchResponse } from "@/lib/api/types";
 import { serverFetch } from "@/lib/api/server";
-import { ROUTE_META } from "@/lib/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-const meta = ROUTE_META["/internships"];
-
-export const metadata: Metadata = {
-  title: `${meta.title} | JobsFinder.lk`,
-  description: "Internship and graduate opportunities for students and fresh graduates.",
-};
+export const metadata = buildPageMetadata({
+  title: "Internships in Sri Lanka",
+  description:
+    "Find internship and graduate opportunities for students and fresh graduates across Sri Lanka.",
+  path: "/internships",
+});
 
 export default async function Page() {
   const [featuredRes, listRes] = await Promise.all([

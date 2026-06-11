@@ -62,7 +62,7 @@ export function JobListingPreview({
 }: JobListingPreviewProps) {
   const displayTitle = title.trim() || "Job title preview";
   const displayCompany = companyName.trim() || "Company name";
-  const location = city.trim() || "Location";
+  const location = city?.trim() || "Location";
   const salaryLabel = formatPreviewSalary({
     salaryType,
     salaryMin,

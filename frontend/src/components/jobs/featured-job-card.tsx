@@ -18,7 +18,7 @@ export function FeaturedJobCard({
       <div className="mb-4 flex gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded border border-outline-variant/30 bg-surface-container-low">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img alt="" className="h-full w-full object-contain" src={job.logo} />
+          <img alt={`${job.company} logo`} className="h-full w-full object-contain" src={job.logo} />
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-3 text-base font-bold leading-snug text-primary">

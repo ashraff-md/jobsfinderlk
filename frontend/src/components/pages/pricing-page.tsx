@@ -25,7 +25,7 @@ export function PricingPage() {
 
   return (
     <PublicPageLayout>
-      <main className="mx-auto max-w-container-max px-margin-mobile pb-24 pt-32 md:px-margin-desktop">
+      <main className="mx-auto max-w-container-max px-margin-mobile py-stack-lg pb-24 md:px-margin-desktop">
         <section className="mb-12 text-center">
           <h1 className="mb-4 font-headline-xl text-headline-xl text-primary">
             Recruitment Solutions & Pricing
